@@ -257,19 +257,48 @@ prompt ที่ใช้: ให้ AI อ่าน story ทั้ง 11 ข�
 
 ---
 
-# วิธีสร้าง Issues จากไฟล์นี้
+# Traceability — Story ↔ Issue ↔ Endpoint
 
-`gh` CLI ยังไม่ได้ติดตั้งบนเครื่องนี้ จึงยังสร้าง issue อัตโนมัติไม่ได้ เลือกทางใดทางหนึ่ง:
+ตารางนี้คือหลักฐานของเกณฑ์ผ่าน 2 ข้อ:
+**"ทุก endpoint สืบกลับไปหา story ได้"** และ **"ทุก story มี endpoint"**
 
-**ทางที่ 1 — ติดตั้ง `gh` แล้วให้ agent สร้างให้**
+| Story | Issue | Endpoint ที่รองรับ |
+|---|---|---|
+| US-01 เข้าสู่ระบบ | [#1](https://github.com/STARSTEAM-X/sdpx-arai2/issues/1) | `POST /api/auth/session` · `GET /api/me` |
+| US-02 สร้างห้องเรียน | [#2](https://github.com/STARSTEAM-X/sdpx-arai2/issues/2) | `GET /api/classrooms` · `POST /api/classrooms` |
+| US-03 import CSV | [#3](https://github.com/STARSTEAM-X/sdpx-arai2/issues/3) | `POST /api/classrooms/{id}/roster:import` · `GET /api/classrooms/{id}/roster` |
+| US-04 สร้างงานประเมิน | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) | `POST /api/assignments` |
+| US-05 ดู feasibility | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) | `GET /api/assignments/{id}/feasibility` |
+| US-06 publish + จัดคู่ | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) | `POST /api/assignments/{id}:publish` |
+| US-07 รายการที่ต้องประเมิน | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) | `GET /api/assignments/{id}/my-evaluations` |
+| US-08 ประเมิน + autosave | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) | `PUT /api/comparisons/{pairAssignmentId}` |
+| US-09 ส่งคำตอบทั้งชุด | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) | `POST /api/assignments/{id}/submissions` |
+| US-10 ดูคะแนนตัวเอง | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) | `GET /api/assignments/{id}/my-score` |
+| US-11 กันเข้าถึงข้ามห้องเรียน | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) | **ไม่มี endpoint ของตัวเอง** — ดูหมายเหตุ |
 
-```bash
-winget install --id GitHub.cli
-gh auth login
-```
+## สองข้อยกเว้นที่ตั้งใจให้เป็นแบบนี้
 
-**ทางที่ 2 — สร้างเองบน GitHub** โดยคัดลอกแต่ละหัวข้อ `US-xx` ไปเป็น 1 issue
-ใส่ label `user-story` และเพิ่มเข้า Project board คอลัมน์ `To Do`
+**US-11 ไม่มี endpoint ของตัวเอง** เพราะเป็น cross-cutting concern
+มันถูกทำให้เป็นจริงผ่าน response `401` / `403` / `404` ที่ **ทุก** endpoint ต้องมี
+ถ้าแยกเป็น endpoint เดี่ยวจะกลายเป็นการตรวจสิทธิ์ที่จุดเดียว ซึ่งขัดกับ FR-AUTHZ-01 โดยตรง
+
+**`GET /api/health` ไม่มี story รองรับ** เพราะไม่ใช่ feature ของผู้ใช้
+มันเป็นโครงสร้างพื้นฐานที่ Render, Docker (WS-05) และ k6 (WS-07) ใช้เป็นด่านตรวจ
+บันทึกไว้ตรงนี้เพื่อไม่ให้ใครมาลบทิ้งเพราะ "หา story ไม่เจอ"
+
+> **ช่องโหว่ที่เจอตอนไล่ตารางนี้:** ตอนร่าง spec รอบแรก US-01 ไม่มี endpoint รองรับเลย
+> เพิ่ง เห็นตอนมาไล่ traceability จึงเพิ่ม `POST /api/auth/session` และ `GET /api/me` เข้าไป
+> — เป็นตัวอย่างว่าทำไม checklist ข้อนี้ถึงมีอยู่
+
+---
+
+# Issues บน GitHub
+
+สร้างครบแล้วทั้ง 11 ข้อ พร้อม label `user-story`
+👉 https://github.com/STARSTEAM-X/sdpx-arai2/issues
+
+**ไฟล์นี้คือต้นฉบับ** — ถ้าต้องแก้ story ให้แก้ที่นี่ก่อน แล้วค่อยอัปเดต issue ตาม
+เพื่อให้การเปลี่ยนแปลงของ requirement อยู่ใน git diff และ review ได้
 
 ## Sprint 1 — เลือกอะไรก่อน
 

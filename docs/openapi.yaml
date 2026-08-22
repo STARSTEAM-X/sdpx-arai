@@ -32,6 +32,8 @@ security:
 tags:
   - name: health
     description: ตรวจสถานะระบบ
+  - name: auth
+    description: เข้าสู่ระบบและข้อมูลผู้ใช้ปัจจุบัน
   - name: classrooms
     description: ห้องเรียนและรายชื่อ
   - name: assignments
@@ -56,6 +58,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+
+  /api/auth/session:
+    post:
+      tags: [auth]
+      summary: แลก Google id_token เป็น session ของระบบ
+      description: |
+        อ้าง US-01 — client ทำ OIDC flow กับ Google เองแล้วส่ง `idToken` มาที่นี่
+
+        ระบบจะ normalize อีเมล (lowercase, ตัด dot ใน gmail, ตัด `+tag`) ก่อนจับคู่กับ roster
+        (FR-AUTH-03) และถ้า user มีสถานะ `PENDING` อยู่จะเปลี่ยนเป็น `ACTIVE` (FR-CLASS-04)
+      operationId: createSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken:
+                  type: string
+                  description: id_token ที่ได้จาก Google OIDC
+      responses:
+        '200':
+          description: login สำเร็จ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: 'id_token ไม่ถูกต้องหรือหมดอายุ (`code: INVALID_ID_TOKEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: |
+            อีเมลอยู่นอก domain ที่ classroom อนุญาต (`code: DOMAIN_NOT_ALLOWED`)
+            message ต้องบอกด้วยว่า domain ไหนที่รับ (FR-AUTH-02)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/me:
+    get:
+      tags: [auth]
+      summary: ข้อมูลผู้ใช้ปัจจุบันและ role ในแต่ละห้องเรียน
+      description: 'อ้าง US-01 — frontend ใช้ตัดสินว่าจะแสดงเมนูของอาจารย์หรือของนักศึกษา'
+      operationId: getMe
+      responses:
+        '200':
+          description: ข้อมูลผู้ใช้ปัจจุบัน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/classrooms:
     get:
@@ -537,6 +599,56 @@ components:
     Side:
       type: string
       enum: [GROUP, INDIVIDUAL]
+
+    Session:
+      type: object
+      required: [accessToken, expiresAt, user]
+      properties:
+        accessToken:
+          type: string
+          description: ใช้เป็น bearer token ในทุก request ถัดไป
+        expiresAt:
+          type: string
+          format: date-time
+          description: หมดอายุใน 12 ชั่วโมงตาม FR-AUTH-04
+        user:
+          $ref: '#/components/schemas/Me'
+
+    ClassroomRole:
+      type: object
+      required: [classroomId, classroomName, role]
+      properties:
+        classroomId:
+          type: string
+          format: uuid
+        classroomName:
+          type: string
+        role:
+          type: string
+          enum: [OWNER, CO_TEACHER, TA, STUDENT]
+
+    Me:
+      type: object
+      required: [userId, email, status, classrooms]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, DISABLED]
+        classrooms:
+          type: array
+          description: |
+            1 คนเป็น instructor ใน classroom หนึ่งและเป็น student ในอีก classroom ได้
+            (FR-AUTHZ-03) จึงต้องคืน role แยกต่อ classroom ไม่ใช่ role เดียวต่อคน
+          items:
+            $ref: '#/components/schemas/ClassroomRole'
 
     Classroom:
       type: object
