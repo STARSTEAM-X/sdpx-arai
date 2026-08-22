@@ -1,15 +1,5 @@
+import { COMPARISON_SCALE } from '../lib/scale'
 import { IconImagePlaceholder } from './icons'
-
-/* มาตรวัด 6 ระดับแบบ forced choice — ไม่มีตัวเลือก "เท่ากัน" ตรงกลางโดยตั้งใจ
-   เพราะตัวเลือกกลางทำให้เกิด central tendency bias (ดู D1 ใน PRD) */
-const CHOICES = [
-  'A ดีกว่า B มากที่สุด',
-  'A ดีกว่า B ค่อนข้างมาก',
-  'A ดีกว่า B เล็กน้อย',
-  'B ดีกว่า A เล็กน้อย',
-  'B ดีกว่า A ค่อนข้างมาก',
-  'B ดีกว่า A มากที่สุด',
-]
 
 function WorkCard({ label, tone }: { label: string; tone: 'brand' | 'ok' }) {
   const styles =
@@ -40,10 +30,10 @@ export function ComparisonDemo() {
       </div>
 
       <ul className="mt-5 space-y-2.5">
-        {CHOICES.map((choice) => (
-          <li key={choice} className="flex items-center gap-2.5 text-sm text-ink">
+        {COMPARISON_SCALE.map((choice) => (
+          <li key={choice.id} className="flex items-center gap-2.5 text-sm text-ink">
             <span className="size-4 shrink-0 rounded-full border-2 border-line" aria-hidden="true" />
-            {choice}
+            {choice.label}
           </li>
         ))}
       </ul>

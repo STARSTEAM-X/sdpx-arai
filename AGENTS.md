@@ -33,23 +33,33 @@ npm ci                 # ติดตั้ง dependency ตาม lockfile
 npm run dev            # dev server ที่ http://localhost:5173
 npm run build          # build production ออกที่ dist/
 npm run typecheck      # ตรวจ type ด้วย tsc
+npm test               # vitest run — ต้องเขียวก่อน commit เสมอ
+npm run test:watch     # vitest โหมดเฝ้าไฟล์ ใช้ตอนเขียน code
+npm run test:cov       # coverage ออกที่ docs/coverage/frontend/
 ```
 
 ### Backend (`backend/`)
 
 ```bash
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
-# source .venv/bin/activate && pip install -r requirements.txt  # macOS / Linux
+
+# ติดตั้ง (Windows) — dev ต้องลงทั้งสองไฟล์ ส่วน production ลงแค่ requirements.txt
+./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+# macOS / Linux: source .venv/bin/activate && pip install -r requirements-dev.txt
 
 ./.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 # ตรวจ: http://localhost:8000/api/health  ต้องได้ {"status":"ok",...}
+
+./.venv/Scripts/python.exe -m pytest              # ต้องเขียวก่อน commit เสมอ
+./.venv/Scripts/python.exe -m pytest --cov=app    # coverage
 ```
 
-### Test
+### เกณฑ์ความเร็วของ test loop
 
-ยังไม่มี test ใน WS-01 — จะเริ่มติดตั้ง framework ใน WS-02 และเขียนจริงใน WS-03
-เมื่อเพิ่มแล้วต้องกลับมาแก้ section นี้ให้ชี้คำสั่งที่รันได้จริง
+**unit test ทั้งสองฝั่งรวมกันต้องเสร็จภายใน 10 วินาที** — loop ที่ช้าคือ loop ที่ไม่มีใครรัน
+รวมถึง AI agent ด้วย ถ้าเกินเมื่อไรให้ถือว่าเป็นปัญหาที่ต้องแก้ ไม่ใช่เรื่องปกติ
+
+ตัวเลขล่าสุด: backend 0.31s (3 tests) · frontend 0.72s (5 tests)
 
 ## Conventions
 

@@ -1,0 +1,13 @@
+# dependency สำหรับ development และ test เท่านั้น — ห้ามรวมเข้า requirements.txt
+# เพราะ Render รัน `pip install -r requirements.txt` ตอน build
+# ถ้าเอา test library ปนเข้าไป production image จะใหญ่ขึ้นโดยไม่ได้ใช้
+#
+# ติดตั้ง: pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+pytest~=9.1.1
+pytest-cov~=7.1.0
+# TestClient ของ FastAPI ต้องมี http client — Starlette 1.6 ขึ้นไปเตือนให้ใช้ httpx2
+# ถ้าใช้ httpx ตัวเดิมจะ pass แต่มี StarletteDeprecationWarning ทุกครั้งที่รัน
+httpx2~=2.12.0
