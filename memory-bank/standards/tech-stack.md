@@ -52,16 +52,40 @@
 
 - **Staging URL (frontend):** https://paireval-web.onrender.com
 - **Staging URL (backend):** https://paireval-api.onrender.com
-- **Commit-to-live time:** _(ยังไม่ได้วัด)_
+- **Commit-to-live time: 42 วินาที** (วัดเมื่อ WS-01, commit `828c69f` — แก้ headline 1 บรรทัด)
 
-### เวลา deploy ครั้งแรก (blueprint sync, commit `dcec4e1`)
+วิธีวัด: จับเวลาตั้งแต่ `git push origin develop` จนกระทั่ง JS bundle ที่ CDN เสิร์ฟมีข้อความใหม่
 
-| Service | ใช้เวลา |
+### เวลา deploy แต่ละครั้ง
+
+| ครั้ง | Service | ใช้เวลา |
+|---|---|---|
+| Blueprint sync แรก (`dcec4e1`) | `paireval-web` (static) | 16 วินาที |
+| Blueprint sync แรก (`dcec4e1`) | `paireval-api` (python) | 58 วินาที |
+| แก้ headline (`828c69f`) | `paireval-web` | **42 วินาที** (commit-to-live) |
+| แก้ headline (`828c69f`) | `paireval-api` | **ไม่ deploy** — ดูด้านล่าง |
+
+### สิ่งที่ค้นพบตอนวัด: Render กรอง build ตาม `rootDir` ให้อัตโนมัติ
+
+commit `828c69f` แตะแค่ `frontend/` กับ `memory-bank/` — **ฝั่ง `paireval-api` จึงข้าม build ไปเลย**
+ไม่ใช่ bug แต่เป็น build filter ที่ Render ใส่ให้เองเมื่อ service มี `rootDir`
+
+ผลที่ตามมา:
+
+- แก้ frontend อย่างเดียว → backend ไม่ restart → ไม่มี downtime ที่ไม่จำเป็น
+- **ตัวเลข commit-to-live จึงมีสองค่า** ขึ้นกับว่าแก้ฝั่งไหน ต้องระบุให้ชัดเวลารายงาน
+- ค่าของฝั่ง backend ยังไม่ได้วัด จะได้ตอน commit แรกที่แตะ `backend/` (WS-02 เป็นต้นไป)
+- เป็นเรื่องเดียวกับ `paths` filter ที่ต้องตั้งเองใน GitHub Actions ตอน WS-06 — ที่นี่ได้มาฟรี
+
+### ขั้น Verify ของ Deploy Loop ตอนนี้มีอะไรบ้าง
+
+| ด่าน | มีแล้ว |
 |---|---|
-| `paireval-web` (static) | 16 วินาที |
-| `paireval-api` (python) | 58 วินาที |
-
-ตัวที่เป็นคอขวดคือฝั่ง backend เพราะต้อง `pip install` ใหม่ทุกครั้ง
+| `healthCheckPath: /api/health` — Render ไม่ประกาศ live ถ้า health ไม่ผ่าน | ✅ |
+| build ล้ม = deploy ไม่ขึ้น | ✅ |
+| ตาคนเปิดดูหน้าเว็บ | ✅ |
+| automated test | ❌ ยังไม่มี — เริ่ม WS-03 |
+| type check / lint ใน pipeline | ❌ ยังไม่มี — เริ่ม WS-06 |
 
 ### วิธีวัด commit-to-live
 
