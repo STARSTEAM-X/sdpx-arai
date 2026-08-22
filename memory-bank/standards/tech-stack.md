@@ -47,12 +47,21 @@
 
 | Service | Type | rootDir | Health check |
 |---|---|---|---|
-| `paireval-web` | static site | `frontend` | — |
-| `paireval-api` | python web service | `backend` | `/api/health` |
+| `paireval-web` | static site (global CDN) | `frontend` | — |
+| `paireval-api` | python web service (singapore) | `backend` | `/api/health` |
 
-- **Staging URL (frontend):** _(กรอกหลัง deploy ครั้งแรก)_
-- **Staging URL (backend):** _(กรอกหลัง deploy ครั้งแรก)_
-- **Commit-to-live time:** _(ยังไม่ได้วัด — วัดหลัง deploy ครั้งแรกสำเร็จ)_
+- **Staging URL (frontend):** https://paireval-web.onrender.com
+- **Staging URL (backend):** https://paireval-api.onrender.com
+- **Commit-to-live time:** _(ยังไม่ได้วัด)_
+
+### เวลา deploy ครั้งแรก (blueprint sync, commit `dcec4e1`)
+
+| Service | ใช้เวลา |
+|---|---|
+| `paireval-web` (static) | 16 วินาที |
+| `paireval-api` (python) | 58 วินาที |
+
+ตัวที่เป็นคอขวดคือฝั่ง backend เพราะต้อง `pip install` ใหม่ทุกครั้ง
 
 ### วิธีวัด commit-to-live
 

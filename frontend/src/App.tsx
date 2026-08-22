@@ -92,7 +92,7 @@ export default function App() {
         <ApiStatusBadge />
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">
-          ระบบประเมินผลแบบ<span className="text-indigo-600">จับคู่เปรียบเทียบ</span>
+          ให้คะแนนงานกลุ่มด้วยการ<span className="text-indigo-600">จับคู่เปรียบเทียบ</span>
         </h1>
 
         <p className="mt-4 max-w-2xl text-lg text-slate-600">
