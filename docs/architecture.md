@@ -36,9 +36,9 @@ flowchart TB
     ROSTER --> DB
     PAIR --> DB
     SCORE --> DB
-
-    linkStyle 2,3 stroke-dasharray: 5 5
 ```
+
+> เส้นประ = ส่วนที่ยังไม่ได้ทำใน M1 (Google OAuth) · เส้นทึบ = ทำแล้วหรือกำลังทำ
 
 ## หลักการที่ยึดจาก PRD
 
