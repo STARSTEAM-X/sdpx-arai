@@ -1,0 +1,4 @@
+# pin แบบ compatible release (~=) — รับ patch update แต่ไม่กระโดด minor เอง
+# version ที่ระบุคือค่าที่ resolve ได้จริงตอน WS-01 (2026-08-23)
+fastapi~=0.141.1
+uvicorn[standard]~=0.52.4

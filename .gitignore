@@ -1,0 +1,25 @@
+# --- secrets: ห้ามหลุดเข้า repo เด็ดขาด ---
+.env
+.env.*
+!.env.example
+
+# --- frontend ---
+node_modules/
+dist/
+.vite/
+
+# --- backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- test / report artifacts (เริ่มใช้จริง WS-03 เป็นต้นไป) ---
+coverage/
+playwright-report/
+test-results/
+
+# --- misc ---
+*.log
+.DS_Store
