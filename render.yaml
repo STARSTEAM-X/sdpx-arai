@@ -9,6 +9,7 @@ services:
   - type: web
     name: paireval-web
     runtime: static
+    region: singapore # ใกล้ผู้ใช้ไทยที่สุด — default ของ Render คือ oregon
     rootDir: frontend
     branch: develop # auto-deploy ทุก push เข้า develop (เป็น default ของ Render)
     buildCommand: npm ci && npm run build
@@ -24,6 +25,7 @@ services:
     name: paireval-api
     runtime: python
     plan: free
+    region: singapore # ต้องอยู่ region เดียวกับ service อื่นถึงจะคุยกันผ่าน private network ได้
     rootDir: backend
     branch: develop
     buildCommand: pip install -r requirements.txt
