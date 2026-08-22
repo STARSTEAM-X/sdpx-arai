@@ -12,8 +12,8 @@
 
 | Workshop | สถานะ | ได้อะไร |
 |---|---|---|
-| WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` |
-| WS-02 Requirements & API Design | ⬜ | |
+| WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` · commit-to-live 42 วิ |
+| WS-02 Requirements & API Design | ✅ | Backlog 11 stories, architecture + ERD, OpenAPI 12 endpoints, memory-bank |
 | WS-03 Unit Testing | ⬜ | |
 | WS-04 E2E Testing | ⬜ | |
 | WS-05 Docker | ⬜ | |

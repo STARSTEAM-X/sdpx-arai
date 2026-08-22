@@ -1,0 +1,889 @@
+openapi: 3.1.0
+
+info:
+  title: PairEval API
+  version: 0.1.0-M1
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    API ของระบบประเมินผลงานนักศึกษาแบบ pairwise comparison
+
+    **ขอบเขตของเอกสารนี้คือ M1 Walking Skeleton** — ทุก endpoint ที่นี่สืบกลับไปหา
+    user story ใน `docs/backlog.md` ได้ และทุก story ใน Sprint 1 มี endpoint รองรับ
+
+    หลักที่ยึดทั้งไฟล์
+    - ทุก endpoint ยกเว้น `/api/health` ต้องมี bearer token
+    - ตรวจสิทธิ์ที่ server เสมอ (FR-AUTHZ-01) — ห้ามพึ่ง UI ในการซ่อน
+    - ขอ resource ของ classroom ที่ไม่ได้สังกัด ตอบ **404 ไม่ใช่ 403**
+      เพื่อไม่ให้รู้ว่า resource นั้นมีอยู่จริง (FR-AUTHZ-02)
+    - error ใช้รูปแบบเดียวกันทั้งระบบ และ `code` คงที่สำหรับเครื่องอ่าน (FR-API-03)
+    - timestamp ทุกตัวเป็น UTC (DR-05)
+
+servers:
+  - url: https://paireval-api.onrender.com
+    description: Staging
+  - url: http://localhost:8000
+    description: Local
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: health
+    description: ตรวจสถานะระบบ
+  - name: classrooms
+    description: ห้องเรียนและรายชื่อ
+  - name: assignments
+    description: งานประเมินและการจัดคู่
+  - name: evaluation
+    description: การประเมินของนักศึกษา
+
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: ตรวจว่า service พร้อมรับ traffic
+      description: |
+        ใช้เป็นด่านตรวจ 3 ที่ — Render healthCheckPath, HEALTHCHECK ของ Docker (WS-05)
+        และตรวจว่า staging พร้อมก่อนยิง load test (WS-07)
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: service พร้อมใช้งาน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/classrooms:
+    get:
+      tags: [classrooms]
+      summary: รายการห้องเรียนที่ฉันเกี่ยวข้อง
+      description: 'อ้าง US-02 — คืนเฉพาะ classroom ที่ผู้เรียกเป็นสมาชิกเท่านั้น'
+      operationId: listClassrooms
+      responses:
+        '200':
+          description: รายการห้องเรียน
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Classroom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [classrooms]
+      summary: สร้างห้องเรียน
+      description: 'อ้าง US-02 — ผู้สร้างจะได้ role OWNER ของห้องเรียนนั้นทันที'
+      operationId: createClassroom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassroomCreate'
+      responses:
+        '201':
+          description: สร้างสำเร็จ คืน resource ที่สร้าง
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Classroom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/classrooms/{classroomId}/roster:
+    get:
+      tags: [classrooms]
+      summary: ดูรายชื่อสมาชิกในห้องเรียน
+      description: 'อ้าง US-03'
+      operationId: getRoster
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: รายชื่อสมาชิก
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RosterEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/classrooms/{classroomId}/roster:import:
+    post:
+      tags: [classrooms]
+      summary: นำเข้ารายชื่อจากไฟล์ CSV
+      description: |
+        อ้าง US-03 — การนำเข้าเป็น **atomic** ถ้ามีแถวใดผิด จะไม่บันทึกแถวใดเลย
+        และรายงานเลขแถวที่ผิด (FR-CLASS-02)
+
+        CSV ต้องมี header `email` และ `group_name` (ไม่สนตัวพิมพ์เล็กใหญ่)
+        ส่วน `student_id` และ `display_name` เป็นทางเลือก
+      operationId: importRoster
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: ไฟล์ CSV
+      responses:
+        '200':
+          description: นำเข้าสำเร็จทั้งไฟล์
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterImportResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: |
+            ไฟล์มีแถวที่ผิด — ไม่มีแถวใดถูกบันทึก
+            `details` ระบุเลขแถวและสาเหตุของทุกแถวที่ผิด
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/assignments:
+    post:
+      tags: [assignments]
+      summary: สร้างงานประเมิน
+      description: |
+        อ้าง US-04 — งานที่สร้างใหม่มีสถานะ `DRAFT` เสมอ
+        ผลรวมน้ำหนักของ criteria แต่ละ side จะถูกตรวจตอน publish ไม่ใช่ตอนสร้าง
+      operationId: createAssignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentCreate'
+      responses:
+        '201':
+          description: สร้างสำเร็จ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/assignments/{assignmentId}/feasibility:
+    get:
+      tags: [assignments]
+      summary: ตรวจความเป็นไปได้ของการจัดคู่ก่อน publish
+      description: |
+        อ้าง US-05 — ถ้า `target_coverage` ที่ตั้งไว้เป็นไปไม่ได้
+        ระบบคืนค่าสูงสุดที่ทำได้จริงพร้อมเหตุผลเป็นตัวเลข (FR-PAIR-05)
+      operationId: getFeasibility
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: ผลการคำนวณความเป็นไปได้
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feasibility'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/assignments/{assignmentId}:publish:
+    post:
+      tags: [assignments]
+      summary: เผยแพร่งานและสร้างคู่ประเมินทั้งหมด
+      description: |
+        อ้าง US-06 — สร้าง pair ทั้งหมดเก็บลง database ตอนนี้ ไม่สุ่มตอน runtime (FR-PAIR-01)
+        ให้ `pairing_seed` เดิมแล้วผลต้องเหมือนเดิมทุกครั้ง (FR-PAIR-09)
+      operationId: publishAssignment
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: เผยแพร่สำเร็จ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'สถานะไม่ใช่ DRAFT จึง publish ไม่ได้ (`code: INVALID_STATE`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: 'ผลรวมน้ำหนัก criteria ไม่เท่ากับ 100 (`code: WEIGHT_SUM_INVALID`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/assignments/{assignmentId}/my-evaluations:
+    get:
+      tags: [evaluation]
+      summary: คู่ที่ฉันต้องประเมินและความคืบหน้า
+      description: 'อ้าง US-07 — คืนเฉพาะคู่ของผู้เรียกเท่านั้น'
+      operationId: getMyEvaluations
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - name: side
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Side'
+      responses:
+        '200':
+          description: รายการคู่ที่ต้องประเมิน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyEvaluations'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'ยังไม่ถึงเวลาเปิด หรือเลย deadline แล้ว (`code: DEADLINE_PASSED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/comparisons/{pairAssignmentId}:
+    put:
+      tags: [evaluation]
+      summary: บันทึกคำตอบของคู่หนึ่ง (autosave)
+      description: |
+        อ้าง US-08 — **idempotent** เรียกซ้ำด้วย body เดิมได้ผลเดิม ไม่เกิดแถวซ้ำ (FR-API-01)
+        บันทึกเป็นสถานะ `DRAFT` จนกว่าจะเรียก submissions
+      operationId: saveComparison
+      parameters:
+        - name: pairAssignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComparisonSave'
+      responses:
+        '200':
+          description: บันทึกแล้ว
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comparison'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'ผู้เรียกไม่ใช่ evaluator ของคู่นี้ (`code: NOT_YOUR_PAIR`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'เลย deadline แล้ว (`code: DEADLINE_PASSED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/assignments/{assignmentId}/submissions:
+    post:
+      tags: [evaluation]
+      summary: ส่งคำตอบทั้ง side
+      description: |
+        อ้าง US-09 — เปลี่ยนทุก comparison ของ side นั้นเป็น `SUBMITTED`
+        ต้องส่ง header `Idempotency-Key` เพื่อกันการกดซ้ำจากหลายแท็บ (FR-API-02)
+      operationId: submitEvaluations
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: ค่าไม่ซ้ำที่ client สร้างขึ้นต่อการกดส่ง 1 ครั้ง
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [side]
+              properties:
+                side:
+                  $ref: '#/components/schemas/Side'
+      responses:
+        '200':
+          description: ส่งสำเร็จ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'เลย deadline แล้ว (`code: DEADLINE_PASSED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: 'ยังประเมินไม่ครบ (`code: INCOMPLETE_EVALUATION`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/assignments/{assignmentId}/my-score:
+    get:
+      tags: [evaluation]
+      summary: คะแนนของฉัน
+      description: |
+        อ้าง US-10 — ดูได้เฉพาะเมื่อ assignment สถานะ `FINALIZED`
+        คะแนนรายบุคคลจะถูกซ่อนถ้าจำนวนผู้ประเมินยังไม่ถึงเกณฑ์ k-anonymity (D7)
+      operationId: getMyScore
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: คะแนนของผู้เรียก
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyScore'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: ไม่พบงาน หรือยังไม่ประกาศผล
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: token ที่ได้หลัง login ผ่าน Google OIDC (US-01)
+
+  parameters:
+    ClassroomId:
+      name: classroomId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: 'ไม่ได้แนบ token หรือ token หมดอายุ (`code: UNAUTHENTICATED`)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: 'login แล้วแต่ role ไม่มีสิทธิ์ทำสิ่งนี้ (`code: FORBIDDEN`)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: |
+        ไม่พบ resource — **รวมถึงกรณีที่ resource มีอยู่จริงแต่อยู่คนละ classroom**
+        ตั้งใจตอบ 404 แทน 403 เพื่อไม่ให้รู้ว่ามีอยู่จริง (FR-AUTHZ-02)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: 'ชนกับข้อมูลที่มีอยู่แล้ว (`code: ALREADY_EXISTS`)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationFailed:
+      description: 'รูปแบบข้อมูลไม่ผ่านการตรวจ (`code: VALIDATION_FAILED`)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              description: รหัสคงที่สำหรับเครื่องอ่าน แยกจาก message ที่คนอ่าน
+              examples: [DEADLINE_PASSED]
+            message:
+              type: string
+              examples: ['เลยกำหนดส่งของงานนี้แล้ว']
+            field:
+              type: [string, 'null']
+              description: ชื่อ field ที่ผิด ถ้าเป็น validation error
+            details:
+              type: array
+              description: ใช้เมื่อมีข้อผิดพลาดหลายจุด เช่น CSV หลายแถวผิด
+              items:
+                type: object
+                properties:
+                  row:
+                    type: integer
+                  reason:
+                    type: string
+            requestId:
+              type: string
+              description: ใช้ตามรอยใน structured log (WS-07)
+
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: 7 ตัวแรกของ commit SHA ที่กำลังรัน
+          examples: [dcec4e1]
+
+    Side:
+      type: string
+      enum: [GROUP, INDIVIDUAL]
+
+    Classroom:
+      type: object
+      required: [id, name, slug, timezone, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        timezone:
+          type: string
+          examples: [Asia/Bangkok]
+        allowedEmailDomains:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [ACTIVE, ARCHIVED]
+        createdAt:
+          type: string
+          format: date-time
+
+    ClassroomCreate:
+      type: object
+      required: [name, timezone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        timezone:
+          type: string
+          examples: [Asia/Bangkok]
+        allowedEmailDomains:
+          type: array
+          description: ถ้าเว้นว่าง = รับทุก domain
+          items:
+            type: string
+
+    RosterEntry:
+      type: object
+      required: [userId, email, role, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [OWNER, CO_TEACHER, TA, STUDENT]
+        groupName:
+          type: [string, 'null']
+          description: มีค่าเฉพาะ role STUDENT
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, DISABLED]
+
+    RosterImportResult:
+      type: object
+      required: [imported, groupsCreated, warnings]
+      properties:
+        imported:
+          type: integer
+          description: จำนวนแถวที่บันทึกสำเร็จ
+        groupsCreated:
+          type: integer
+        warnings:
+          type: array
+          description: เรื่องที่ควรรู้แต่ไม่ถึงกับ reject เช่น กลุ่มมีสมาชิกน้อยกว่า 2
+          items:
+            type: object
+            required: [type, message]
+            properties:
+              type:
+                type: string
+                enum: [GROUP_TOO_SMALL, DUPLICATE_EMAIL_MERGED]
+              message:
+                type: string
+
+    CriterionCreate:
+      type: object
+      required: [side, name, weightPct]
+      properties:
+        side:
+          $ref: '#/components/schemas/Side'
+        name:
+          type: string
+          minLength: 1
+        weightPct:
+          type: number
+          minimum: 0
+          maximum: 100
+        displayOrder:
+          type: integer
+
+    AssignmentCreate:
+      type: object
+      required:
+        - classroomId
+        - name
+        - groupMaxScore
+        - individualMaxScore
+        - groupDeadlineUtc
+        - criteria
+      properties:
+        classroomId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        artifactUrl:
+          type: string
+          format: uri
+        groupMaxScore:
+          type: number
+          minimum: 0
+        individualMaxScore:
+          type: number
+          minimum: 0
+          description: ใส่ 0 แปลว่าไม่มีการประเมินรายบุคคล ระบบจะไม่สร้าง pair ฝั่งนั้น
+        groupDeadlineUtc:
+          type: string
+          format: date-time
+        individualDeadlineUtc:
+          type: [string, 'null']
+          format: date-time
+        targetCoverage:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+        maxWorkload:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 8
+        criteria:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CriterionCreate'
+
+    Assignment:
+      type: object
+      required: [id, classroomId, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        classroomId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, OPEN, CLOSED, FINALIZED, ARCHIVED]
+        groupDeadlineUtc:
+          type: string
+          format: date-time
+        individualDeadlineUtc:
+          type: [string, 'null']
+          format: date-time
+
+    Feasibility:
+      type: object
+      required: [side, requestedCoverage, achievableCoverage, workloadPerEvaluator, totalComparisons, feasible]
+      properties:
+        side:
+          $ref: '#/components/schemas/Side'
+        requestedCoverage:
+          type: integer
+        achievableCoverage:
+          type: integer
+          description: ค่าสูงสุดที่ทำได้จริงตามขนาดกลุ่มและ maxWorkload
+        workloadPerEvaluator:
+          type: number
+        totalComparisons:
+          type: integer
+        feasible:
+          type: boolean
+        reason:
+          type: [string, 'null']
+          description: ถ้า feasible = false ต้องอธิบายด้วยตัวเลข ไม่ใช่คำเตือนลอย ๆ
+
+    PublishResult:
+      type: object
+      required: [assignmentId, status, pairsCreated, pairingSeed]
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PUBLISHED]
+        pairsCreated:
+          type: integer
+        pairingSeed:
+          type: integer
+          format: int64
+          description: เก็บไว้เพื่อ generate ซ้ำให้ได้ผลเดิม (FR-PAIR-09)
+
+    PairItem:
+      type: object
+      required: [itemId, label]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: ชื่อกลุ่มหรือชื่อที่แสดงแทนตัวบุคคล
+        artifactUrl:
+          type: [string, 'null']
+          format: uri
+
+    PairToEvaluate:
+      type: object
+      required: [pairAssignmentId, criterionId, side, left, right, answered]
+      properties:
+        pairAssignmentId:
+          type: string
+          format: uuid
+        criterionId:
+          type: string
+          format: uuid
+        side:
+          $ref: '#/components/schemas/Side'
+        left:
+          $ref: '#/components/schemas/PairItem'
+        right:
+          $ref: '#/components/schemas/PairItem'
+        answered:
+          type: boolean
+          description: ตอบไปแล้วหรือยัง (สถานะ DRAFT ก็นับว่าตอบแล้ว)
+
+    MyEvaluations:
+      type: object
+      required: [total, completed, deadlineUtc, pairs]
+      properties:
+        total:
+          type: integer
+        completed:
+          type: integer
+        deadlineUtc:
+          type: string
+          format: date-time
+        pairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PairToEvaluate'
+
+    ComparisonSave:
+      type: object
+      required: [choice]
+      properties:
+        choice:
+          type: integer
+          minimum: 1
+          maximum: 6
+          description: |
+            มาตรวัด 6 ระดับ **ไม่มีค่ากลาง** (D1)
+            1 = A ดีกว่า B มากที่สุด … 6 = B ดีกว่า A มากที่สุด
+        timeOnTaskMs:
+          type: integer
+          minimum: 0
+          description: ใช้ตรวจจับการกดมั่วใน M3 — เก็บตั้งแต่ M1 เพราะย้อนเก็บไม่ได้
+
+    Comparison:
+      type: object
+      required: [id, pairAssignmentId, choice, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        pairAssignmentId:
+          type: string
+          format: uuid
+        choice:
+          type: integer
+          minimum: 1
+          maximum: 6
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, EXCLUDED]
+        savedAt:
+          type: string
+          format: date-time
+
+    SubmissionResult:
+      type: object
+      required: [side, submittedCount, submittedAt]
+      properties:
+        side:
+          $ref: '#/components/schemas/Side'
+        submittedCount:
+          type: integer
+        submittedAt:
+          type: string
+          format: date-time
+
+    ScoreBreakdown:
+      type: object
+      required: [criterionId, criterionName, weightPct, weightedScore]
+      properties:
+        criterionId:
+          type: string
+          format: uuid
+        criterionName:
+          type: string
+        weightPct:
+          type: number
+        weightedScore:
+          type: number
+
+    MyScore:
+      type: object
+      required: [assignmentId, groupScore, participationMultiplier]
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+        groupScore:
+          type: number
+        groupBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoreBreakdown'
+        individualScore:
+          type: [number, 'null']
+          description: null เมื่อยังไม่ถึงเกณฑ์ k-anonymity หรือ assignment ไม่มีฝั่ง individual
+        individualHiddenReason:
+          type: [string, 'null']
+          description: อธิบายว่าทำไมถึงยังไม่แสดงคะแนนรายบุคคล
+        participationMultiplier:
+          type: number
+          description: |
+            ตัวคูณจากการมีส่วนร่วม แยกออกจากคะแนนที่ได้รับโดยตั้งใจ (D5)
+            การไม่ประเมินเพื่อนไม่ได้แปลว่างานตัวเองแย่

@@ -54,6 +54,14 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest --cov=app    # coverage
 ```
 
+### API contract (`docs/openapi.yaml`)
+
+```bash
+npx @redocly/cli lint docs/openapi.yaml   # ต้องไม่มีทั้ง error และ warning
+```
+
+กฎที่ปิดไว้และเหตุผลอยู่ใน `redocly.yaml` — **ห้ามปิดกฎเพิ่มโดยไม่เขียนเหตุผลกำกับ**
+
 ### เกณฑ์ความเร็วของ test loop
 
 **unit test ทั้งสองฝั่งรวมกันต้องเสร็จภายใน 10 วินาที** — loop ที่ช้าคือ loop ที่ไม่มีใครรัน

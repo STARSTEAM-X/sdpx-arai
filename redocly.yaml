@@ -1,0 +1,19 @@
+# config ของ Redocly CLI — ใช้ตอน validate docs/openapi.yaml
+#
+# ปิดกฎเฉพาะข้อที่ไม่ตรงกับบริบทของ project นี้ และเขียนเหตุผลกำกับไว้ทุกข้อ
+# เหตุผลที่ต้องปิดแทนที่จะปล่อยเป็น warning: warning ที่ค้างถาวรจะกลายเป็น
+# สัญญาณที่ทุกคนมองข้าม พอมี warning ของจริงโผล่มาจะไม่มีใครเห็น
+# (เป็นบทเรียนเดียวกับ pipeline ที่ปล่อยให้แดงค้างไว้)
+
+apis:
+  paireval:
+    root: docs/openapi.yaml
+
+rules:
+  # ปิด: เราจงใจใส่ http://localhost:8000 ไว้ใน servers เพราะทีมต้องใช้ยิงทดสอบตอน dev
+  # กฎนี้มีไว้กัน spec ที่ลืมแก้ค่า placeholder ซึ่งไม่ใช่กรณีของเรา
+  no-server-example.com: off
+
+  # ปิด: /api/health ไม่มี 4xx จริง ๆ — endpoint นี้ไม่ต้องใช้ token และไม่รับ input
+  # การใส่ 4xx ปลอมเข้าไปเพื่อให้ผ่านกฎ จะทำให้ spec โกหก ซึ่งแย่กว่ามี warning
+  operation-4xx-response: off
