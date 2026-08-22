@@ -60,6 +60,19 @@ npm run dev
 > ขั้นตอนตอนนี้ยังเยอะและต้องทำมือหลายอย่าง — **WS-05 จะย่อให้เหลือ `docker compose up` คำสั่งเดียว**
 > จำนวนขั้นตอนตอนนี้คือ baseline ที่จะเอาไปเทียบ
 
+### ถ้า port ชนกัน
+
+บางเครื่องมีโปรแกรมอื่นครอง port 8000 อยู่แล้ว จะขึ้น `[Errno 10048]` ตอนสั่ง uvicorn
+ให้เปลี่ยนไปใช้ port อื่นทั้งสองฝั่งให้ตรงกัน:
+
+```bash
+# backend
+./.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8123
+# frontend/.env  → แก้เป็น VITE_API_BASE_URL=http://localhost:8123 แล้ว restart npm run dev
+```
+
+ตรวจว่า port ไหนถูกใช้อยู่: `netstat -ano | findstr LISTENING`
+
 ## Deploy
 
 Deploy อัตโนมัติขึ้น Render ทุกครั้งที่ push เข้า `develop` — ไม่ต้องกดปุ่ม
