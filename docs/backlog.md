@@ -300,15 +300,20 @@ prompt ที่ใช้: ให้ AI อ่าน story ทั้ง 11 ข�
 **ไฟล์นี้คือต้นฉบับ** — ถ้าต้องแก้ story ให้แก้ที่นี่ก่อน แล้วค่อยอัปเดต issue ตาม
 เพื่อให้การเปลี่ยนแปลงของ requirement อยู่ใน git diff และ review ได้
 
-## Sprint 1 — เลือกอะไรก่อน
+## Sprint 1
+
+Milestone: [Sprint 1](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/1) — 4 issues
 
 เรียงตามหลัก "ปิด loop ทั้งวงก่อน ไม่ใช่ทำ feature ใหญ่":
 
 | ลำดับ | Story | เหตุผล |
 |---|---|---|
-| 1 | **US-02 สร้างห้องเรียน** | เล็กที่สุดที่ทำให้เกิด endpoint จริงตัวแรก + ตาราง DB ตัวแรก + test ตัวแรกที่แตะ database |
-| 2 | US-11 กันการเข้าถึงข้ามห้องเรียน | ต้องมาทันทีหลังมี resource แรก ถ้ารอทีหลังจะต้องไล่แก้ทุก endpoint |
-| 3 | US-01 login | ปลดล็อกทุก story ที่เหลือ |
-| 4 | US-03 import CSV | เป็น input ของ pairing |
+| 1 | **[#2](https://github.com/STARSTEAM-X/sdpx-arai2/issues/2) US-02 สร้างห้องเรียน** | เล็กที่สุดที่ทำให้เกิด endpoint จริงตัวแรก + ตาราง DB ตัวแรก + test ตัวแรกที่แตะ database |
+| 2 | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) US-11 กันการเข้าถึงข้ามห้องเรียน | ต้องมาทันทีหลังมี resource แรก ถ้ารอทีหลังจะต้องไล่แก้ทุก endpoint |
+| 3 | [#1](https://github.com/STARSTEAM-X/sdpx-arai2/issues/1) US-01 login | ปลดล็อกทุก story ที่เหลือ |
+| 4 | [#3](https://github.com/STARSTEAM-X/sdpx-arai2/issues/3) US-03 import CSV | เป็น input ของ pairing engine |
 
-US-04 ถึง US-10 รอ Sprint ถัดไป
+US-04 ถึง US-10 ([#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4)–[#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10)) รอ Sprint ถัดไป
+
+> **ยังไม่ได้ตั้ง due date** ของ Sprint 1 เพราะยังไม่รู้ว่ากลุ่มกำหนดความยาว sprint ไว้กี่สัปดาห์
+> ตั้งเพิ่มได้ที่หน้า milestone หรือสั่ง `gh api repos/:owner/:repo/milestones/1 -X PATCH -f due_on=YYYY-MM-DDT00:00:00Z`
