@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+/* Design token ของ PairEval — แก้สีที่นี่ที่เดียว ทุก component จะตามหมด
+   Tailwind v4 อ่าน @theme แล้วสร้าง utility ให้เอง เช่น --color-brand-600 → bg-brand-600 */
+@theme {
+  /* ส้มอิฐ = สีหลักของแบรนด์ ใช้กับ CTA และจุดที่ต้องการให้สายตาไปหยุด */
+  --color-brand-50: #fff5ef;
+  --color-brand-100: #ffe6d6;
+  --color-brand-200: #ffcdb0;
+  --color-brand-500: #f4703c;
+  --color-brand-600: #ec5b28;
+  --color-brand-700: #cf4718;
+
+  /* สีเขียว = สถานะสำเร็จ / ตัวเลขคุณภาพ */
+  --color-ok-50: #eaf7f0;
+  --color-ok-500: #2e9e6b;
+  --color-ok-600: #238156;
+
+  /* กลาง ๆ อุ่นกว่า gray มาตรฐานเล็กน้อย ให้เข้ากับส้ม */
+  --color-ink: #1d2430;
+  --color-muted: #6d7280;
+  --color-cream: #fffaf6;
+  --color-line: #f1e6dc;
+
+  --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
