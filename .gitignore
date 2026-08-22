@@ -15,10 +15,18 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# --- test / report artifacts (เริ่มใช้จริง WS-03 เป็นต้นไป) ---
+# --- test / report artifacts ---
 coverage/
+.coverage
 playwright-report/
 test-results/
+
+# docs/coverage/ เป็น artifact ที่ต้องส่งตาม WS-03 — แต่ commit เฉพาะไฟล์สรุปที่คนอ่านได้
+# ส่วน HTML ที่ generate มา (379K, 29 ไฟล์) ไม่ commit เพราะสร้างใหม่ได้ตลอด
+# และทำให้ diff ของ PR เต็มไปด้วยไฟล์ที่ไม่มีใครอ่าน
+!docs/coverage/
+docs/coverage/*/
+!docs/coverage/*.md
 
 # --- misc ---
 *.log

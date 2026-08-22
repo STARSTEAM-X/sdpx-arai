@@ -1,0 +1,15 @@
+{
+  "name": "sdpx-arai2",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PairEval — workspace ระดับ root สำหรับ E2E ที่ครอบทั้ง frontend และ backend",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report e2e/playwright-report",
+    "lint:api": "redocly lint docs/openapi.yaml"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

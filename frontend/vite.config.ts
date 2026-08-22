@@ -15,6 +15,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reportsDirectory: '../docs/coverage/frontend',
+      // all: true บังคับให้นับไฟล์ที่ test ยังไม่แตะด้วย
+      // ถ้าไม่ตั้ง vitest จะนับเฉพาะไฟล์ที่ถูก import เข้ามา แล้วรายงาน 100%
+      // ทั้งที่ยังไม่ได้ทดสอบอะไรเลย — ตัวเลขแบบนั้นหลอกตัวเองมากกว่าไม่มีตัวเลข
+      all: true,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx'],
     },
   },
 })

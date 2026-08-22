@@ -5,7 +5,7 @@
 
 import pytest
 
-from app.domain.errors import RosterImportError
+from app.domain.errors import RosterImportError, RowError
 from app.domain.roster_import import parse_roster_csv
 from tests.factories import make_csv
 
@@ -20,6 +20,13 @@ class TestAtomicity:
             parse_roster_csv(make_csv(rows))
 
         assert [e.row for e in exc.value.rows] == [42]
+
+    def test_แถวที่มีกลุ่มแต่ไม่มีอีเมลถูกจับเป็นแถวผิด(self):
+        """เกิดจริงเมื่อคนกรอกกลุ่มไว้ก่อนแล้วลืมใส่อีเมล — ต้องไม่เงียบ"""
+        with pytest.raises(RosterImportError) as exc:
+            parse_roster_csv(make_csv(["a@uni.ac.th,G1", ",G1"]))
+
+        assert exc.value.rows == [RowError(3, "ไม่มีอีเมล")]
 
     def test_R2_รายงานความผิดทุกแถว_ไม่ใช่แค่แถวแรก(self):
         rows = [
