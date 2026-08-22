@@ -1,0 +1,67 @@
+{
+  "_note": "element source ของ wireframe 3 หน้าหลัก M1 — ใช้กับ Excalidraw connector ได้โดยตรง ไม่ใช่ไฟล์ .excalidraw มาตรฐานของ excalidraw.com ดูรายละเอียดใน README.md",
+  "_screens": [
+    "1) รายการงานที่ต้องประเมิน — US-07",
+    "2) เปรียบเทียบคู่ — US-08",
+    "3) คะแนนของฉัน — US-10"
+  ],
+  "elements": [
+    { "type": "cameraUpdate", "width": 800, "height": 600, "x": 0, "y": -10 },
+    { "type": "text", "id": "ti", "x": 40, "y": 24, "text": "Wireframe 3 หน้าหลัก — PairEval M1", "fontSize": 26 },
+    { "type": "text", "id": "sub", "x": 40, "y": 58, "text": "เส้นทางที่ E2E ของ WS-04 จะเดินตาม · กำกับ locator ที่ test จะเกาะไว้ในกรอบเหลือง", "fontSize": 15, "strokeColor": "#757575" },
+
+    { "type": "cameraUpdate", "width": 800, "height": 600, "x": -20, "y": 50 },
+    { "type": "text", "id": "c1", "x": 40, "y": 84, "text": "1) หน้ารายการงานที่ต้องประเมิน — US-07", "fontSize": 16, "strokeColor": "#2563eb" },
+    { "type": "rectangle", "id": "f1", "x": 40, "y": 110, "width": 460, "height": 520, "roundness": { "type": 3 }, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#757575" },
+    { "type": "rectangle", "id": "h1", "x": 41, "y": 111, "width": 458, "height": 46, "backgroundColor": "#dbe4ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "strokeWidth": 1, "label": { "text": "PairEval | somchai@uni.ac.th", "fontSize": 14 } },
+    { "type": "text", "id": "t1", "x": 60, "y": 176, "text": "งานที่ต้องประเมิน", "fontSize": 20 },
+    { "type": "rectangle", "id": "pb", "x": 60, "y": 212, "width": 280, "height": 16, "backgroundColor": "#e9ecef", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "roundness": { "type": 3 } },
+    { "type": "rectangle", "id": "pf", "x": 60, "y": 212, "width": 117, "height": 16, "backgroundColor": "#22c55e", "fillStyle": "solid", "strokeColor": "#15803d", "strokeWidth": 1, "roundness": { "type": 3 } },
+    { "type": "text", "id": "pt", "x": 352, "y": 210, "text": "5 / 12 คู่", "fontSize": 16 },
+    { "type": "text", "id": "dl", "x": 60, "y": 240, "text": "ปิดรับ 31 พ.ค. 2569 23:59 (Asia/Bangkok)", "fontSize": 14, "strokeColor": "#757575" },
+    { "type": "rectangle", "id": "k1", "x": 60, "y": 272, "width": 420, "height": 64, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "label": { "text": "ความคิดสร้างสรรค์ · คู่ที่ 6", "fontSize": 16 } },
+    { "type": "rectangle", "id": "k2", "x": 60, "y": 346, "width": 420, "height": 64, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "label": { "text": "ความคิดสร้างสรรค์ · คู่ที่ 7", "fontSize": 16 } },
+    { "type": "rectangle", "id": "k3", "x": 60, "y": 420, "width": 420, "height": 64, "roundness": { "type": 3 }, "backgroundColor": "#e9ecef", "fillStyle": "solid", "strokeColor": "#adb5bd", "label": { "text": "การนำเสนอ · คู่ที่ 1 (ทำแล้ว)", "fontSize": 16 } },
+    { "type": "rectangle", "id": "n1", "x": 60, "y": 496, "width": 420, "height": 50, "roundness": { "type": 3 }, "backgroundColor": "#fff3bf", "fillStyle": "solid", "strokeColor": "#f59e0b", "strokeWidth": 1, "label": { "text": "getByRole('list') · testid=pair-list", "fontSize": 14 } },
+
+    { "type": "arrow", "id": "ar1", "x": 502, "y": 370, "width": 66, "height": 0, "points": [[0, 0], [66, 0]], "strokeColor": "#8b5cf6", "strokeWidth": 2, "endArrowhead": "arrow", "label": { "text": "เลือกคู่", "fontSize": 14 } },
+
+    { "type": "cameraUpdate", "width": 800, "height": 600, "x": 520, "y": 50 },
+    { "type": "text", "id": "c2", "x": 570, "y": 84, "text": "2) หน้าเปรียบเทียบคู่ — US-08 (หัวใจของระบบ)", "fontSize": 16, "strokeColor": "#2563eb" },
+    { "type": "rectangle", "id": "f2", "x": 570, "y": 110, "width": 460, "height": 520, "roundness": { "type": 3 }, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#757575" },
+    { "type": "rectangle", "id": "h2", "x": 571, "y": 111, "width": 458, "height": 46, "backgroundColor": "#dbe4ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "strokeWidth": 1, "label": { "text": "PairEval — ประเมินคู่ที่ 6", "fontSize": 14 } },
+    { "type": "text", "id": "cr", "x": 590, "y": 176, "text": "เกณฑ์: ความคิดสร้างสรรค์ (30%)", "fontSize": 16 },
+    { "type": "rectangle", "id": "wa", "x": 590, "y": 208, "width": 175, "height": 96, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "label": { "text": "ผลงาน A", "fontSize": 16 } },
+    { "type": "text", "id": "vs", "x": 780, "y": 246, "text": "VS", "fontSize": 16, "strokeColor": "#757575" },
+    { "type": "rectangle", "id": "wb", "x": 815, "y": 208, "width": 175, "height": 96, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "strokeColor": "#22c55e", "label": { "text": "ผลงาน B", "fontSize": 16 } },
+    { "type": "rectangle", "id": "o1", "x": 590, "y": 320, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "A ดีกว่า B มากที่สุด", "fontSize": 14 } },
+    { "type": "rectangle", "id": "o2", "x": 590, "y": 352, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "A ดีกว่า B ค่อนข้างมาก", "fontSize": 14 } },
+    { "type": "rectangle", "id": "o3", "x": 590, "y": 384, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "A ดีกว่า B เล็กน้อย", "fontSize": 14 } },
+    { "type": "rectangle", "id": "o4", "x": 590, "y": 416, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "B ดีกว่า A เล็กน้อย", "fontSize": 14 } },
+    { "type": "rectangle", "id": "o5", "x": 590, "y": 448, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "B ดีกว่า A ค่อนข้างมาก", "fontSize": 14 } },
+    { "type": "rectangle", "id": "o6", "x": 590, "y": 480, "width": 400, "height": 28, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "B ดีกว่า A มากที่สุด", "fontSize": 14 } },
+    { "type": "text", "id": "nomid", "x": 1000, "y": 396, "text": "ไม่มี", "fontSize": 14, "strokeColor": "#ef4444" },
+    { "type": "text", "id": "nomid2", "x": 1000, "y": 416, "text": "ตัวกลาง", "fontSize": 14, "strokeColor": "#ef4444" },
+    { "type": "text", "id": "nomid3", "x": 1000, "y": 436, "text": "(D1)", "fontSize": 14, "strokeColor": "#ef4444" },
+    { "type": "rectangle", "id": "bs", "x": 590, "y": 520, "width": 130, "height": 40, "roundness": { "type": 3 }, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "label": { "text": "ข้ามคู่นี้", "fontSize": 14 } },
+    { "type": "rectangle", "id": "bn", "x": 730, "y": 520, "width": 260, "height": 40, "roundness": { "type": 3 }, "backgroundColor": "#ffd8a8", "fillStyle": "solid", "strokeColor": "#f59e0b", "label": { "text": "บันทึกและไปต่อ", "fontSize": 14 } },
+    { "type": "text", "id": "as", "x": 590, "y": 574, "text": "autosave เมื่อหยุด 2 วินาที · getByRole('radio')", "fontSize": 14, "strokeColor": "#757575" },
+
+    { "type": "arrow", "id": "ar2", "x": 1032, "y": 370, "width": 66, "height": 0, "points": [[0, 0], [66, 0]], "strokeColor": "#8b5cf6", "strokeWidth": 2, "endArrowhead": "arrow", "label": { "text": "ส่งครบ", "fontSize": 14 } },
+
+    { "type": "cameraUpdate", "width": 800, "height": 600, "x": 1050, "y": 50 },
+    { "type": "text", "id": "c3", "x": 1100, "y": 84, "text": "3) หน้าคะแนนของฉัน — US-10", "fontSize": 16, "strokeColor": "#2563eb" },
+    { "type": "rectangle", "id": "f3", "x": 1100, "y": 110, "width": 460, "height": 520, "roundness": { "type": 3 }, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#757575" },
+    { "type": "rectangle", "id": "h3", "x": 1101, "y": 111, "width": 458, "height": 46, "backgroundColor": "#dbe4ff", "fillStyle": "solid", "strokeColor": "#4a9eed", "strokeWidth": 1, "label": { "text": "PairEval — คะแนนของฉัน", "fontSize": 14 } },
+    { "type": "text", "id": "t3", "x": 1120, "y": 176, "text": "คะแนนของฉัน", "fontSize": 20 },
+    { "type": "rectangle", "id": "gs", "x": 1120, "y": 208, "width": 420, "height": 92, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "strokeColor": "#22c55e", "label": { "text": "คะแนนกลุ่ม  78.6 / 100", "fontSize": 18 } },
+    { "type": "rectangle", "id": "b1", "x": 1120, "y": 312, "width": 420, "height": 32, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "ความคิดสร้างสรรค์ 30%  =  24.2", "fontSize": 14 } },
+    { "type": "rectangle", "id": "b2", "x": 1120, "y": 348, "width": 420, "height": 32, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "การนำเสนอ 40%  =  30.1", "fontSize": 14 } },
+    { "type": "rectangle", "id": "b3", "x": 1120, "y": 384, "width": 420, "height": 32, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#adb5bd", "strokeWidth": 1, "label": { "text": "ความสมบูรณ์ 30%  =  24.3", "fontSize": 14 } },
+    { "type": "rectangle", "id": "iv", "x": 1120, "y": 428, "width": 420, "height": 72, "roundness": { "type": 3 }, "backgroundColor": "#fff3bf", "fillStyle": "solid", "strokeColor": "#f59e0b", "label": { "text": "คะแนนรายบุคคล: ยังไม่แสดง", "fontSize": 16 } },
+    { "type": "rectangle", "id": "pm", "x": 1120, "y": 512, "width": 420, "height": 44, "roundness": { "type": 3 }, "backgroundColor": "#e9ecef", "fillStyle": "solid", "strokeColor": "#adb5bd", "label": { "text": "ตัวคูณการมีส่วนร่วม  x 1.00", "fontSize": 14 } },
+    { "type": "text", "id": "rs", "x": 1120, "y": 572, "text": "ผู้ประเมินยังไม่ถึงเกณฑ์ k-anonymity (D7)", "fontSize": 14, "strokeColor": "#757575" },
+
+    { "type": "cameraUpdate", "width": 1600, "height": 1200, "x": 0, "y": -290 }
+  ]
+}
