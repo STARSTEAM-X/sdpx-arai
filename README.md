@@ -14,7 +14,7 @@
 |---|---|---|
 | WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` · commit-to-live 42 วิ |
 | WS-02 Requirements & API Design | ✅ | Backlog 11 stories, architecture + ERD, OpenAPI 12 endpoints, memory-bank |
-| WS-03 Unit Testing | ⬜ | |
+| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) 52 tests 0.77s · fidelity check 5 ครั้ง · E2E smoke 6 tests |
 | WS-04 E2E Testing | ⬜ | |
 | WS-05 Docker | ⬜ | |
 | WS-06 CI/CD | ⬜ | |
