@@ -1,4 +1,8 @@
-import { IconGoogle } from './icons'
+import { useCallback, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { GoogleSignInButton } from './GoogleSignInButton'
+import { isSignedIn } from '../lib/session'
 
 /** ภาพประกอบหน้าต่างเล็ก ๆ ด้านซ้ายของแถบ CTA — ตกแต่งล้วน ไม่มีความหมายต่อ screen reader */
 function WindowIllustration() {
@@ -29,6 +33,15 @@ function WindowIllustration() {
 }
 
 export function CtaBand() {
+  const navigate = useNavigate()
+  const [signedIn, setSignedIn] = useState(isSignedIn)
+
+  // login เสร็จแล้วพาไปหน้าที่ใช้งานจริงเลย ไม่ทิ้งให้ผู้ใช้เดาว่าต้องกดอะไรต่อ
+  const handleSignedIn = useCallback(() => {
+    setSignedIn(true)
+    navigate('/classrooms')
+  }, [navigate])
+
   return (
     <section id="login" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16">
       <div className="flex flex-col items-center gap-8 rounded-xl bg-brand-600 px-6 py-10 text-center sm:px-10 lg:flex-row lg:text-left">
@@ -42,13 +55,18 @@ export function CtaBand() {
             จัดการห้องเรียน ประเมินผลงาน และสรุปผลได้ในระบบเดียว
           </p>
 
-          <a
-            href="#login"
-            className="mt-6 inline-flex items-center gap-2.5 rounded-lg bg-white px-5 py-3 font-medium text-ink transition-colors hover:bg-cream"
-          >
-            <IconGoogle className="size-5" />
-            เข้าสู่ระบบด้วย Google
-          </a>
+          <div className="mt-6 flex justify-center lg:justify-start">
+            {signedIn ? (
+              <Link
+                to="/classrooms"
+                className="inline-flex items-center gap-2.5 rounded-lg bg-white px-5 py-3 font-medium text-ink transition-colors hover:bg-cream"
+              >
+                ไปที่ห้องเรียนของฉัน
+              </Link>
+            ) : (
+              <GoogleSignInButton onSignedIn={handleSignedIn} width={300} />
+            )}
+          </div>
         </div>
       </div>
     </section>
