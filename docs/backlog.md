@@ -342,3 +342,68 @@ domain จริงของมหาวิทยาลัยคือ **kmitl.a
 
 > **ยังไม่ได้ตั้ง due date** ของ Sprint 1 เพราะยังไม่รู้ว่ากลุ่มกำหนดความยาว sprint ไว้กี่สัปดาห์
 > ตั้งเพิ่มได้ที่หน้า milestone หรือสั่ง `gh api repos/:owner/:repo/milestones/1 -X PATCH -f due_on=YYYY-MM-DDT00:00:00Z`
+
+---
+
+## Sprint 2 — "อาจารย์เปิดงานประเมินได้"
+
+Milestone: [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) — 3 issues · 11 AC
+
+| ลำดับ | Story | เหตุผลที่อยู่ลำดับนี้ |
+|---|---|---|
+| 1 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 สร้าง assignment + criteria | ไม่มี assignment ก็ไม่มีอะไรให้จัดคู่ · เป็นตารางใหม่ชุดสุดท้ายของ M1 |
+| 2 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 feasibility | ต้องมาก่อน publish เพราะหน้าที่ของมันคือกันไม่ให้ publish ค่าที่เป็นไปไม่ได้ |
+| 3 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 publish + จัดคู่ | pairing engine — งานหนักที่สุดของ Sprint นี้ |
+
+**ทำไม US-05 กับ US-06 อยู่ Sprint เดียวกัน**
+
+feasibility คือการคำนวณล่วงหน้าว่า pairing จะได้ผลอะไร — ใช้คณิตศาสตร์ชุดเดียวกันทั้งคู่
+(`P7 individual coverage = m − 2`, `P8 ลด target พร้อมเหตุผลเป็นตัวเลข`)
+แยกคนละ Sprint เท่ากับเขียน coverage สองรอบ หรือทำ fake คั่นกลางแล้วรื้อทิ้ง
+
+**ไม่มี AC ข้อไหนติด blocker** — เริ่มได้ทันที และเป็นช่วงเวลาที่ควรใช้ไปตามคำตอบ
+ของ 3 คำถามด้านบน ซึ่ง Sprint 3 ต้องใช้
+
+**ของหนักจริง:** `memory-bank/units/pairing-engine/unit-brief.md` กฎ P1–P10
+ข้อที่ยากกว่าที่เห็นคือ `P3 ส่วนต่าง coverage ระหว่าง pair ใด ๆ ≤ 1` ซึ่งเป็นปัญหาจัดสรร
+ต้องออกแบบ algorithm จริง ไม่ใช่สุ่มแล้วจบ และ `P5 seed เดิมได้ผลเดิม` บังคับว่า
+ห้ามมี randomness ที่ควบคุมไม่ได้อยู่ในเส้นทางเลย
+
+## Sprint 3 — "นักศึกษาประเมินและเห็นคะแนน"
+
+Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) — 4 issues · 17 AC
+
+| ลำดับ | Story | เหตุผลที่อยู่ลำดับนี้ |
+|---|---|---|
+| 1 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 รายการที่ต้องประเมิน | ต้องเห็นคู่ก่อนถึงจะประเมินได้ |
+| 2 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 ประเมิน 6 ระดับ + autosave | หน้าจอหลักของนักศึกษา |
+| 3 | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 ส่งคำตอบทั้งชุด | ปิด state machine `DRAFT → SUBMITTED` |
+| 4 | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) US-10 ดูคะแนนตัวเอง | scoring engine อ่านเฉพาะ comparison ที่ `SUBMITTED` (กฎ S2) จึงต้องมาหลัง US-09 |
+
+**US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
+
+**ติด blocker ทั้ง 3 คำถาม** ต้องได้คำตอบ **ก่อนเริ่ม Sprint นี้** ไม่ใช่ระหว่างทาง:
+
+| คำถาม | กระทบ story |
+|---|---|
+| หลัง submit แก้คำตอบได้ไหม ถึงเมื่อไร | US-08, US-09 |
+| k-anonymity threshold ใช้เลขเท่าไร | US-10 |
+| ไม่ประเมินเลย หักคะแนนไหม เท่าไร | US-10 |
+
+**ของหนักจริง:** `memory-bank/units/scoring-engine/unit-brief.md` กฎ S1–S10
+ตัววัดที่ดีที่สุดคือ `S10 golden test` — ต้องได้ตัวเลขตรงเป๊ะกับ worked example ใน PRD §9.5
+และ `S6 เก็บเป็น numeric ไม่ใช่ float` ซึ่งถ้าพลาดจะเจอตอนคะแนนคลาดกันหลักทศนิยม
+
+## จุดที่ Sprint ชนกับปฏิทินของวิชา
+
+Workshop ที่เหลือเป็นงาน infra ไม่ใช่ feature จึงรันคู่ขนานกับ Sprint ได้ แต่มีสองจุดที่ชน:
+
+| Workshop | สัปดาห์ | ข้อบังคับที่กระทบแผน |
+|---|---|---|
+| WS-07 Performance | 13 | k6 ต้องยิง "realistic journey" → flow ประเมิน (US-07/US-08) ต้องใช้งานได้ก่อน |
+| WS-08 Code Quality | 14 | เป็น refactor ที่ห้ามเปลี่ยนพฤติกรรม → ไม่ควรมี feature ค้างอยู่ |
+
+**สรุป: Sprint 3 ควรเสร็จก่อนสัปดาห์ 13**
+
+> **ยังไม่ได้ตั้ง due date** ของทั้งสอง Sprint ด้วยเหตุผลเดียวกับ Sprint 1 —
+> ยังไม่รู้ความยาว sprint ที่กลุ่มตกลงกัน และวันที่จริงของสัปดาห์ปัจจุบัน
