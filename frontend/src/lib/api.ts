@@ -53,14 +53,29 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   let field: string | null = null
 
   try {
-    const body = (await res.json()) as Partial<ApiErrorBody>
+    const body = (await res.json()) as Partial<ApiErrorBody> & { detail?: unknown }
     if (body.error) {
       code = body.error.code
       message = body.error.message
       field = body.error.field ?? null
+    } else if (typeof body.detail === 'string') {
+      // FastAPI ตอบ {"detail": "..."} เมื่อ error ไม่ได้ผ่าน handler ของเรา
+      // เช่น request ที่ไม่ match route ใดเลย — ทิ้งข้อความนั้นไปทำให้ debug ยากขึ้นเปล่า ๆ
+      message = body.detail
     }
   } catch {
     // response ที่ไม่ใช่ JSON — ใช้ข้อความ default ไป ไม่ต้องทำให้พังซ้ำ
+  }
+
+  // 404 ที่ยังได้ข้อความกลางอย่าง "Not Found" แปลว่าไม่มี route นี้บน server
+  // ไม่ใช่ "ไม่พบข้อมูลที่ขอ" (ซึ่งฝั่งเราจะตอบเป็นข้อความไทยที่เจาะจงกว่านี้เสมอ)
+  // เคสที่เกิดจริงคือหน้าเว็บถูก deploy ใหม่แล้วแต่ backend ยังเป็นเวอร์ชันเก่า
+  // ถ้าไม่บอกตรงนี้ คนอ่าน error จะไล่หาสาเหตุที่ตัว request แทนที่จะดูว่า API เวอร์ชันอะไร
+  if (res.status === 404 && (code === 'UNKNOWN' || message === 'Not Found')) {
+    code = 'ENDPOINT_NOT_FOUND'
+    message =
+      `API ที่ ${API_BASE_URL} ไม่มี endpoint ${path} — ` +
+      'backend ที่ deploy อยู่อาจเป็นเวอร์ชันเก่ากว่าหน้าเว็บ'
   }
 
   throw new ApiError(res.status, code, message, field)

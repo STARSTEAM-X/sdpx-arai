@@ -50,7 +50,10 @@ services:
     rootDir: backend
     branch: develop
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # migrate ก่อน uvicorn ทุกครั้ง — runner เก็บชื่อไฟล์ที่รันแล้วใน schema_migration
+    # จึงข้ามของเดิมเอง การรันซ้ำทุก deploy ไม่มีผลข้างเคียง
+    # ถ้า migrate พัง จะไม่ยก uvicorn ขึ้นเลย ดีกว่าปล่อยให้ service ขึ้นแล้วพังตอนมี request
+    startCommand: python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health # Render ใช้ตรวจว่า deploy สำเร็จจริง
     envVars:
       # origin ของ paireval-web — กรอกหลัง static site ขึ้นแล้ว
@@ -78,17 +81,23 @@ services:
       # ตั้งค่าจริงเมื่อรู้ว่ามหาวิทยาลัยใช้ domain อะไร (FR-AUTH-02)
       - key: ALLOWED_EMAIL_DOMAINS
         sync: false
+
+      # ต่อกับ Postgres ด้านล่าง — Render ใส่ connection string ให้เอง
+      # ค่า default ใน config.py ชี้ไป localhost:5433 ซึ่งไม่มีอยู่บน Render
+      # ถ้าไม่ตั้ง key นี้ service จะขึ้นได้แต่ทุก endpoint ที่แตะ DB จะพัง
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paireval-db
+          property: connectionString
+
 # ---------- Database ----------
-# ยังไม่สร้างใน WS-01 โดยตั้งใจ:
-# Render free Postgres หมดอายุใน 30 วัน และ WS-01/WS-02 ยังไม่ใช้ DB เลย
-# จะปลดคอมเมนต์ตอน WS-03 ที่เริ่มมี business logic จริง
+# WS-01/WS-02 ยังไม่ใช้ DB จึงเว้นไว้ก่อน — ปลดล็อกตอน WS-04 ที่ journey
+# สร้างห้องเรียนต้องเขียนลง Postgres จริง ทั้ง /api/auth/session และ
+# /api/classrooms อ่านเขียนตารางใน migrations/001_init.sql
 #
-# databases:
-#   - name: paireval-db
-#     plan: free
-#
-# แล้วเพิ่มใน envVars ของ paireval-api:
-#   - key: DATABASE_URL
-#     fromDatabase:
-#       name: paireval-db
-#       property: connectionString
+# ข้อจำกัดที่ต้องรู้: free plan ของ Render หมดอายุใน 30 วันนับจากวันสร้าง
+# พอหมดอายุ service จะยังขึ้นแต่ต่อ DB ไม่ได้ — ต้องสร้างใหม่แล้ว sync blueprint ซ้ำ
+databases:
+  - name: paireval-db
+    plan: free
+    region: singapore # ต้อง region เดียวกับ paireval-api ไม่งั้นต่อกันไม่ได้
