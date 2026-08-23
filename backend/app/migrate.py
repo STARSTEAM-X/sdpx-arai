@@ -13,6 +13,12 @@ import psycopg
 
 from app.config import DATABASE_URL
 
+# console ของ Windows ใช้ cp1252 เป็น default ซึ่งเข้ารหัสภาษาไทยไม่ได้
+# ถ้าไม่บังคับตรงนี้ migration จะพังตั้งแต่บรรทัด print ไม่ใช่ที่ SQL
+# แล้วคนอ่าน traceback จะไปไล่หาสาเหตุที่ database ทั้งที่ปัญหาอยู่ที่หน้าจอ
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "migrations"
 
 _SCHEMA_TABLE = """

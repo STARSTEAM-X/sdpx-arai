@@ -100,3 +100,49 @@ def test_session(body: SessionRequest) -> dict:
 
     token, expires_at = issue_session(email)
     return {"accessToken": token, "expiresAt": expires_at.isoformat(), "email": email}
+
+
+@router.get("/pairs/{assignment_id}")
+def dump_pairs(assignment_id: str) -> dict:
+    """คืนคู่ประเมินทั้งหมดของงานหนึ่ง — ให้ E2E ตรวจ invariant กับข้อมูลที่บันทึกจริง
+
+    ทำไมต้องมี: unit test ของ pairing engine พิสูจน์ว่า *ตรรกะ* ถูก แต่พิสูจน์ไม่ได้ว่า
+    การ map กลุ่มกับสมาชิกจาก database เข้าไปหา engine นั้นถูก — ถ้า group_id
+    ผูกผิดคน กฎ "ห้ามประเมินกลุ่มตัวเอง" จะยังเขียวใน unit test ทั้งที่ของจริงพัง
+
+    ปิดใน production เหมือน endpoint อื่นในไฟล์นี้ เพราะเปิดเผยว่าใครประเมินอะไร
+    ซึ่งเป็นข้อมูลที่ผู้ประเมินเองก็ไม่ควรเห็นของคนอื่น
+    """
+    _guard()
+    with transaction() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.side, p.item_a_id, p.item_b_id, p.display_left_item_id,
+                   u.email_normalized AS evaluator,
+                   m.group_id        AS evaluator_group_id
+            FROM pair_assignment p
+            JOIN app_user u ON u.id = p.evaluator_user_id
+            JOIN assignment a ON a.id = p.assignment_id
+            LEFT JOIN classroom_member m
+                   ON m.user_id = p.evaluator_user_id AND m.classroom_id = a.classroom_id
+            WHERE p.assignment_id = %s
+            ORDER BY p.criterion_id, u.email_normalized, p.item_a_id, p.item_b_id
+            """,
+            (assignment_id,),
+        )
+        rows = cur.fetchall()
+
+    return {
+        "count": len(rows),
+        "items": [
+            {
+                "side": r["side"],
+                "itemA": str(r["item_a_id"]),
+                "itemB": str(r["item_b_id"]),
+                "displayLeft": str(r["display_left_item_id"]),
+                "evaluator": r["evaluator"],
+                "evaluatorGroupId": str(r["evaluator_group_id"]) if r["evaluator_group_id"] else None,
+            }
+            for r in rows
+        ],
+    }

@@ -271,6 +271,69 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationFailed'
 
+  /api/assignments/{assignmentId}:
+    get:
+      tags: [assignments]
+      summary: ดูงานประเมินหนึ่งงานพร้อมเกณฑ์
+      description: 'อ้าง US-04'
+      operationId: getAssignment
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: งานประเมิน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/assignments/{assignmentId}/criteria:
+    put:
+      tags: [assignments]
+      summary: แทนที่เกณฑ์ทั้งชุด
+      description: |
+        อ้าง US-04 — ทำได้เฉพาะตอนสถานะยังเป็น `DRAFT`
+        งานที่ประกาศไปแล้วอาจมีคนเริ่มประเมินตามเกณฑ์ชุดเดิม การเปลี่ยนน้ำหนักกลางคัน
+        ทำให้คะแนนจากคำตอบเก่ากับใหม่เทียบกันไม่ได้ จึงตอบ `409` แทนที่จะยอมให้แก้
+
+        ส่งทั้งชุดไม่ใช่ทีละข้อ เพราะหน้าจอที่แก้เกณฑ์ในตารางเดียวมักยังไม่มี id
+        ของแถวที่เพิ่งเพิ่ม การส่งทั้งชุดจึงตรงกับวิธีที่ UI ใช้จริงกว่า
+      operationId: replaceCriteria
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [criteria]
+              properties:
+                criteria:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/CriterionCreate'
+      responses:
+        '200':
+          description: เกณฑ์ชุดใหม่
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
   /api/assignments/{assignmentId}/feasibility:
     get:
       tags: [assignments]
@@ -283,11 +346,20 @@ paths:
         - $ref: '#/components/parameters/AssignmentId'
       responses:
         '200':
-          description: ผลการคำนวณความเป็นไปได้
+          description: |
+            ผลการคำนวณความเป็นไปได้ — คืน **ทั้งสองฝั่ง** เมื่อเปิดการประเมินรายบุคคลไว้
+            เพราะข้อจำกัดของสองฝั่งคนละเรื่องกัน: ฝั่งกลุ่มถูกบีบด้วยจำนวนกลุ่มและ workload
+            ส่วนฝั่งบุคคลถูกบีบด้วยขนาดกลุ่มล้วน ๆ (D4)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Feasibility'
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Feasibility'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -804,7 +876,7 @@ components:
 
     Assignment:
       type: object
-      required: [id, classroomId, name, status]
+      required: [id, classroomId, name, status, criteria]
       properties:
         id:
           type: string
@@ -823,6 +895,26 @@ components:
         individualDeadlineUtc:
           type: [string, 'null']
           format: date-time
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Criterion'
+
+    Criterion:
+      type: object
+      required: [id, side, name, weightPct, displayOrder]
+      properties:
+        id:
+          type: string
+          format: uuid
+        side:
+          $ref: '#/components/schemas/Side'
+        name:
+          type: string
+        weightPct:
+          type: number
+        displayOrder:
+          type: integer
 
     Feasibility:
       type: object

@@ -134,6 +134,18 @@ class PgClassroomRepository:
                     ),
                 )
 
+            # กลุ่มต้องมีตัวตนของตัวเองก่อน เพราะ pairing อ้างกลุ่มด้วย id ไม่ใช่ชื่อ
+            # ไม่ลบกลุ่มเก่าที่ไม่อยู่ในไฟล์ใหม่ทิ้ง — งานที่ publish ไปแล้วอ้างถึงกลุ่มพวกนั้นอยู่
+            for name in sorted({r.group_name for r in rows}):
+                cur.execute(
+                    """
+                    INSERT INTO group_entity (id, classroom_id, name)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (classroom_id, name) DO NOTHING
+                    """,
+                    (str(uuid.uuid4()), classroom_id, name),
+                )
+
             # ล้างเฉพาะ STUDENT — OWNER / CO_TEACHER / TA ไม่ได้มาจากไฟล์นี้
             cur.execute(
                 "DELETE FROM classroom_member WHERE classroom_id = %s AND role = 'STUDENT'",
@@ -141,17 +153,25 @@ class PgClassroomRepository:
             )
 
             for row in rows:
+                # เขียน group_name กับ group_id พร้อมกันเสมอ — ถ้าเขียนแค่อย่างใดอย่างหนึ่ง
+                # หน้า roster กับ pairing จะเห็นกลุ่มไม่ตรงกันโดยไม่มี error ให้เห็น
                 cur.execute(
                     """
-                    INSERT INTO classroom_member (id, classroom_id, user_id, role, group_name)
-                    SELECT %s, %s, u.id, 'STUDENT', %s
+                    INSERT INTO classroom_member
+                        (id, classroom_id, user_id, role, group_name, group_id)
+                    SELECT %s, %s, u.id, 'STUDENT', %s, g.id
                     FROM app_user u
+                    JOIN group_entity g
+                      ON g.classroom_id = %s AND g.name = %s
                     WHERE u.email_normalized = %s
                     ON CONFLICT (classroom_id, user_id) DO UPDATE SET
-                        group_name = EXCLUDED.group_name
+                        group_name = EXCLUDED.group_name,
+                        group_id   = EXCLUDED.group_id
                     """,
                     (
                         str(uuid.uuid4()),
+                        classroom_id,
+                        row.group_name,
                         classroom_id,
                         row.group_name,
                         row.email_normalized,

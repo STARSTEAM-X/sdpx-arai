@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api import assignments as assignments_api
 from app.api import auth as auth_api
 from app.api import classrooms
 from app.api import roster as roster_api
@@ -69,6 +70,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(auth_api.router)
 app.include_router(classrooms.router)
 app.include_router(roster_api.router)
+app.include_router(assignments_api.router)
 
 # ---------------------------------------------------------------------------
 # endpoint สำหรับ test จะถูกลงทะเบียนก็ต่อเมื่อไม่ใช่ production เท่านั้น
