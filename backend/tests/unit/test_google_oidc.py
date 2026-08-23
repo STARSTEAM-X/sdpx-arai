@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.google_oidc import (
+    CLOCK_SKEW_LEEWAY_SECONDS,
     EmailDomainNotAllowed,
     GoogleAuthError,
     validate_claims,
@@ -27,6 +28,7 @@ def make_claims(**overrides) -> dict:
         "aud": CLIENT_ID,
         "iss": "https://accounts.google.com",
         "exp": int((NOW + timedelta(hours=1)).timestamp()),
+        "iat": int(NOW.timestamp()),
         "email": "Somchai.A@uni.ac.th",
         "email_verified": True,
         "sub": "1234567890",
@@ -106,17 +108,21 @@ class TestIssuer:
 
 
 class TestExpiry:
-    def test_token_หมดอายุถูกปฏิเสธ(self):
-        expired = int((NOW - timedelta(seconds=1)).timestamp())
+    def test_token_หมดอายุเกิน_leeway_ถูกปฏิเสธ(self):
+        long_expired = int((NOW - timedelta(seconds=CLOCK_SKEW_LEEWAY_SECONDS + 1)).timestamp())
 
         with pytest.raises(GoogleAuthError):
-            validate_claims(make_claims(exp=expired), client_id=CLIENT_ID, now=NOW)
+            validate_claims(make_claims(exp=long_expired), client_id=CLIENT_ID, now=NOW)
 
-    def test_หมดอายุพอดีวินาทีนี้ถือว่าหมดแล้ว(self):
-        with pytest.raises(GoogleAuthError):
-            validate_claims(
-                make_claims(exp=int(NOW.timestamp())), client_id=CLIENT_ID, now=NOW
-            )
+    def test_เพิ่งหมดอายุภายใน_leeway_ยังผ่าน(self):
+        """ยอมรับโดยตั้งใจ — นาฬิกาสองเครื่องต่างกันไม่กี่วินาทีเป็นเรื่องปกติ
+        ถ้าไม่เผื่อ ผู้ใช้จะเจออาการ login เดี๋ยวได้เดี๋ยวไม่ได้"""
+        just_expired = int((NOW - timedelta(seconds=10)).timestamp())
+
+        identity = validate_claims(
+            make_claims(exp=just_expired), client_id=CLIENT_ID, now=NOW
+        )
+        assert identity.google_sub
 
     def test_ไม่มี_exp_ถูกปฏิเสธ(self):
         claims = make_claims()
@@ -124,6 +130,44 @@ class TestExpiry:
 
         with pytest.raises(GoogleAuthError):
             validate_claims(claims, client_id=CLIENT_ID, now=NOW)
+
+
+class TestClockSkew:
+    """คุ้มครองบั๊กที่เจอจริงตอน login ครั้งแรก
+
+    อาการ: "The token is not yet valid (iat)" แบบเดี๋ยวผ่านเดี๋ยวไม่ผ่าน
+    สาเหตุ: นาฬิกาเครื่อง server ช้ากว่าของ Google ไม่กี่วินาที
+    token ที่เพิ่งออกจึงดูเหมือน "ออกในอนาคต"
+    """
+
+    def test_iat_ล้ำหน้าเล็กน้อยยังผ่าน(self):
+        skewed = int((NOW + timedelta(seconds=5)).timestamp())
+
+        identity = validate_claims(
+            make_claims(iat=skewed), client_id=CLIENT_ID, now=NOW
+        )
+        assert identity.google_sub
+
+    def test_iat_ล้ำหน้าพอดีขอบ_leeway_ยังผ่าน(self):
+        edge = int((NOW + timedelta(seconds=CLOCK_SKEW_LEEWAY_SECONDS)).timestamp())
+
+        identity = validate_claims(make_claims(iat=edge), client_id=CLIENT_ID, now=NOW)
+        assert identity.google_sub
+
+    def test_iat_ล้ำหน้าเกิน_leeway_ถูกปฏิเสธ(self):
+        """ล้ำหน้ามากเกินไปไม่ใช่ skew ปกติแล้ว — อาจเป็น token ปลอม"""
+        far_future = int((NOW + timedelta(seconds=CLOCK_SKEW_LEEWAY_SECONDS + 60)).timestamp())
+
+        with pytest.raises(GoogleAuthError):
+            validate_claims(make_claims(iat=far_future), client_id=CLIENT_ID, now=NOW)
+
+    def test_ไม่มี_iat_ก็ผ่านได้(self):
+        """iat ไม่ใช่ claim บังคับของ OIDC — ไม่ควรปฏิเสธเพราะไม่มี"""
+        claims = make_claims()
+        claims.pop("iat", None)
+
+        identity = validate_claims(claims, client_id=CLIENT_ID, now=NOW)
+        assert identity.google_sub
 
 
 class TestEmailVerified:

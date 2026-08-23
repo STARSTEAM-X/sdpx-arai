@@ -12,7 +12,7 @@
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from jwt import PyJWKClient
@@ -20,6 +20,16 @@ from jwt import PyJWKClient
 from app.domain.email import normalize_email
 
 GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+
+# เผื่อความคลาดเคลื่อนของนาฬิกาเครื่องเรากับของ Google
+#
+# ที่มา: ตอนทดสอบ login จริงเจอ "The token is not yet valid (iat)" แบบเดี๋ยวผ่านเดี๋ยวไม่ผ่าน
+# เพราะนาฬิกาเครื่องช้ากว่าของ Google ไม่กี่วินาที ทำให้ token ที่เพิ่งออกมา
+# ดูเหมือน "ออกในอนาคต" สำหรับเรา
+#
+# 60 วินาทีเป็นค่าที่ OIDC แนะนำ — กว้างพอสำหรับ skew ที่เกิดจริง
+# แต่ยังแคบพอที่ token ที่หมดอายุจริงจะไม่ถูกยอมรับนาน
+CLOCK_SKEW_LEEWAY_SECONDS = 60
 
 # Google ออก token ด้วย issuer สองรูปแบบนี้เท่านั้น
 GOOGLE_ISSUERS = frozenset({"accounts.google.com", "https://accounts.google.com"})
@@ -66,17 +76,23 @@ def validate_claims(
     client_id: str,
     allowed_domains: list[str] | None = None,
     now: datetime | None = None,
+    leeway_seconds: int = CLOCK_SKEW_LEEWAY_SECONDS,
 ) -> GoogleIdentity:
     """ตรวจ claims ของ id_token ว่าใช้ได้จริงไหม
 
-    ตรวจ 5 อย่าง เรียงตามความอันตรายถ้าพลาด:
+    ตรวจ 6 อย่าง เรียงตามความอันตรายถ้าพลาด:
     1. `aud` ตรงกับ client id ของเรา — ไม่งั้นรับ token ที่ออกให้แอปอื่นได้
     2. `iss` เป็นของ Google
-    3. `exp` ยังไม่หมดอายุ
-    4. `email_verified` เป็นจริง — ไม่งั้นใครก็อ้างอีเมลคนอื่นได้
-    5. domain ของอีเมลอยู่ในรายการที่อนุญาต (ถ้ากำหนดไว้)
+    3. `exp` ยังไม่หมดอายุ (เผื่อ leeway)
+    4. `iat` ไม่ได้อยู่ในอนาคตเกิน leeway
+    5. `email_verified` เป็นจริง — ไม่งั้นใครก็อ้างอีเมลคนอื่นได้
+    6. domain ของอีเมลอยู่ในรายการที่อนุญาต (ถ้ากำหนดไว้)
+
+    การเช็คเวลาทั้งสองข้อเผื่อ `leeway_seconds` เพราะนาฬิกาของเรากับของ Google
+    ไม่ตรงกันเป๊ะ ถ้าไม่เผื่อ จะเกิดอาการ login เดี๋ยวผ่านเดี๋ยวไม่ผ่าน
     """
     now = now or datetime.now(UTC)
+    leeway = timedelta(seconds=leeway_seconds)
 
     aud = claims.get("aud")
     if aud != client_id:
@@ -86,8 +102,14 @@ def validate_claims(
         raise GoogleAuthError("issuer ไม่ใช่ Google")
 
     exp = claims.get("exp")
-    if exp is None or datetime.fromtimestamp(int(exp), UTC) <= now:
+    if exp is None or datetime.fromtimestamp(int(exp), UTC) + leeway <= now:
         raise GoogleAuthError("token หมดอายุแล้ว")
+
+    # iat ที่อยู่ในอนาคตไกลเกินไปแปลว่า token ถูกปลอมหรือนาฬิกาเพี้ยนหนัก
+    # แต่ล้ำหน้าไม่กี่วินาทีเป็นเรื่องปกติของ clock skew ต้องยอมรับได้
+    iat = claims.get("iat")
+    if iat is not None and datetime.fromtimestamp(int(iat), UTC) - leeway > now:
+        raise GoogleAuthError("token ออกในอนาคต — นาฬิกาของเครื่องอาจไม่ตรง")
 
     # Google ส่ง email_verified มาเป็น bool แต่บาง client library แปลงเป็น string
     verified = claims.get("email_verified")
@@ -142,6 +164,9 @@ def verify_id_token(
             algorithms=["RS256"],
             audience=client_id,
             issuer=list(GOOGLE_ISSUERS),
+            # ต้องส่ง leeway ให้ PyJWT ด้วย เพราะมันตรวจ exp/iat/nbf เองก่อนที่
+            # validate_claims จะได้ทำงาน ถ้าไม่ส่ง มันจะปฏิเสธตั้งแต่ตรงนี้
+            leeway=CLOCK_SKEW_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError as exc:
         raise GoogleAuthError(f"ตรวจสอบ id_token ไม่ผ่าน: {exc}") from exc
