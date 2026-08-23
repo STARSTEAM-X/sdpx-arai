@@ -1,0 +1,15 @@
+# config ของ coverage.py — pytest-cov อ่านไฟล์นี้เอง (ไม่ได้อ่าน pytest.ini)
+#
+# ตั้ง source ไว้ตรงนี้เพื่อให้ `pytest --cov` สั้น ๆ ก็นับได้ครบ
+# ไม่ต้องพิมพ์ `--cov=app` ทุกครั้งแล้วเสี่ยงพิมพ์ไม่ตรงกันระหว่างคนในทีม
+
+[run]
+source = app
+
+[html]
+# ให้ HTML ไปอยู่ที่เดียวกับฝั่ง frontend — WS-03 กำหนดให้มี report แยกฝั่ง
+# ฝั่ง frontend ตั้งค่านี้ไว้ใน vite.config.ts (coverage.reportsDirectory)
+directory = ../docs/coverage/backend
+
+[report]
+show_missing = True

@@ -10,6 +10,7 @@
     "lint:api": "redocly lint docs/openapi.yaml"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "@redocly/cli": "^2.47.0"
   }
 }

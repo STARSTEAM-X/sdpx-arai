@@ -51,7 +51,8 @@ python -m venv .venv
 # ตรวจ: http://localhost:8000/api/health  ต้องได้ {"status":"ok",...}
 
 ./.venv/Scripts/python.exe -m pytest              # ต้องเขียวก่อน commit เสมอ
-./.venv/Scripts/python.exe -m pytest --cov=app    # coverage
+./.venv/Scripts/python.exe -m pytest --cov --cov-report=html   # coverage ออกที่ docs/coverage/backend/
+# path และ source ตั้งไว้ใน backend/.coveragerc แล้ว จึงไม่ต้องพิมพ์ --cov=app
 ```
 
 ### Database และ E2E (รันจาก root)
@@ -78,7 +79,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ### API contract (`docs/openapi.yaml`)
 
 ```bash
-npx @redocly/cli lint docs/openapi.yaml   # ต้องไม่มีทั้ง error และ warning
+npm run lint:api   # redocly lint — ต้องไม่มีทั้ง error และ warning
 ```
 
 กฎที่ปิดไว้และเหตุผลอยู่ใน `redocly.yaml` — **ห้ามปิดกฎเพิ่มโดยไม่เขียนเหตุผลกำกับ**
@@ -88,7 +89,7 @@ npx @redocly/cli lint docs/openapi.yaml   # ต้องไม่มีทั้
 **unit test ทั้งสองฝั่งรวมกันต้องเสร็จภายใน 10 วินาที** — loop ที่ช้าคือ loop ที่ไม่มีใครรัน
 รวมถึง AI agent ด้วย ถ้าเกินเมื่อไรให้ถือว่าเป็นปัญหาที่ต้องแก้ ไม่ใช่เรื่องปกติ
 
-ตัวเลขล่าสุด: backend 0.31s (3 tests) · frontend 0.72s (5 tests)
+ตัวเลขล่าสุด (2026-08-23): backend 0.69s (86 tests) · frontend 0.25s (5 tests) — รวม ~1s
 
 ## Conventions
 
