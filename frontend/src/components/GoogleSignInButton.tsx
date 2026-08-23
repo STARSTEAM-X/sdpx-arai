@@ -6,6 +6,10 @@ import { setToken } from '../lib/session'
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
+/** เวลาที่รอให้ Google วาดปุ่มเสร็จก่อนจะถือว่าวาดไม่ขึ้น
+ *  ปุ่มมาจาก iframe ข้าม origin จึงต้องเผื่อเวลาโหลดบนเน็ตช้า */
+const RENDER_TIMEOUT_MS = 4000
+
 /** ชนิดของ Google Identity Services เท่าที่ใช้จริง
  *  ประกาศเองเพราะไม่อยากเพิ่ม @types/google.accounts เข้ามาเพื่อใช้ 2 method */
 declare global {
@@ -117,6 +121,7 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
     }
 
     let cancelled = false
+    let renderCheck: ReturnType<typeof setTimeout> | undefined
 
     loadGis()
       .then(() => {
@@ -138,6 +143,24 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
           locale: 'th',
           width,
         })
+
+        // GSI ไม่มี error callback ให้ดักตอนวาดปุ่มไม่สำเร็จ
+        // เคสที่เจอบ่อยที่สุดคือ origin ปัจจุบันไม่ได้อยู่ใน Authorized JavaScript origins
+        // ของ OAuth client — Google จะตอบ 403 แล้วเขียน
+        // "The given origin is not allowed for the given client ID" ลง console เท่านั้น
+        // ฝั่งหน้าเว็บจะเหลือแค่กล่องว่าง ผู้ใช้ไม่รู้เลยว่าเกิดอะไรขึ้น
+        // จึงวัดความสูงจริงของกล่องหลังหมดเวลารอ แล้วบอกวิธีแก้ให้ตรงจุด
+        renderCheck = setTimeout(() => {
+          const box = containerRef.current
+          if (cancelled || !box) return
+          if (box.getBoundingClientRect().height > 0) return
+
+          setError(
+            `Google ปฏิเสธการวาดปุ่มสำหรับ origin ${window.location.origin} — ` +
+              'ต้องเพิ่ม origin นี้ใน Authorized JavaScript origins ของ OAuth client ' +
+              'ที่ Google Cloud Console แล้วรอสักครู่ก่อนโหลดหน้าใหม่',
+          )
+        }, RENDER_TIMEOUT_MS)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'โหลด Google Sign-In ไม่สำเร็จ')
@@ -145,6 +168,7 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
 
     return () => {
       cancelled = true
+      clearTimeout(renderCheck)
       // ปลด callback ตอน unmount ไม่ให้ปุ่มที่หายไปแล้วยังรับผลลัพธ์ได้
       const state = gisState()
       if (state.callback === handleCredential) state.callback = null

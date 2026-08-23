@@ -80,6 +80,26 @@ npm run dev
 
 ตรวจว่า port ไหนถูกใช้อยู่: `netstat -ano | findstr LISTENING`
 
+### ถ้าปุ่ม Sign in with Google ไม่ขึ้น
+
+console จะขึ้น `403` พร้อมข้อความ
+`[GSI_LOGGER]: The given origin is not allowed for the given client ID`
+
+แปลว่า origin ที่เปิดอยู่ยังไม่ได้ถูกลงทะเบียนกับ OAuth client — เป็นการตั้งค่าฝั่ง Google
+ไม่ใช่บั๊กในโค้ด แก้ที่ [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
+เลือก OAuth 2.0 Client ID ตัวที่อยู่ใน `frontend/.env` → **Authorized JavaScript origins** →
+เพิ่มให้ครบทุก origin ที่ใช้จริง:
+
+```
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+`localhost` กับ `127.0.0.1` Google นับเป็นคนละ origin ต้องใส่ทั้งคู่ถ้าเปิดทั้งสองแบบ
+ใส่ origin เท่านั้น ห้ามมี path หรือ `/` ปิดท้าย และถ้าเปลี่ยน port ต้องเพิ่ม port นั้นด้วย
+
+กด Save แล้วรอสัก 5 นาทีให้ค่าใหม่มีผล จากนั้น hard refresh (`Ctrl+Shift+R`)
+
 ## Test
 
 ```bash
