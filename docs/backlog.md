@@ -212,9 +212,45 @@
 
 ---
 
+## US-12 — จัดการผู้ร่วมสอนและ TA
+
+`user-story` · Sprint 2 · อ้าง FR-CLASS-06, FR-AUTHZ-01, FR-AUTHZ-03
+
+**As an** อาจารย์เจ้าของห้องเรียน
+**I want to** เพิ่มอาจารย์ร่วมสอนและ TA เข้าห้องเรียน พร้อมกำหนดว่าใครทำอะไรได้
+**So that** แบ่งงานดูแลรายชื่อและตรวจงานได้ โดยไม่ต้องยกสิทธิ์ตัดสินคะแนนให้ทุกคน
+
+**Acceptance Criteria**
+
+- Given ฉันเป็น `OWNER`, When เพิ่มสมาชิกด้วยอีเมลและ role `CO_TEACHER` หรือ `TA`, Then ได้สมาชิกใหม่และตอบ 201 — ถ้าอีเมลนั้นยังไม่เคย login ให้สร้าง user สถานะ `PENDING` เหมือน US-03
+- Given ฉันเป็น `CO_TEACHER` หรือ `TA`, When เพิ่มหรือลบสมาชิก, Then ตอบ 403 — เฉพาะ `OWNER` เท่านั้นที่จัดการสมาชิกฝั่งผู้สอนได้
+- Given ห้องเรียนเหลือ `OWNER` คนเดียว, When ลบ owner คนนั้น (รวมถึงลบตัวเอง), Then ตอบ 409 พร้อม `code: LAST_OWNER`
+- Given อีเมลที่เพิ่มอยู่นอก `allowed_email_domains` ของห้องเรียน, When เพิ่มสมาชิก, Then ตอบ 422 พร้อมบอก domain ที่รับ (กฎเดียวกับ US-01)
+- Given อีเมลนั้นเป็น `STUDENT` ในห้องนี้อยู่แล้ว, When เพิ่มเป็น `TA`, Then ตอบ 409 — 1 คนมีได้ 1 role ต่อ 1 ห้องเรียน แต่เป็นคนละ role ในห้องอื่นได้ (FR-AUTHZ-03)
+- Given ห้องเรียนมี `CO_TEACHER` และ `TA` อยู่แล้ว, When import CSV รายชื่อนักศึกษาทับ, Then สมาชิกฝั่งผู้สอนต้องไม่ถูกลบ — ล้างเฉพาะแถว `STUDENT`
+- Given ฉันไม่ใช่สมาชิกของห้องเรียนนี้, When เรียก endpoint จัดการสมาชิก, Then ตอบ 404 ไม่ใช่ 403 (กฎเดียวกับ US-11)
+
+**สิทธิ์ที่ต้องบังคับเมื่อมี role ครบ** — จาก role matrix ใน PRD §3 ทุกข้อเช็คที่ server
+
+- Given ฉันเป็น `TA`, When สร้างหรือแก้ assignment, Then ตอบ 403 — TA ดูแลได้แค่ roster
+- Given ฉันเป็น `CO_TEACHER`, When สร้างหรือแก้ assignment, Then สำเร็จ
+- Given ฉันเป็น `CO_TEACHER`, When finalize คะแนน, Then ตอบ 403 — การตัดสินคะแนนสุดท้ายเป็นของ `OWNER` เท่านั้น
+- Given ฉันเป็น `TA`, When จัดการ roster หรือ import CSV, Then สำเร็จ
+
+> AC สองข้อท้ายของกลุ่มแรกคือข้อที่กัน regression ของ US-03 และ US-11 โดยตรง
+>
+> story นี้บังคับให้แตก `INSTRUCTOR_ROLES` ใน `backend/app/domain/access.py` ออกเป็นสิทธิ์ราย capability
+> ตอนนี้ OWNER / CO_TEACHER / TA ถูกรวมเป็นก้อนเดียว ซึ่งยัง**ถูก**อยู่ตราบใดที่ระบบมีแค่ roster
+> เพราะทั้งสาม role จัดการ roster ได้จริงตาม matrix — แต่พอมี assignment เมื่อไร ก้อนเดียวจะกลายเป็นช่องโหว่ทันที
+>
+> ต้องเพิ่ม `POST` / `DELETE /api/classrooms/{classroomId}/members` เข้า `docs/openapi.yaml` ด้วย
+> PRD §12 ระบุ endpoint นี้ไว้แล้วแต่ตกหล่นตอนเขียน spec รอบ WS-02 — ช่องโหว่แบบเดียวกับที่ US-01 เคยเจอ
+
+---
+
 # ผลการใช้ AI หา Edge Case
 
-prompt ที่ใช้: ให้ AI อ่าน story ทั้ง 11 ข้อข้างบน แล้วถามหา edge case, error scenario
+prompt ที่ใช้: ให้ AI อ่าน story US-01 ถึง US-11 ข้างบน แล้วถามหา edge case, error scenario
 และ requirement ที่หายไป พร้อมบอกว่าถ้าไม่สนใจแล้วจะเกิดอะไรบน production
 
 ## รับ — สร้างเป็น AC เพิ่มหรือ issue ใหม่
@@ -275,6 +311,7 @@ prompt ที่ใช้: ให้ AI อ่าน story ทั้ง 11 ข�
 | US-09 ส่งคำตอบทั้งชุด | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) | `POST /api/assignments/{id}/submissions` |
 | US-10 ดูคะแนนตัวเอง | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) | `GET /api/assignments/{id}/my-score` |
 | US-11 กันเข้าถึงข้ามห้องเรียน | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) | **ไม่มี endpoint ของตัวเอง** — ดูหมายเหตุ |
+| US-12 จัดการผู้ร่วมสอนและ TA | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) | `POST /api/classrooms/{id}/members` · `DELETE /api/classrooms/{id}/members/{memberId}` — ยังไม่มีใน `openapi.yaml` |
 
 ## สองข้อยกเว้นที่ตั้งใจให้เป็นแบบนี้
 
@@ -294,11 +331,21 @@ prompt ที่ใช้: ให้ AI อ่าน story ทั้ง 11 ข�
 
 # Issues บน GitHub
 
-สร้างครบแล้วทั้ง 11 ข้อ พร้อม label `user-story`
+สร้างครบแล้วทั้ง 12 ข้อ พร้อม label `user-story`
 👉 https://github.com/STARSTEAM-X/sdpx-arai2/issues
 
 **ไฟล์นี้คือต้นฉบับ** — ถ้าต้องแก้ story ให้แก้ที่นี่ก่อน แล้วค่อยอัปเดต issue ตาม
 เพื่อให้การเปลี่ยนแปลงของ requirement อยู่ใน git diff และ review ได้
+
+**วิธีสร้าง issue จาก story ในไฟล์นี้** — ดึง body จากไฟล์โดยตรง ไม่ copy มือ เนื้อหาสองที่จึงไม่หลุดกัน
+[#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) ถูกสร้างด้วยคำสั่งนี้ เปลี่ยน `US-12` เป็นเลข story อื่นได้ตรง ๆ
+
+```bash
+awk '/^## US-12 /{f=1} f && /^---$/{exit} f' docs/backlog.md | gh issue create --title "US-12 — จัดการผู้ร่วมสอนและ TA" --label user-story --milestone "Sprint 2" --body-file -
+```
+
+ถ้าเครื่องยังไม่มี `gh` ติดตั้งด้วย `winget install --id GitHub.cli` แล้ว `gh auth login` ก่อน
+สร้างเสร็จแล้วเอาเลข issue มาเติมในตาราง traceability ด้านบนด้วย
 
 ## Sprint 1
 
@@ -347,13 +394,14 @@ domain จริงของมหาวิทยาลัยคือ **kmitl.a
 
 ## Sprint 2 — "อาจารย์เปิดงานประเมินได้"
 
-Milestone: [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) — 3 issues · 11 AC
+Milestone: [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) — 4 issues · 22 AC
 
 | ลำดับ | Story | เหตุผลที่อยู่ลำดับนี้ |
 |---|---|---|
-| 1 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 สร้าง assignment + criteria | ไม่มี assignment ก็ไม่มีอะไรให้จัดคู่ · เป็นตารางใหม่ชุดสุดท้ายของ M1 |
-| 2 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 feasibility | ต้องมาก่อน publish เพราะหน้าที่ของมันคือกันไม่ให้ publish ค่าที่เป็นไปไม่ได้ |
-| 3 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 publish + จัดคู่ | pairing engine — งานหนักที่สุดของ Sprint นี้ |
+| 1 | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 จัดการผู้ร่วมสอนและ TA | ต้องมาก่อน US-04 ด้วยเหตุผลเดียวกับที่ US-11 มาก่อน US-03 — US-04 เป็น endpoint แรกที่สิทธิ์ของ CO_TEACHER กับ TA ต่างกันจริง ถ้าทำทีหลังต้องย้อนแก้ทุก endpoint ที่เขียนไปแล้ว |
+| 2 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 สร้าง assignment + criteria | ไม่มี assignment ก็ไม่มีอะไรให้จัดคู่ · เป็นตารางใหม่ชุดสุดท้ายของ M1 |
+| 3 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 feasibility | ต้องมาก่อน publish เพราะหน้าที่ของมันคือกันไม่ให้ publish ค่าที่เป็นไปไม่ได้ |
+| 4 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 publish + จัดคู่ | pairing engine — งานหนักที่สุดของ Sprint นี้ |
 
 **ทำไม US-05 กับ US-06 อยู่ Sprint เดียวกัน**
 
