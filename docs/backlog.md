@@ -1,4 +1,4 @@
-# Product Backlog — PairEval (Sprint 1 / M1 Walking Skeleton)
+# Product Backlog — PairEval (M1 Walking Skeleton)
 
 > ไฟล์นี้คือ **ต้นฉบับของ GitHub Issues** — เขียนไว้ใน repo เพื่อให้ diff ได้และ AI อ่านได้
 > ทุก story ที่นี่ต้องถูกสร้างเป็น issue จริงบน GitHub (ดูหัวข้อ "วิธีสร้าง Issues" ท้ายไฟล์)
@@ -79,7 +79,7 @@
 
 ## US-04 — สร้างงานประเมินพร้อมเกณฑ์และน้ำหนัก
 
-`user-story` · Sprint 1 · อ้าง FR-ASSIGN-01, FR-ASSIGN-02, FR-ASSIGN-07
+`user-story` · Sprint 2 · อ้าง FR-ASSIGN-01, FR-ASSIGN-02, FR-ASSIGN-07
 
 **As an** อาจารย์
 **I want to** สร้าง assignment พร้อมเกณฑ์ย่อยและน้ำหนักของแต่ละเกณฑ์
@@ -96,7 +96,7 @@
 
 ## US-05 — ดูความเป็นไปได้ก่อนเผยแพร่งาน
 
-`user-story` · Sprint 1 · อ้าง FR-PAIR-04, FR-PAIR-05
+`user-story` · Sprint 2 · อ้าง FR-PAIR-04, FR-PAIR-05
 
 **As an** อาจารย์
 **I want to** เห็นตัวเลข coverage ที่ทำได้จริงและภาระต่อคน ก่อนกด publish
@@ -111,7 +111,7 @@
 
 ## US-06 — เผยแพร่งานแล้วระบบจัดคู่ให้อัตโนมัติ
 
-`user-story` · Sprint 1 · อ้าง FR-PAIR-01, FR-PAIR-02, FR-PAIR-03, FR-PAIR-06, FR-PAIR-08, FR-PAIR-09
+`user-story` · Sprint 2 · อ้าง FR-PAIR-01, FR-PAIR-02, FR-PAIR-03, FR-PAIR-06, FR-PAIR-08, FR-PAIR-09
 
 **As an** อาจารย์
 **I want to** กด publish แล้วระบบจัดคู่ประเมินให้ทุกคนโดยอัตโนมัติ
@@ -129,7 +129,7 @@
 
 ## US-07 — นักศึกษาเห็นรายการงานที่ต้องประเมิน
 
-`user-story` · Sprint 1
+`user-story` · Sprint 3
 
 **As a** นักศึกษา
 **I want to** เห็นว่าฉันต้องประเมินอะไรบ้าง เหลืออีกกี่คู่ และ deadline เมื่อไร
@@ -146,7 +146,7 @@
 
 ## US-08 — ประเมินคู่ด้วยมาตรวัด 6 ระดับ พร้อมบันทึกอัตโนมัติ
 
-`user-story` · Sprint 1 · อ้าง D1, D8, FR-API-01
+`user-story` · Sprint 3 · อ้าง D1, D8, FR-API-01
 
 **As a** นักศึกษา
 **I want to** เลือกว่าผลงานไหนดีกว่าและดีกว่ามากแค่ไหน โดยระบบจำคำตอบให้เอง
@@ -164,24 +164,35 @@
 
 ## US-09 — ส่งคำตอบทั้งชุด
 
-`user-story` · Sprint 1 · อ้าง FR-API-02
+`user-story` · Sprint 3 · อ้าง FR-API-02, FR-EVAL-05, FR-EVAL-06
 
 **As a** นักศึกษา
-**I want to** กดส่งครั้งเดียวเมื่อประเมินครบ
+**I want to** กดส่งเมื่อไรก็ได้ และแก้แล้วส่งใหม่ได้จนถึง deadline
 **So that** รู้แน่ว่างานถูกนับแล้ว
 
 **Acceptance Criteria**
 
 - Given ประเมินครบทุกคู่ของ side นั้น, When กดส่ง, Then ทุก comparison เปลี่ยนสถานะเป็น `SUBMITTED` และตอบ 200
-- Given ยังทำไม่ครบ, When กดส่ง, Then ตอบ 422 พร้อมบอกว่าเหลือกี่คู่
+- Given ยังตอบไม่ครบ, When กดส่ง, Then ระบบแสดงจำนวนที่ยังไม่ตอบให้ยืนยันก่อน แล้ว**รับ submission ตามปกติ** — ปุ่มส่งเปิดใช้ได้ตลอด ไม่ตอบ 422
+- Given ฉัน submit ไปแล้วและยังไม่ถึง deadline, When แก้คำตอบแล้วส่งใหม่, Then รับได้ไม่จำกัดครั้ง ระบบเก็บทุกเวอร์ชันไว้ และใช้ครั้งล่าสุดในการคำนวณ
 - Given กดส่งซ้ำด้วย `Idempotency-Key` เดิม, When ส่งซ้ำ, Then ไม่เกิดผลซ้ำซ้อนและได้ผลลัพธ์เดิม
-- Given deadline ผ่านแล้ว, When กดส่ง, Then ตอบ 409 `DEADLINE_PASSED`
+- Given deadline ผ่านแล้ว, When กดส่ง, Then ตอบ 409 `DEADLINE_PASSED` และหน้าจอเปลี่ยนเป็น read-only
+
+> **บันทึกการตัดสินใจ — AC ข้อ 2 ถูกแก้เมื่อ 2026-08-24**
+>
+> ของเดิมเขียนว่า "ยังทำไม่ครบ → 422" ซึ่ง**ขัด FR-EVAL-05 โดยตรง**
+> ที่ระบุว่าปุ่ม Submit ต้องเปิดใช้ได้ตลอดแม้ตอบไม่ครบ เพียงแต่ต้องแสดงจำนวนที่ยังไม่ตอบก่อนยืนยัน
+> เหตุผลของ PRD คือ partial submission มีค่ามากกว่าไม่มีอะไรเลย — การบล็อกไว้ทำให้คนที่ทำไม่ทัน
+> ไม่ส่งอะไรเลย แล้ว coverage หายทั้งก้อน ซึ่งกระทบคะแนนของ **คนอื่น** ไม่ใช่แค่ตัวเขาเอง
+>
+> และของเดิมไม่มี AC เรื่อง re-submit ทั้งที่ FR-EVAL-06 บังคับให้แก้แล้วส่งใหม่ได้ไม่จำกัดก่อน deadline
+> — ข้อนี้ตอบคำถามที่เคยค้างข้อ 1 ไปในตัว
 
 ---
 
 ## US-10 — นักศึกษาดูคะแนนของตัวเอง
 
-`user-story` · Sprint 1 · อ้าง D2, D5, D7
+`user-story` · Sprint 3 · อ้าง D2, D5, D7
 
 **As a** นักศึกษา
 **I want to** เห็นคะแนนที่ได้รับหลังอาจารย์ยืนยันผล
@@ -375,15 +386,30 @@ prompt ที่ใช้: ให้ AI อ่าน story US-01 ถึง US-11
 
 ---
 
-# คำถามที่ requirement ยังตอบไม่ได้
+# คำถามที่เคยค้าง — PRD ตอบไว้แล้วทั้งสามข้อ
 
-ต้องถามอาจารย์ผู้สอน/product owner ก่อนลงมือ story ที่เกี่ยวข้อง
+รอบแรกเราสรุปว่าสามข้อนี้ต้องถามอาจารย์ก่อน และบันทึกไว้ว่าเป็น blocker ของ Sprint 3
+พอกลับไปไล่ PRD ทีละบรรทัดเมื่อ **2026-08-24** พบว่าคำตอบอยู่ในเอกสารอยู่แล้วทุกข้อ
+สิ่งที่ขาดคือการอ่านให้ครบ ไม่ใช่ requirement ที่หายไป
 
-1. **หลัง submit แล้วนักศึกษาแก้คำตอบได้ไหม และได้ถึงเมื่อไร** — PRD มี `comparison_revision` ที่บอกว่าเก็บทุกเวอร์ชัน แต่ไม่ได้ระบุว่าใครแก้ได้และแก้ได้ถึงตอนไหน กระทบ US-08 และ US-09 โดยตรง
-2. **k-anonymity threshold ใช้เลขเท่าไร** — D7 บอกว่าต้องมี threshold แต่ไม่ระบุค่า ถ้าเดาเองแล้วผิด จะแก้ทีหลังไม่ได้เพราะคะแนนประกาศไปแล้ว กระทบ US-10
-3. **ถ้านักศึกษาไม่ประเมินเลย คะแนนที่ตัวเองได้รับควรถูกหักไหม และหักเท่าไร** — D5 แยก "คะแนนที่ได้รับ" ออกจาก "โทษการไม่เข้าร่วม" แล้ว แต่ไม่ได้บอกขนาดของโทษ กระทบ US-10
+| คำถามเดิม | คำตอบใน PRD | ผลต่อ backlog |
+|---|---|---|
+| หลัง submit แก้คำตอบได้ไหม ถึงเมื่อไร | **FR-EVAL-06** — re-submit ได้ไม่จำกัดครั้งก่อน deadline ใช้ submission ล่าสุดคำนวณ และเก็บทุกเวอร์ชัน | แก้ AC ของ US-09 แล้ว (ดูบันทึกใน story) |
+| k-anonymity threshold ใช้เลขเท่าไร | **FR-ANON-02** — `k_min` default **3** | เป็น AC ข้อ 2 ของ US-15 |
+| ไม่ประเมินเลย หักคะแนนไหม เท่าไร | **§9.4** — `M = min(1.0, p / completion_threshold)` โดย `completion_threshold` default 0.90 พร้อมตารางตัวอย่าง และ FR-SCORE-11 ที่ระบุว่าคะแนน**ของกลุ่ม**ไม่ถูกลดด้วย `M` ของสมาชิกคนใดคนหนึ่ง | เป็น AC ข้อ 5 ของ US-16 |
 
-> คำถามพวกนี้คือช่องที่ AI จะเดาแทนถ้าเราไม่ตอบเอง — และมันมักเดาผิด
+## ที่ยังเปิดอยู่จริง — หนึ่งข้อ
+
+**OQ-2 (PRD §9.4):** `M` ควรคูณคะแนนทั้งก้อน (ค่าปัจจุบัน) หรือคูณเฉพาะส่วน individual
+หรือหักเป็นคะแนนคงที่ — PRD ระบุเองว่าเป็น **นโยบายของวิชา ไม่ใช่เรื่องเทคนิค**
+
+ข้อนี้**ไม่บล็อก** Sprint 3 เพราะ default ที่เอกสารให้ไว้ใช้ได้ทันที และ US-16 บังคับให้
+participation multiplier แยกจาก `score_ratio` อยู่แล้ว — เปลี่ยนนโยบายทีหลังคือเปลี่ยนจุดที่คูณ
+ไม่ใช่รื้อสูตร
+
+> บทเรียนของรอบนี้กลับด้านกับสิ่งที่เราคิดตอนแรก: ปัญหาไม่ใช่ "AI จะเดาแทนถ้าเราไม่ตอบ"
+> แต่คือ**เราเองที่เดาว่าเอกสารไม่มีคำตอบ** โดยไม่ได้ไล่อ่านให้ครบก่อน
+> ต้นทุนของการเดาแบบนี้คือ Sprint ที่ถูกกันไว้ไม่ให้เริ่มโดยไม่มีเหตุผลจริง
 
 ---
 
@@ -406,6 +432,10 @@ prompt ที่ใช้: ให้ AI อ่าน story US-01 ถึง US-11
 | US-10 ดูคะแนนตัวเอง | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) | `GET /api/assignments/{id}/my-score` |
 | US-11 กันเข้าถึงข้ามห้องเรียน | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) | **ไม่มี endpoint ของตัวเอง** — ดูหมายเหตุ |
 | US-12 จัดการผู้ร่วมสอนและ TA | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) | `POST /api/classrooms/{id}/members` · `DELETE /api/classrooms/{id}/members/{memberId}` — ยังไม่มีใน `openapi.yaml` |
+| US-13 finalize คะแนน | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) | `POST /api/assignments/{id}:finalize` · `POST /api/assignments/{id}:reopen` · `POST /api/assignments/{id}/score-overrides` — ยังไม่มีใน `openapi.yaml` |
+| US-14 audit log | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) | `GET /api/classrooms/{id}/audit-log` — ส่วนการ**เขียน** audit ไม่มี endpoint ของตัวเอง เหมือน US-11 |
+| US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | **ไม่มี endpoint ของตัวเอง** — เป็นข้อบังคับของทุก endpoint ที่คืนคะแนนและทุก export |
+| US-16 คำนวณคะแนน | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) | `POST /api/assignments/{id}:recompute` — ตัว engine ถูกเรียกโดย `my-score`, รายงานฝั่งอาจารย์ และ `:finalize` |
 
 ## สองข้อยกเว้นที่ตั้งใจให้เป็นแบบนี้
 
@@ -425,14 +455,14 @@ prompt ที่ใช้: ให้ AI อ่าน story US-01 ถึง US-11
 
 # Issues บน GitHub
 
-สร้างครบแล้วทั้ง 12 ข้อ พร้อม label `user-story`
+สร้างครบแล้วทั้ง 16 ข้อ พร้อม label `user-story`
 👉 https://github.com/STARSTEAM-X/sdpx-arai2/issues
 
 **ไฟล์นี้คือต้นฉบับ** — ถ้าต้องแก้ story ให้แก้ที่นี่ก่อน แล้วค่อยอัปเดต issue ตาม
 เพื่อให้การเปลี่ยนแปลงของ requirement อยู่ใน git diff และ review ได้
 
 **วิธีสร้าง issue จาก story ในไฟล์นี้** — ดึง body จากไฟล์โดยตรง ไม่ copy มือ เนื้อหาสองที่จึงไม่หลุดกัน
-[#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) ถูกสร้างด้วยคำสั่งนี้ เปลี่ยน `US-12` เป็นเลข story อื่นได้ตรง ๆ
+[#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) ถึง [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) ถูกสร้างด้วยคำสั่งนี้ เปลี่ยน `US-12` เป็นเลข story อื่นได้ตรง ๆ
 
 ```bash
 awk '/^## US-12 /{f=1} f && /^---$/{exit} f' docs/backlog.md | gh issue create --title "US-12 — จัดการผู้ร่วมสอนและ TA" --label user-story --milestone "Sprint 2" --body-file -
@@ -488,14 +518,15 @@ domain จริงของมหาวิทยาลัยคือ **kmitl.a
 
 ## Sprint 2 — "อาจารย์เปิดงานประเมินได้"
 
-Milestone: [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) — 4 issues · 22 AC
+Milestone: [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) — 5 issues · 27 AC
 
 | ลำดับ | Story | เหตุผลที่อยู่ลำดับนี้ |
 |---|---|---|
 | 1 | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 จัดการผู้ร่วมสอนและ TA | ต้องมาก่อน US-04 ด้วยเหตุผลเดียวกับที่ US-11 มาก่อน US-03 — US-04 เป็น endpoint แรกที่สิทธิ์ของ CO_TEACHER กับ TA ต่างกันจริง ถ้าทำทีหลังต้องย้อนแก้ทุก endpoint ที่เขียนไปแล้ว |
-| 2 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 สร้าง assignment + criteria | ไม่มี assignment ก็ไม่มีอะไรให้จัดคู่ · เป็นตารางใหม่ชุดสุดท้ายของ M1 |
-| 3 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 feasibility | ต้องมาก่อน publish เพราะหน้าที่ของมันคือกันไม่ให้ publish ค่าที่เป็นไปไม่ได้ |
-| 4 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 publish + จัดคู่ | pairing engine — งานหนักที่สุดของ Sprint นี้ |
+| 2 | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) US-14 audit log | เหตุการณ์แรกที่ PRD บังคับให้บันทึกคือ publish ซึ่งอยู่ Sprint นี้ · audit ที่มาทีหลังมีช่องว่างของ event ที่ผ่านไปแล้วเสมอ และย้อนไปเก็บไม่ได้ |
+| 3 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 สร้าง assignment + criteria | ไม่มี assignment ก็ไม่มีอะไรให้จัดคู่ · เป็นตารางใหม่ชุดสุดท้ายของ M1 |
+| 4 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 feasibility | ต้องมาก่อน publish เพราะหน้าที่ของมันคือกันไม่ให้ publish ค่าที่เป็นไปไม่ได้ |
+| 5 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 publish + จัดคู่ | pairing engine — งานหนักที่สุดของ Sprint นี้ |
 
 **ทำไม US-05 กับ US-06 อยู่ Sprint เดียวกัน**
 
@@ -503,17 +534,17 @@ feasibility คือการคำนวณล่วงหน้าว่า p
 (`P7 individual coverage = m − 2`, `P8 ลด target พร้อมเหตุผลเป็นตัวเลข`)
 แยกคนละ Sprint เท่ากับเขียน coverage สองรอบ หรือทำ fake คั่นกลางแล้วรื้อทิ้ง
 
-**ไม่มี AC ข้อไหนติด blocker** — เริ่มได้ทันที และเป็นช่วงเวลาที่ควรใช้ไปตามคำตอบ
-ของ 3 คำถามด้านบน ซึ่ง Sprint 3 ต้องใช้
+**ไม่มี AC ข้อไหนติด blocker** — เริ่มได้ทันที
 
-### สถานะ ณ 2026-08-23 — เหลือ US-12
+### สถานะ ณ 2026-08-24 — เหลือ US-12 และ US-14
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 | **4/4** | unit `test_assignment_service.py` · E2E `assignments.spec.ts` |
 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 | **2/2** | unit `test_pairing.py::TestGroupFeasibility` · E2E |
 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 | **5/5** | unit `test_pairing.py` 88 ตัว · E2E ตรวจกับข้อมูลใน database จริง |
-| [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 | **0/8** | ยังไม่เริ่ม |
+| [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 | **0/11** | ยังไม่เริ่ม |
+| [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) US-14 | **0/5** | ยังไม่เริ่ม — เพิ่มเข้า Sprint 2 เมื่อ 2026-08-24 |
 
 > **US-12 ถูกเพิ่มเข้า Sprint 2 หลังจาก #4–#6 ทำไปแล้ว** และ AC ข้อหนึ่งของมัน
 > ขัดกับสิ่งที่ #4 ทำไปแล้ว: ตอนนี้ `require_instructor` ให้ OWNER, CO_TEACHER และ TA
@@ -545,24 +576,23 @@ coverage ของแต่ละคู่จึงเท่ากับขน�
 
 ## Sprint 3 — "นักศึกษาประเมินและเห็นคะแนน"
 
-Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) — 4 issues · 17 AC
+Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) — 7 issues · 39 AC
 
 | ลำดับ | Story | เหตุผลที่อยู่ลำดับนี้ |
 |---|---|---|
 | 1 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 รายการที่ต้องประเมิน | ต้องเห็นคู่ก่อนถึงจะประเมินได้ |
 | 2 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 ประเมิน 6 ระดับ + autosave | หน้าจอหลักของนักศึกษา |
 | 3 | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 ส่งคำตอบทั้งชุด | ปิด state machine `DRAFT → SUBMITTED` |
-| 4 | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) US-10 ดูคะแนนตัวเอง | scoring engine อ่านเฉพาะ comparison ที่ `SUBMITTED` (กฎ S2) จึงต้องมาหลัง US-09 |
+| 4 | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) US-16 คำนวณคะแนน | scoring engine อ่านเฉพาะ comparison ที่ `SUBMITTED` (กฎ S2) จึงต้องมาหลัง US-09 · ทั้ง US-10 และ US-13 ใช้ผลของมัน |
+| 5 | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) US-15 ปิดทางรู้ว่าใครประเมินตน | ต้องมาก่อนหน้าจอคะแนน ด้วยเหตุผลเดียวกับที่ US-11 มาก่อน US-03 — กฎก่อนหน้าจอ ไม่ใช่ตามไปอุดทีหลัง |
+| 6 | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) US-10 ดูคะแนนตัวเอง | หน้าจอที่อ่านผลจาก US-16 ภายใต้กฎของ US-15 |
+| 7 | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) US-13 finalize คะแนน | ปิด M1 — ทำให้สถานะ `FINALIZED` ที่ US-10 รออยู่เกิดขึ้นจริง |
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-**ติด blocker ทั้ง 3 คำถาม** ต้องได้คำตอบ **ก่อนเริ่ม Sprint นี้** ไม่ใช่ระหว่างทาง:
-
-| คำถาม | กระทบ story |
-|---|---|
-| หลัง submit แก้คำตอบได้ไหม ถึงเมื่อไร | US-08, US-09 |
-| k-anonymity threshold ใช้เลขเท่าไร | US-10 |
-| ไม่ประเมินเลย หักคะแนนไหม เท่าไร | US-10 |
+**ไม่ติด blocker แล้ว** — คำถามสามข้อที่เคยกัน Sprint นี้ไว้ PRD ตอบไว้ครบ
+(FR-EVAL-06, FR-ANON-02, §9.4) รายละเอียดอยู่หัวข้อ "คำถามที่เคยค้าง" ด้านบน
+เหลือ OQ-2 ข้อเดียวซึ่งเป็นนโยบายวิชาและมี default ให้ใช้ได้ทันที
 
 **ของหนักจริง:** `memory-bank/units/scoring-engine/unit-brief.md` กฎ S1–S10
 ตัววัดที่ดีที่สุดคือ `S10 golden test` — ต้องได้ตัวเลขตรงเป๊ะกับ worked example ใน PRD §9.5
