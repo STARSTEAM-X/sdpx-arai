@@ -1,0 +1,28 @@
+# Local development database
+#
+# ตอนนี้มีแค่ Postgres — WS-05 จะเพิ่ม service ของ frontend และ backend เข้ามา
+# ให้ยกทั้งระบบขึ้นได้ด้วยคำสั่งเดียว
+#
+#   docker compose up -d db
+#   cd backend && ./.venv/Scripts/python.exe -m app.migrate
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: paireval-db
+    environment:
+      POSTGRES_USER: paireval
+      POSTGRES_PASSWORD: devpassword # ค่านี้ใช้เฉพาะเครื่อง dev ไม่ใช่ secret จริง
+      POSTGRES_DB: paireval
+    ports:
+      - "5433:5432" # 5433 กัน port ชนกับ Postgres ที่อาจติดตั้งบนเครื่องอยู่แล้ว
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paireval -d paireval"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - paireval-db-data:/var/lib/postgresql/data
+
+volumes:
+  paireval-db-data:

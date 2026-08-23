@@ -2,3 +2,12 @@
 # version ที่ระบุคือค่าที่ resolve ได้จริงตอน WS-01 (2026-08-23)
 fastapi~=0.141.1
 uvicorn[standard]~=0.52.4
+
+# database — เขียน SQL ตรง ๆ ไม่ใช้ ORM
+psycopg[binary,pool]~=3.3.4
+
+# session token
+pyjwt[crypto]~=2.13.0
+
+# pydantic EmailStr ต้องใช้
+email-validator~=2.2.0

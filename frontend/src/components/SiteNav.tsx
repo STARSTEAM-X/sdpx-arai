@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import { LogoMark } from './icons'
 
 const LINKS = [
@@ -38,12 +40,12 @@ export function SiteNav() {
           >
             เข้าสู่ระบบ
           </a>
-          <a
-            href="#login"
+          <Link
+            to="/classrooms"
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
           >
             เริ่มต้นใช้งาน
-          </a>
+          </Link>
         </div>
       </nav>
     </header>

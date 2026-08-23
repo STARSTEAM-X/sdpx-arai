@@ -1,6 +1,6 @@
 """config ทั้งหมดของ backend อ่านจาก environment variable ที่เดียว
 
-ตั้งใจใช้ os.getenv ตรง ๆ ไม่ใช้ library เพิ่ม เพราะตอนนี้มีค่าแค่ 2 ตัว
+ตั้งใจใช้ os.getenv ตรง ๆ ไม่ใช้ library เพิ่ม เพราะจำนวนค่ายังน้อย
 ถ้า config โตจนคุมยาก ค่อยย้ายไป pydantic-settings แล้วบันทึกเป็น ADR (WS-08)
 """
 
@@ -19,3 +19,42 @@ CORS_ORIGINS: list[str] = _split_csv(os.getenv("CORS_ORIGINS", "http://localhost
 # Render ใส่ RENDER_GIT_COMMIT ให้อัตโนมัติ — ใช้เป็น version เพื่อดูว่า commit ไหนขึ้นอยู่
 # ค่านี้คือสิ่งที่ทำให้วัด commit-to-live time ได้แม่นยำ ไม่ต้องเดาจากข้อความบนหน้าเว็บ
 APP_VERSION: str = os.getenv("RENDER_GIT_COMMIT", "dev")[:7]
+
+# ---------------------------------------------------------------------------
+# ตัวควบคุมความปลอดภัยที่สำคัญที่สุดในไฟล์นี้
+#
+# endpoint สำหรับ test (seed / cleanup / test-session) จะเปิดก็ต่อเมื่อค่านี้
+# **ไม่ใช่** "production" เท่านั้น — ค่า default เป็น production โดยตั้งใจ
+# เพื่อให้การลืมตั้ง env กลายเป็นการ "ปิด" ไม่ใช่ "เปิด"
+# ---------------------------------------------------------------------------
+ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").strip().lower()
+
+IS_PRODUCTION: bool = ENVIRONMENT == "production"
+
+DATABASE_URL: str = os.getenv(
+    "DATABASE_URL", "postgresql://paireval:devpassword@localhost:5433/paireval"
+)
+
+# ใช้เซ็นและตรวจ session token
+#
+# HS256 ต้องการ key อย่างน้อย 32 bytes ตาม RFC 7518 §3.2 — สั้นกว่านั้นเดาได้ง่ายขึ้นมาก
+# PyJWT เตือนเป็น InsecureKeyLengthWarning แต่ warning ที่ไม่มีใครอ่านคือ warning ที่ไร้ผล
+# จึงบังคับตรวจตรงนี้แทน
+MIN_SESSION_SECRET_BYTES = 32
+
+SESSION_SECRET: str = os.getenv(
+    "SESSION_SECRET", "dev-only-secret-not-for-production-use-32b"
+)
+
+if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
+    raise RuntimeError(
+        f"SESSION_SECRET สั้นเกินไป ({len(SESSION_SECRET.encode())} bytes) "
+        f"ต้องยาวอย่างน้อย {MIN_SESSION_SECRET_BYTES} bytes ตาม RFC 7518 §3.2 · "
+        "สร้างค่าใหม่ด้วย: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
+
+SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "12"))  # FR-AUTH-04
+
+# OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
+# ว่างไว้ได้ในเฟสที่ยังไม่ต่อ Google จริง (E2E ใช้ test-session แทน)
+GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")

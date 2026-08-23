@@ -14,6 +14,12 @@ services:
     branch: develop # auto-deploy ทุก push เข้า develop (เป็น default ของ Render)
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
+    # SPA routing: path อย่าง /classrooms ไม่มีไฟล์จริงบน disk
+    # ถ้าไม่ rewrite กลับไป index.html การกด refresh บนหน้านั้นจะได้ 404
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       # URL ของ backend — กรอกหลัง paireval-api ขึ้นแล้ว
       # เป็น build-time env ของ Vite: แก้ค่าแล้วต้อง redeploy ถึงจะมีผล
@@ -36,6 +42,18 @@ services:
       # origin ของ paireval-web — กรอกหลัง static site ขึ้นแล้ว
       - key: CORS_ORIGINS
         sync: false
+
+      # ★ ตัวควบคุมความปลอดภัยที่สำคัญที่สุด
+      # ถ้าไม่ใช่ "production" endpoint สำหรับ test (seed / cleanup / session)
+      # จะถูกลงทะเบียนขึ้นมา ซึ่งแปลว่าใครก็ล้าง database และปลอมเป็นใครก็ได้
+      # ห้ามเปลี่ยนค่านี้บน service ที่เข้าถึงได้จาก internet
+      - key: ENVIRONMENT
+        value: production
+
+      # ใช้เซ็น session token — ต้องยาวอย่างน้อย 32 bytes (RFC 7518 §3.2)
+      # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง
+      - key: SESSION_SECRET
+        generateValue: true
 # ---------- Database ----------
 # ยังไม่สร้างใน WS-01 โดยตั้งใจ:
 # Render free Postgres หมดอายุใน 30 วัน และ WS-01/WS-02 ยังไม่ใช้ DB เลย
