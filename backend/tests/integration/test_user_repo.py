@@ -6,10 +6,12 @@
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from psycopg import Connection
 
+from app.domain.models import Classroom, MemberRole
 from app.google_oidc import GoogleIdentity
 from app.repositories.pg_user_repo import PgUserRepository
 
@@ -92,3 +94,59 @@ class TestUpsertFromGoogle:
         user = repo.upsert_from_google(identity(email, name=None))
 
         assert user.display_name == "ชื่อเดิม"
+
+
+class TestRosterMatching:
+    """AC ข้อ 3 ของ US-01 — เส้นทางที่ทำให้ roster กับ login เชื่อมถึงกัน
+
+    ทดสอบทั้งเส้นจริงตั้งแต่ CSV จนถึง login เพราะจุดที่พังได้คือ *รอยต่อ*:
+    ถ้าฝั่ง import กับฝั่ง login normalize ไม่เหมือนกันแม้นิดเดียว
+    นักศึกษาจะ login แล้วได้บัญชีใหม่ที่ไม่อยู่ในห้องเรียน โดยไม่มี error ให้เห็น
+    """
+
+    def test_AC_อีเมลใน_roster_ต่างรูปแบบกับตอน_login_แต่จับคู่กันได้(
+        self, db: Connection
+    ):
+        from app.domain.roster_import import parse_roster_csv
+        from app.repositories.pg_classroom_repo import PgClassroomRepository
+
+        suffix = uuid.uuid4().hex[:8]
+        ajarn = f"ajarn-{suffix}@kmitl.ac.th"
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_user (id, email_normalized, email_raw, status)
+                VALUES (%s, %s, %s, 'ACTIVE')
+                """,
+                (str(uuid.uuid4()), ajarn, ajarn),
+            )
+
+        repo = PgClassroomRepository(db)
+        classroom = Classroom(
+            id=str(uuid.uuid4()),
+            name=f"ห้อง {suffix}",
+            slug=f"match-{suffix}",
+            timezone="Asia/Bangkok",
+            created_by=ajarn,
+            created_at=datetime.now(UTC),
+        )
+        repo.save(classroom)
+
+        # อาจารย์ import ไฟล์ที่อีเมลมีทั้งตัวพิมพ์ใหญ่และ +tag
+        csv = f"email,group_name\nSomchai.A+x@kmitl.ac.th,g1\nsomsri-{suffix}@kmitl.ac.th,g1\n"
+        parsed = parse_roster_csv(csv.encode("utf-8"))
+        repo.replace_roster(classroom.id, parsed.rows)
+
+        # นักศึกษา login ด้วยอีเมลจริงของตัวเอง — ไม่มีตัวพิมพ์ใหญ่ ไม่มี +tag
+        user = PgUserRepository(db).upsert_from_google(identity("somchai.a@kmitl.ac.th"))
+
+        # ต้องเป็นบัญชีเดียวกับที่ roster สร้างไว้ ไม่ใช่บัญชีใหม่
+        assert user.status == "ACTIVE", "roster สร้างไว้เป็น PENDING การ login ต้องเปลี่ยนเป็น ACTIVE"
+        assert repo.get_member_role(classroom.id, user.email_normalized) is MemberRole.STUDENT
+
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) AS n FROM app_user WHERE email_normalized LIKE %s",
+                ("somchai.a@kmitl.ac.th",),
+            )
+            assert cur.fetchone()["n"] == 1, "ต้องไม่เกิดบัญชีซ้ำจากการ login"

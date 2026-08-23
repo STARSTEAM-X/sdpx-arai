@@ -109,7 +109,7 @@ pytest -m integration   # เฉพาะที่ต้องมี Postgres
 
 | ไฟล์ | ปกป้องอะไร |
 |---|---|
-| `test_user_repo.py` | PENDING → ACTIVE ตอน login · google_sub ถูกผูก · **บัญชีที่ถูกระงับต้องไม่ถูกปลุกคืน** |
+| `test_user_repo.py` | PENDING → ACTIVE ตอน login · google_sub ถูกผูก · **บัญชีที่ถูกระงับต้องไม่ถูกปลุกคืน** · **AC ข้อ 3 ของ US-01**: อีเมลใน roster ต่างรูปแบบกับตอน login แต่ต้องเป็นบัญชีเดียวกัน (เดินทั้งเส้น CSV → roster → login) |
 | `test_classroom_repo.py` | `get_member_role` คืน None ทั้งกรณีไม่มีห้องและไม่ใช่สมาชิก · `replace_roster` เป็น replace จริง · ลำดับของ `list_roster` คงที่ |
 
 ---

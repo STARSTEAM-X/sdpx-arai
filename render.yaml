@@ -77,8 +77,11 @@ services:
       - key: GOOGLE_CLIENT_ID
         value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
 
-      # จำกัด domain อีเมลที่เข้าระบบได้ — ว่าง = รับทุก domain
-      # ตั้งค่าจริงเมื่อรู้ว่ามหาวิทยาลัยใช้ domain อะไร (FR-AUTH-02)
+      # จำกัด domain อีเมลที่เข้าระบบได้ — ว่าง = รับทุก domain (FR-AUTH-02)
+      #
+      # ค่าที่ต้องใช้ตอนส่งมอบจริงคือ kmitl.ac.th
+      # ยังปล่อยว่างไว้เพราะทันทีที่ตั้ง บัญชีนอก domain จะ login ไม่ได้ทั้งหมด
+      # รวมถึงบัญชีที่ทีมใช้ทดสอบ production อยู่ — ตั้งใน dashboard เมื่อพร้อม
       - key: ALLOWED_EMAIL_DOMAINS
         sync: false
 

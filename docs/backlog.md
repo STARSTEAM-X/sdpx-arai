@@ -37,7 +37,7 @@
 
 - Given ผู้ใช้ยังไม่ login, When เปิดหน้าที่ต้องใช้สิทธิ์, Then ระบบพาไปหน้า Google consent
 - Given อีเมลอยู่นอก domain ที่ classroom อนุญาต, When login สำเร็จกับ Google, Then ระบบปฏิเสธพร้อมข้อความบอกว่า domain ไหนที่รับ
-- Given roster มีอีเมล `Somchai.A+x@uni.ac.th`, When login ด้วย `somchaia@uni.ac.th`, Then จับคู่กับ roster ได้สำเร็จ
+- Given roster มีอีเมล `Somchai.A+x@kmitl.ac.th`, When login ด้วย `somchai.a@kmitl.ac.th`, Then จับคู่กับ roster ได้สำเร็จ
 - Given ผู้ใช้ login สำเร็จครั้งแรก, When ระบบพบ user สถานะ `PENDING`, Then เปลี่ยนเป็น `ACTIVE` และบันทึก `google_sub`
 
 ---
@@ -322,17 +322,23 @@ US-04 ถึง US-10 ([#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4)�
 | [#2](https://github.com/STARSTEAM-X/sdpx-arai2/issues/2) US-02 สร้างห้องเรียน | **3/3** | unit `test_classroom_service.py` · E2E `classrooms.spec.ts` |
 | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) US-11 กันเข้าถึงข้ามห้อง | **3/3** | unit `test_access.py` · E2E `roster.spec.ts` |
 | [#3](https://github.com/STARSTEAM-X/sdpx-arai2/issues/3) US-03 import CSV | **4/4** | unit `test_roster_service.py` · integration `test_classroom_repo.py` · E2E `roster.spec.ts` |
-| [#1](https://github.com/STARSTEAM-X/sdpx-arai2/issues/1) US-01 login | **3/4** | integration `test_user_repo.py` · E2E `classrooms.spec.ts` |
+| [#1](https://github.com/STARSTEAM-X/sdpx-arai2/issues/1) US-01 login | **4/4** | integration `test_user_repo.py` · E2E `classrooms.spec.ts` |
 
-**AC ที่ยังปิดไม่ได้ และเหตุผล** — US-01 ข้อ 3:
-roster มี `Somchai.A+x@uni.ac.th` แล้ว login ด้วย `somchaia@uni.ac.th` ต้องจับคู่สำเร็จ
+**บันทึกการตัดสินใจ — AC ข้อ 3 ของ US-01 ถูกแก้เมื่อ 2026-08-23**
 
-AC ข้อนี้ขัดกับตัวกฎของ FR-AUTH-03 เอง (ตัดจุด "ใน gmail" เท่านั้น) — `uni.ac.th` ไม่ใช่ gmail
-สองข้อเป็นจริงพร้อมกันไม่ได้ ตอนนี้ระบบทำตาม *ตัวกฎ* และรองรับอีกทางไว้แล้วผ่าน
-`normalize_email(dot_insensitive_domains=...)` เปลี่ยนเป็นตัดจุดทุก domain ได้ทันทีที่ตัดสินใจ
+ตัวอย่างเดิมเขียนว่า roster มี `Somchai.A+x@uni.ac.th` แล้ว login ด้วย `somchaia@uni.ac.th`
+ซึ่ง**ขัดกับตัวกฎของ FR-AUTH-03 เอง** — กฎระบุว่าตัดจุดเฉพาะ gmail แต่ตัวอย่างใช้ domain
+มหาวิทยาลัย การจะทำให้ตัวอย่างนั้นผ่านต้องตัดจุดทุก domain ซึ่งขัดกฎ
 
-ยังต้องการคำตอบจาก product owner — เป็นคำถามข้อ 4 ในหัวข้อด้านบน
-เหตุผลที่เลือก default ฝั่งนี้อยู่ใน `backend/app/domain/email.py`
+domain จริงของมหาวิทยาลัยคือ **kmitl.ac.th** ซึ่งไม่ใช่ `gmail.com` — บัญชี Google Workspace
+ต่างจาก Gmail ตรงที่จุดเป็นตัวอักษรจริง `somchai.a@` กับ `somchaia@` จึงเป็นคนละคน
+การรวมสองอันนี้เป็นคนเดียวกันจะทำให้คะแนนไปโผล่ผิดคน และแก้ย้อนหลังไม่ได้เมื่อประกาศไปแล้ว
+
+จึงเลือก **แก้ตัวอย่างใน AC ให้ตรงกับกฎ** แทนการเปลี่ยนกฎให้ตรงกับตัวอย่าง
+ตัวอย่างใหม่ยังทดสอบเรื่องเดิมครบ (ตัวพิมพ์ใหญ่-เล็ก + การตัด `+tag`) โดยไม่พึ่งการตัดจุด
+
+`normalize_email(dot_insensitive_domains=...)` ยังรองรับอีกทางไว้ ถ้าวันหนึ่งพบว่า
+ระบบเมลของมหาวิทยาลัยละเลยจุดจริง เปลี่ยนได้ที่จุดเดียวโดยไม่ต้องแก้ผู้เรียก
 
 > **ยังไม่ได้ตั้ง due date** ของ Sprint 1 เพราะยังไม่รู้ว่ากลุ่มกำหนดความยาว sprint ไว้กี่สัปดาห์
 > ตั้งเพิ่มได้ที่หน้า milestone หรือสั่ง `gh api repos/:owner/:repo/milestones/1 -X PATCH -f due_on=YYYY-MM-DDT00:00:00Z`
