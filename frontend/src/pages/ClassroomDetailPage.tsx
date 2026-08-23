@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { AssignmentPanel } from '../components/AssignmentPanel'
 import { LogoMark } from '../components/icons'
 import {
   ApiError,
@@ -237,6 +238,9 @@ export default function ClassroomDetailPage() {
             </p>
           )}
         </section>
+
+        {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
+        {canImport && <AssignmentPanel classroomId={classroomId} />}
       </main>
     </div>
   )

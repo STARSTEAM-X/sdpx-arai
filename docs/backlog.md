@@ -248,6 +248,100 @@
 
 ---
 
+## US-13 — อาจารย์ตัดสินและประกาศคะแนน
+
+`user-story` · Sprint 3 · อ้าง FR-SCORE-05, FR-SCORE-07, FR-SCORE-08, FR-SCORE-09, FR-AUDIT-01
+
+**As an** อาจารย์เจ้าของห้องเรียน
+**I want to** ตรวจคะแนนที่ระบบคำนวณ แก้เป็นรายกรณีพร้อมเหตุผล แล้วกดประกาศผล
+**So that** คะแนนที่นักศึกษาเห็นคือคะแนนที่ฉันรับผิดชอบ ไม่ใช่ตัวเลขที่เครื่องตัดสินเอง
+
+**Acceptance Criteria**
+
+- Given assignment สถานะ `PUBLISHED` ที่ deadline ผ่านแล้ว, When กด finalize, Then สถานะเป็น `FINALIZED` และระบบ snapshot ทั้ง input และ output ของการคำนวณไว้ — อ่านย้อนหลังได้แม้สูตรจะเปลี่ยนไปแล้ว
+- Given มี item ที่ติด flag `LOW_CONFIDENCE` (comparison < `min_comparisons` default 3), When กด finalize, Then ระบบ**ไม่** finalize ให้อัตโนมัติ ต้องให้อาจารย์ยืนยันรายตัวก่อน
+- Given ฉัน override คะแนนของกลุ่มหรือของคน, When ไม่กรอกเหตุผล, Then ตอบ 422 — เหตุผลเป็น field บังคับ ไม่ใช่ช่องให้เปล่าได้
+- Given override สำเร็จ, When เปิด audit log, Then มี record ที่บอก actor, ค่าก่อน, ค่าหลัง, เหตุผล และเวลาเป็น UTC
+- Given คะแนนที่ยังไม่ finalize, When แสดงที่ใดก็ตามทั้งฝั่งอาจารย์และนักศึกษา, Then ต้องมี label "ชั่วคราว — อาจเปลี่ยนแปลงได้" กำกับเสมอ
+- Given assignment `FINALIZED` แล้ว, When กด reopen, Then บันทึก audit และคะแนนกลับเป็นชั่วคราวจนกว่าจะ finalize ใหม่
+- Given ฉันเป็น `CO_TEACHER`, When กด finalize, Then ตอบ 403 — การตัดสินคะแนนสุดท้ายเป็นของ `OWNER` เท่านั้น (คู่กับ US-12)
+
+> story นี้คือช่องว่างที่ทำให้ M1 ปิดไม่ได้ — US-10 เริ่มด้วย "Given assignment สถานะ `FINALIZED`"
+> แต่ก่อนหน้านี้ไม่มี story ไหนทำให้สถานะนั้นเกิดขึ้นเลย
+
+---
+
+## US-14 — บันทึก audit ของทุกการกระทำที่ย้อนกลับไม่ได้
+
+`user-story` · Sprint 2 · อ้าง FR-AUDIT-01, FR-AUDIT-02, FR-AUDIT-03
+
+**As a** ผู้ดูแลระบบและอาจารย์ผู้รับผิดชอบคะแนน
+**I want to** ให้ทุกการกระทำที่กระทบคะแนนหรือความเป็นส่วนตัวถูกบันทึกไว้แบบลบไม่ได้
+**So that** เมื่อมีคนถามว่า "ทำไมคะแนนเปลี่ยน" หรือ "ใครเปิดดูข้อมูลนี้" ตอบได้ด้วยหลักฐาน ไม่ใช่ความจำ
+
+**Acceptance Criteria**
+
+- Given เกิดเหตุการณ์ publish, unpublish, pair regeneration, score override, finalize, reopen, export ที่มี identity, การเข้าถึง evaluator identity หรือการเปลี่ยน role, When เหตุการณ์นั้นสำเร็จ, Then มี audit record ทุกครั้งโดยไม่มีข้อยกเว้น
+- Given audit record หนึ่ง, When อ่าน, Then มีครบ: actor, action, resource, ค่าก่อน/หลัง, timestamp เป็น UTC, IP และ reason สำหรับ action ที่บังคับเหตุผล
+- Given มีคนพยายามลบหรือแก้ audit record, When ค้นทุก endpoint ที่มี, Then ไม่มีทางทำได้ — append-only ทั้งชั้น API และสิทธิ์ระดับ database
+- Given action สำเร็จแต่การเขียน audit ล้มเหลว, When จบ transaction, Then ต้อง rollback ทั้งคู่ — ห้ามมี action ที่สำเร็จโดยไม่มีร่องรอย
+- Given ฉันเป็นนักศึกษา, When ขอดู audit log, Then ตอบ 403
+
+> **ทำไมอยู่ Sprint 2 ไม่ใช่ Sprint 3** — เหตุการณ์แรกที่ต้องบันทึกคือ publish ซึ่งคือ US-06 ใน Sprint นี้
+> audit ที่มาทีหลังจะมีช่องว่างของ event ที่ผ่านไปแล้วเสมอ และย้อนไปเก็บไม่ได้
+>
+> PRD §19 จัดให้อยู่กลุ่ม **ห้ามตัด** ร่วมกับ FR-ANON-01 และ FR-AUTHZ-01/02
+> ด้วยเหตุผลเดียวกัน: พลาดแล้วแก้ทีหลังไม่ได้
+
+---
+
+## US-15 — ปิดทุกทางที่นักศึกษาจะรู้ว่าใครประเมินตน
+
+`user-story` · Sprint 3 · อ้าง FR-ANON-01, FR-ANON-02, FR-ANON-03, FR-ANON-04, FR-ANON-05, FR-EXPORT-03, FR-EXPORT-04
+
+**As a** นักศึกษา
+**I want to** มั่นใจว่าไม่มีใครสืบได้ว่าฉันให้คะแนนใครไว้อย่างไร
+**So that** ประเมินตามที่เห็นจริงได้ โดยไม่ต้องกลัวผลกระทบกับเพื่อน
+
+**Acceptance Criteria**
+
+- Given ฉันเป็นนักศึกษา, When เรียกทุก endpoint ที่คืนคะแนนหรือ comparison ที่เกี่ยวกับตัวเอง, Then ไม่มี field ใดระบุตัวผู้ประเมินได้ ไม่ว่าเป็น id, อีเมล หรือค่าที่ join กลับไปหาคนได้
+- Given ผู้ประเมินที่ submit แล้วยังน้อยกว่า `k_min` (default 3), When ดูคะแนนรายบุคคลของตัวเอง, Then แสดงว่า "ยังมีข้อมูลไม่พอ" ไม่ใช่ตัวเลขคะแนน
+- Given ฉันเปิดหน้าคะแนนวันนี้เทียบกับเมื่อวาน, When ดู, Then ระบบไม่แสดง delta, กราฟย้อนหลัง หรือเวลาที่ค่าเปลี่ยน — เห็นค่าก่อน/หลังเมื่อไร ก็อนุมานได้ว่าใครเพิ่งส่ง
+- Given กลุ่มขนาด `m = 3`, When อาจารย์จะเปิด individual evaluation, Then ระบบเตือนว่า anonymity ในทางปฏิบัติต่ำมาก และให้เลือกปิดฝั่ง individual ได้
+- Given อาจารย์เปิดดู evaluator identity หรือ export ที่มี identity, When ทำสำเร็จ, Then ต้องเป็น `OWNER` เท่านั้น ต้องยืนยันเจตนา และมี audit record ทุกครั้ง
+- Given export แบบ default, When เปิดไฟล์, Then evaluator แสดงเป็น pseudonymous id ไม่ใช่ตัวตนจริง
+
+> cross-cutting เหมือน US-11 — ไม่มี endpoint ของตัวเอง แต่เป็นข้อบังคับของทุก endpoint และทุก export
+> วิธีพิสูจน์คือ integration test **เชิงลบ**: ยิงทุก endpoint ในฐานะนักศึกษาแล้วต้องไม่เจอ identity เลย
+> ไม่ใช่การอ่านโค้ดแล้วเชื่อว่าไม่มี
+
+---
+
+## US-16 — คำนวณคะแนนจากผลเปรียบเทียบ
+
+`user-story` · Sprint 3 · อ้าง FR-SCORE-01, FR-SCORE-02, FR-SCORE-03, FR-SCORE-04, FR-SCORE-06, FR-SCORE-10, FR-EVAL-09
+
+**As an** อาจารย์และนักศึกษา
+**I want to** ให้ระบบแปลงผลเปรียบเทียบทั้งหมดเป็นคะแนนด้วยสูตรที่อธิบายได้และคำนวณซ้ำได้ผลเดิม
+**So that** คะแนนที่ประกาศออกไปตรวจสอบย้อนหลังได้ ไม่ใช่กล่องดำ
+
+**Acceptance Criteria**
+
+- Given comparison ที่สถานะ `SUBMITTED` ของ item หนึ่ง, When คำนวณ quality index, Then ได้ weighted mean ตาม PRD §9.2 และค่าอยู่ในช่วง [0, 1]
+- Given มี comparison สถานะ `DRAFT` หรือ `EXCLUDED` ปนอยู่, When คำนวณ, Then ผลลัพธ์ไม่เปลี่ยน — draft ที่ไม่เคย submit ห้ามเข้าสู่การคำนวณ
+- Given quality index ค่าหนึ่ง, When map เป็นคะแนน, Then ใช้ band mapping `floor + (ceiling − floor) × q` (default 0.60 → 1.00 ตั้งค่าได้ต่อ assignment) **ไม่ใช่** normalize ให้ผลรวมเป็น 1
+- Given `instructor_weight = 2.5`, When คำนวณ, Then จำนวน comparison ต้องไม่เปลี่ยน แต่ค่าเฉลี่ยต้องขยับ — เป็นน้ำหนักใน weighted mean ไม่ใช่การนับ vote ซ้ำ
+- Given นักศึกษาที่งานดีแต่ไม่ประเมินเพื่อนเลย, When คำนวณ, Then `score_ratio` ยังสูงตามคุณภาพงาน ส่วน participation multiplier ต่ำ — สองค่านี้แยกกันเด็ดขาด
+- Given item ที่มี comparison น้อยกว่า `min_comparisons`, When คำนวณ, Then ติด flag `LOW_CONFIDENCE` ไปกับผลลัพธ์
+- Given input ชุดเดิม, When รันซ้ำ, Then ได้ผลตรงกันทุกหลักทศนิยม และค่าถูกเก็บเป็น `numeric` ไม่ใช่ `float`
+- Given worked example ใน PRD §9.5, When รันผ่าน engine, Then ได้ตัวเลขตรงเป๊ะทุกช่อง
+
+> กฎ S1–S10 และ test ที่ต้องเขียนคู่กัน อยู่ใน `memory-bank/units/scoring-engine/unit-brief.md` แล้ว
+> ขาดแค่ story ที่ถือมัน — US-10 เป็นเพียงหน้าจอที่**อ่าน**ผลลัพธ์ ไม่ใช่ตัวที่คำนวณ
+
+---
+
 # ผลการใช้ AI หา Edge Case
 
 prompt ที่ใช้: ให้ AI อ่าน story US-01 ถึง US-11 ข้างบน แล้วถามหา edge case, error scenario
@@ -411,6 +505,38 @@ feasibility คือการคำนวณล่วงหน้าว่า p
 
 **ไม่มี AC ข้อไหนติด blocker** — เริ่มได้ทันที และเป็นช่วงเวลาที่ควรใช้ไปตามคำตอบ
 ของ 3 คำถามด้านบน ซึ่ง Sprint 3 ต้องใช้
+
+### สถานะ ณ 2026-08-23 — เหลือ US-12
+
+| Story | AC | หลักฐาน |
+|---|---|---|
+| [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 | **4/4** | unit `test_assignment_service.py` · E2E `assignments.spec.ts` |
+| [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 | **2/2** | unit `test_pairing.py::TestGroupFeasibility` · E2E |
+| [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 | **5/5** | unit `test_pairing.py` 88 ตัว · E2E ตรวจกับข้อมูลใน database จริง |
+| [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 | **0/8** | ยังไม่เริ่ม |
+
+> **US-12 ถูกเพิ่มเข้า Sprint 2 หลังจาก #4–#6 ทำไปแล้ว** และ AC ข้อหนึ่งของมัน
+> ขัดกับสิ่งที่ #4 ทำไปแล้ว: ตอนนี้ `require_instructor` ให้ OWNER, CO_TEACHER และ TA
+> สร้าง assignment ได้เท่ากัน แต่ US-12 ระบุว่า **TA ต้องได้ 403** เมื่อสร้างหรือแก้ assignment
+> ต้องแยก role ให้ละเอียดขึ้นตอนทำ US-12 และแก้ `app/domain/access.py` ย้อนหลัง
+
+**สิ่งที่พบระหว่างทาง — pseudocode ใน PRD §8.4 ให้ผลไม่สมดุล**
+
+วิธีที่ PRD เขียนไว้ (ไล่ทีละ evaluator ให้แต่ละคนหยิบคู่ที่ขาดที่สุด) ให้ coverage
+ต่างกัน 2 ในเคสที่มีคำตอบสมดุลอยู่จริง เช่น 5 กลุ่ม กลุ่มละ 4 คน — งาน 60 ชิ้น
+ลงได้พอดี 6 ต่อคู่ แต่ได้ 7 กับ 5 เพราะคนท้าย ๆ เหลือทางเลือกน้อยแล้ว
+
+เปลี่ยนเป็นป้อนคู่ที่ขาดที่สุดก่อน แล้วเพิ่ม repair pass ที่ย้าย evaluator
+จากคู่ที่ล้นไปคู่ที่ขาด (ทั้งย้ายตรงและย้ายผ่านคู่กลาง) — วัดแล้ว **1140 ครั้ง
+จาก 19 รูปทรงห้องเรียน สมดุลทุกครั้ง** ถ้ายังไม่สมดุลจะ raise พร้อมตัวเลข
+ไม่บันทึกข้อมูลที่ผิดกฎ FR-PAIR-06 ลง database
+
+**สิ่งที่พบเพิ่ม — 3 กลุ่มขนาดต่างกันทำ P3 ไม่ได้เลย**
+
+เมื่อมี 3 กลุ่ม ข้อจำกัด (1) บังคับให้ k = 1 และแต่ละกลุ่มประเมินได้เพียงคู่เดียว
+coverage ของแต่ละคู่จึงเท่ากับขนาดกลุ่มที่ประเมิน — ต่างกันเกิน 1 เมื่อไร
+กฎ P3 เป็นไปไม่ได้ทางคณิตศาสตร์ feasibility จึงปฏิเสธตั้งแต่ต้นพร้อมอธิบายเป็นตัวเลข
+แทนที่จะปล่อยให้ไปพังตอน publish
 
 **ของหนักจริง:** `memory-bank/units/pairing-engine/unit-brief.md` กฎ P1–P10
 ข้อที่ยากกว่าที่เห็นคือ `P3 ส่วนต่าง coverage ระหว่าง pair ใด ๆ ≤ 1` ซึ่งเป็นปัญหาจัดสรร

@@ -399,3 +399,75 @@ test.describe('US-06 เผยแพร่งานแล้วระบบจ�
     expect((await res.json()).error.message).toMatch(/กลุ่ม|รายชื่อ/)
   })
 })
+
+test.describe('เส้นทางที่อาจารย์กดเองบนหน้าเว็บ', () => {
+  test('import รายชื่อ → สร้างงาน → ตรวจความเป็นไปได้ → เผยแพร่', async ({
+    signedInPage,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    const panel = signedInPage.getByTestId('assignment-panel')
+    await expect(panel).toBeVisible()
+
+    await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานกลุ่มปลายภาค')
+    await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+    await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
+
+    await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
+
+    await signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' }).click()
+    // ต้องเห็นทั้งสองฝั่ง เพราะข้อจำกัดคนละเรื่องกัน
+    await expect(signedInPage.getByTestId('feasibility-GROUP')).toBeVisible()
+    await expect(signedInPage.getByTestId('feasibility-INDIVIDUAL')).toBeVisible()
+    await expect(signedInPage.getByTestId('feasibility-GROUP')).toContainText('coverage ที่ขอ 5')
+
+    await signedInPage.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
+
+    await expect(signedInPage.getByTestId('publish-result')).toContainText('สร้างคู่ประเมิน')
+    await expect(signedInPage.getByTestId('assignment-status')).toContainText('PUBLISHED')
+  })
+
+  test('น้ำหนักไม่ครบ 100% แล้วกดเผยแพร่ ต้องเห็นข้อความบอกว่าขาดเท่าไร', async ({
+    signedInPage,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+    await signedInPage.getByLabel('น้ำหนักเกณฑ์ฝั่งกลุ่ม (%)').fill('90')
+    await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
+    await expect(signedInPage.getByTestId('assignment-status')).toBeVisible()
+
+    await signedInPage.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
+
+    await expect(signedInPage.getByTestId('assignment-error')).toContainText('ขาดอีก 10')
+    await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
+  })
+
+  test('นักศึกษาไม่เห็นกล่องสร้างงานประเมิน', async ({
+    page,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const { issueToken } = await import('../fixtures')
+    const studentToken = await issueToken(api, 'stu1@kmitl.ac.th')
+
+    await page.addInitScript(
+      ([key, token]) => window.localStorage.setItem(key, token),
+      ['paireval.session', studentToken] as const,
+    )
+    await page.goto(`/classrooms/${classroomId}`)
+
+    await expect(page.getByTestId('roster-list')).toBeVisible()
+    await expect(page.getByTestId('assignment-panel')).toHaveCount(0)
+  })
+})

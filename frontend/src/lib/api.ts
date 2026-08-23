@@ -213,3 +213,71 @@ export function importRoster(classroomId: string, file: File): Promise<RosterImp
     { method: 'POST', body: form },
   )
 }
+
+// --- Assignment (US-04, US-05, US-06) ---
+
+export type CriterionSide = 'GROUP' | 'INDIVIDUAL'
+
+export type Criterion = {
+  id: string
+  side: CriterionSide
+  name: string
+  weightPct: number
+  displayOrder: number
+}
+
+export type Assignment = {
+  id: string
+  classroomId: string
+  name: string
+  status: 'DRAFT' | 'PUBLISHED' | 'OPEN' | 'CLOSED' | 'FINALIZED' | 'ARCHIVED'
+  groupDeadlineUtc: string
+  individualDeadlineUtc: string | null
+  criteria: Criterion[]
+}
+
+export type Feasibility = {
+  side: CriterionSide
+  requestedCoverage: number
+  achievableCoverage: number
+  workloadPerEvaluator: number
+  totalComparisons: number
+  feasible: boolean
+  reason: string | null
+}
+
+export type PublishResult = {
+  assignmentId: string
+  status: string
+  pairsCreated: number
+  pairingSeed: number
+}
+
+export function createAssignment(input: {
+  classroomId: string
+  name: string
+  groupMaxScore: number
+  individualMaxScore: number
+  groupDeadlineUtc: string
+  targetCoverage: number
+  criteria: { side: CriterionSide; name: string; weightPct: number }[]
+}): Promise<Assignment> {
+  return apiFetch<Assignment>('/api/assignments', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function getFeasibility(assignmentId: string): Promise<{ items: Feasibility[] }> {
+  return apiFetch<{ items: Feasibility[] }>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/feasibility`,
+  )
+}
+
+/** publish แล้วระบบจัดคู่ให้ทั้งหมด — ทำได้ครั้งเดียว ครั้งที่สองจะได้ 409 */
+export function publishAssignment(assignmentId: string): Promise<PublishResult> {
+  return apiFetch<PublishResult>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}:publish`,
+    { method: 'POST' },
+  )
+}
