@@ -8,6 +8,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    headers: {
+      // Google Sign-In เปิด popup แล้วคุยกลับมาด้วย window.postMessage
+      // ค่า default ของเบราว์เซอร์ปิดกั้นการคุยข้าม origin แบบนั้น
+      // same-origin-allow-popups เปิดช่องเฉพาะ popup ที่หน้านี้เปิดเอง
+      // โดยยังกันหน้าอื่นไม่ให้มายุ่งกับ window ของเรา
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
   },
   test: {
     // มองหา test ทุกไฟล์ใน src/ ที่ลงท้ายด้วย .test.ts หรือ .test.tsx

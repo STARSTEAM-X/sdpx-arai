@@ -28,6 +28,40 @@ declare global {
  *  ถ้าเรียกซ้ำจะได้ promise เดิม ไม่ยิงโหลดใหม่ — สำคัญเพราะตอนนี้มีปุ่ม 2 ที่ในเว็บ */
 let gisLoader: Promise<void> | null = null
 
+/* GSI ยอมให้เรียก initialize() ได้ครั้งเดียวต่อการโหลดหน้า
+ * เรียกซ้ำจะขึ้น warning และใช้ instance สุดท้ายเท่านั้น
+ *
+ * React StrictMode ตอน dev จะ mount/unmount ซ้ำหนึ่งรอบ ทำให้ effect รันสองครั้ง
+ * จึงต้องกันด้วยตัวแปรระดับ module ไม่ใช่ระดับ component
+ *
+ * ส่วน callback เก็บไว้ตรงกลาง เพื่อให้ initialize ครั้งเดียว
+ * ยังส่งผลไปยังปุ่มที่กำลังแสดงอยู่ ณ ตอนนั้นได้ถูกตัว
+ *
+ * เก็บสถานะไว้บน window ไม่ใช่ตัวแปรระดับ module เพราะตอน dev
+ * HMR จะโหลดไฟล์นี้ใหม่ทุกครั้งที่แก้ ทำให้ตัวแปรระดับ module ถูกรีเซ็ต
+ * แล้ว initialize() จะถูกเรียกซ้ำทุกครั้งที่เซฟไฟล์ */
+type GisState = {
+  initialized: boolean
+  callback: ((credential: string) => void) | null
+}
+
+function gisState(): GisState {
+  const w = window as unknown as { __paireval_gis?: GisState }
+  w.__paireval_gis ??= { initialized: false, callback: null }
+  return w.__paireval_gis
+}
+
+function ensureInitialized(clientId: string): void {
+  const state = gisState()
+  if (state.initialized || !window.google) return
+
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback: (res) => state.callback?.(res.credential),
+  })
+  state.initialized = true
+}
+
 function loadGis(): Promise<void> {
   if (gisLoader) return gisLoader
 
@@ -88,10 +122,8 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
       .then(() => {
         if (cancelled || !containerRef.current || !window.google) return
 
-        window.google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: (res) => handleCredential(res.credential),
-        })
+        ensureInitialized(CLIENT_ID)
+        gisState().callback = handleCredential
 
         // ล้างของเดิมก่อน render ใหม่ กันปุ่มซ้อนกันตอน React re-mount ใน StrictMode
         containerRef.current.innerHTML = ''
@@ -113,6 +145,9 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
 
     return () => {
       cancelled = true
+      // ปลด callback ตอน unmount ไม่ให้ปุ่มที่หายไปแล้วยังรับผลลัพธ์ได้
+      const state = gisState()
+      if (state.callback === handleCredential) state.callback = null
     }
   }, [handleCredential, theme, width])
 
