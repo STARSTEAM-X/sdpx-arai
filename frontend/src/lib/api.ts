@@ -98,6 +98,32 @@ export function useApiHealth(): HealthState {
   return state
 }
 
+// --- Auth (US-01) ---
+
+export type Me = {
+  userId: string
+  email: string
+  displayName: string | null
+  status: string
+  classrooms: { classroomId: string; classroomName: string; role: string }[]
+}
+
+/** ส่ง id_token ของ Google ให้ backend ตรวจ แล้วรับ session ของระบบเรากลับมา
+ *
+ *  ห้ามใช้ id_token ของ Google เป็น session ตรง ๆ — frontend ตรวจลายเซ็นเองไม่ได้
+ *  และ token ของ Google ไม่ได้ผูกกับสิทธิ์ในระบบเรา
+ */
+export function signInWithGoogle(idToken: string): Promise<{ accessToken: string; user: Me }> {
+  return apiFetch<{ accessToken: string; user: Me }>('/api/auth/session', {
+    method: 'POST',
+    body: JSON.stringify({ idToken }),
+  })
+}
+
+export function getMe(): Promise<Me> {
+  return apiFetch<Me>('/api/me')
+}
+
 // --- Classroom (US-02) ---
 
 export type Classroom = {

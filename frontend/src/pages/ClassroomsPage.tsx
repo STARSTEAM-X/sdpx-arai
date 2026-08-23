@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { ApiError, type Classroom, createClassroom, listClassrooms } from '../lib/api'
-import { isSignedIn } from '../lib/session'
+import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { LogoMark } from '../components/icons'
+import {
+  ApiError,
+  type Classroom,
+  type Me,
+  createClassroom,
+  getMe,
+  listClassrooms,
+} from '../lib/api'
+import { clearToken, isSignedIn } from '../lib/session'
 
 const TIMEZONES = ['Asia/Bangkok', 'Asia/Tokyo', 'UTC']
 
 export default function ClassroomsPage() {
+  const [signedIn, setSignedIn] = useState(isSignedIn)
+  const [me, setMe] = useState<Me | null>(null)
   const [items, setItems] = useState<Classroom[]>([])
   const [name, setName] = useState('')
   const [timezone, setTimezone] = useState(TIMEZONES[0])
@@ -15,18 +25,24 @@ export default function ClassroomsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  const signedIn = isSignedIn()
-
   const refresh = useCallback(async () => {
     if (!signedIn) {
       setLoaded(true)
       return
     }
     try {
-      const { items } = await listClassrooms()
+      const [profile, { items }] = await Promise.all([getMe(), listClassrooms()])
+      setMe(profile)
       setItems(items)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'โหลดรายการห้องเรียนไม่สำเร็จ')
+      // session หมดอายุหรือถูกเพิกถอน — พากลับไปสถานะยังไม่ login แทนที่จะค้างหน้าเปล่า
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken()
+        setSignedIn(false)
+        setMe(null)
+      } else {
+        setError(err instanceof ApiError ? err.message : 'โหลดรายการห้องเรียนไม่สำเร็จ')
+      }
     } finally {
       setLoaded(true)
     }
@@ -35,6 +51,18 @@ export default function ClassroomsPage() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  function handleSignedIn() {
+    setSignedIn(true)
+    setError(null)
+  }
+
+  function handleSignOut() {
+    clearToken()
+    setSignedIn(false)
+    setMe(null)
+    setItems([])
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -66,7 +94,21 @@ export default function ClassroomsPage() {
             <LogoMark className="size-7" />
             PairEval
           </Link>
-          <span className="ml-auto text-sm text-muted">ห้องเรียนของฉัน</span>
+
+          {signedIn && (
+            <div className="ml-auto flex items-center gap-3">
+              <span data-testid="current-user" className="text-sm text-muted">
+                {me?.displayName ?? me?.email ?? 'กำลังโหลด…'}
+              </span>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="rounded-lg border border-line px-3 py-1.5 text-sm transition-colors hover:bg-cream"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+          )}
         </nav>
       </header>
 
@@ -74,12 +116,17 @@ export default function ClassroomsPage() {
         <h1 className="text-3xl font-bold tracking-tight">ห้องเรียนของฉัน</h1>
 
         {!signedIn && (
-          <p
+          <div
             data-testid="signin-required"
-            className="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700"
+            className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-6"
           >
-            ต้องเข้าสู่ระบบก่อนจึงจะสร้างห้องเรียนได้
-          </p>
+            <p className="text-sm text-brand-700">
+              ต้องเข้าสู่ระบบด้วยบัญชีมหาวิทยาลัยก่อนจึงจะสร้างห้องเรียนได้
+            </p>
+            <div className="mt-4">
+              <GoogleSignInButton onSignedIn={handleSignedIn} />
+            </div>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-6 rounded-xl border border-line bg-white p-6">

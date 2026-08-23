@@ -26,6 +26,12 @@ services:
       - key: VITE_API_BASE_URL
         sync: false
 
+      # OAuth Client ID ของ Google — ค่าสาธารณะ ไม่ใช่ secret
+      # มันถูกฝังลง bundle ที่ทุกคนโหลดได้อยู่แล้ว ขอบเขตความปลอดภัยคือ
+      # รายการ Authorized JavaScript origins ที่ตั้งไว้ใน Google Cloud Console
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
   # ---------- Backend: FastAPI ----------
   - type: web
     name: paireval-api
@@ -54,6 +60,16 @@ services:
       # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง
       - key: SESSION_SECRET
         generateValue: true
+
+      # ต้องตรงกับ client id ฝั่ง frontend — ใช้ตรวจ claim `aud` ของ id_token
+      # ถ้าไม่ตรง ระบบจะรับ token ที่ออกให้แอปอื่นเข้ามาได้
+      - key: GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+      # จำกัด domain อีเมลที่เข้าระบบได้ — ว่าง = รับทุก domain
+      # ตั้งค่าจริงเมื่อรู้ว่ามหาวิทยาลัยใช้ domain อะไร (FR-AUTH-02)
+      - key: ALLOWED_EMAIL_DOMAINS
+        sync: false
 # ---------- Database ----------
 # ยังไม่สร้างใน WS-01 โดยตั้งใจ:
 # Render free Postgres หมดอายุใน 30 วัน และ WS-01/WS-02 ยังไม่ใช้ DB เลย

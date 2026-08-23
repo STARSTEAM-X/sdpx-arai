@@ -56,5 +56,17 @@ if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
 SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "12"))  # FR-AUTH-04
 
 # OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
-# ว่างไว้ได้ในเฟสที่ยังไม่ต่อ Google จริง (E2E ใช้ test-session แทน)
-GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+# มันฝังอยู่ในทุกหน้าที่ใช้ Google Sign-In อยู่แล้ว
+# ขอบเขตความปลอดภัยคือรายการ Authorized JavaScript origins ที่ตั้งใน Google Cloud Console
+# ไม่ใช่ความลับของตัว ID
+GOOGLE_CLIENT_ID: str = os.getenv(
+    "GOOGLE_CLIENT_ID",
+    "481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com",
+)
+
+# domain อีเมลที่ยอมให้เข้าระบบ — ว่าง = รับทุก domain (FR-AUTH-02)
+#
+# PRD กำหนดให้ตั้งค่านี้ "ต่อ classroom" แต่ตอน login ระบบยังไม่รู้ว่าผู้ใช้จะเข้า classroom ไหน
+# จึงทำเป็นด่านระดับระบบไว้ก่อน ส่วนการบังคับต่อ classroom จะไปอยู่ที่ชั้นตรวจสมาชิก
+# เมื่อทำ US-03 (roster) เสร็จ
+ALLOWED_EMAIL_DOMAINS: list[str] = _split_csv(os.getenv("ALLOWED_EMAIL_DOMAINS", ""))
