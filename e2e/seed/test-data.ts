@@ -15,3 +15,34 @@ export const testClassroom = {
   expectedSlug: 'e2e-software-engineering',
   timezone: 'Asia/Bangkok',
 } as const
+
+/** CSV ที่ใช้ทดสอบ US-03
+ *
+ *  เขียนเป็นฟังก์ชันแทนค่าคงที่ เพราะ AC ข้อหนึ่งบังคับให้มีไฟล์ 100 แถว
+ *  ที่ผิดเฉพาะแถวที่ 42 — การพิมพ์มือ 100 บรรทัดทำให้อ่าน test ไม่ออก
+ */
+export const rosterCsv = {
+  /** ไฟล์ปกติ 4 คน 2 กลุ่ม กลุ่มละ 2 — ไม่มี warning */
+  valid: ['email,group_name', 'somchai@uni.ac.th,group-1', 'somsri@uni.ac.th,group-1', 'manee@uni.ac.th,group-2', 'mana@uni.ac.th,group-2'].join('\n'),
+
+  /** header ตัวพิมพ์ใหญ่ตาม AC ข้อ 3 — ต้องยอมรับได้ */
+  upperCaseHeader: ['Email,Group_Name', 'wichai@uni.ac.th,group-a', 'wanida@uni.ac.th,group-a'].join('\n'),
+
+  /** กลุ่มที่มีสมาชิกคนเดียวตาม AC ข้อ 4 — สำเร็จแต่ต้องเตือน */
+  loneGroup: ['email,group_name', 'alone@uni.ac.th,group-solo', 'duo1@uni.ac.th,group-duo', 'duo2@uni.ac.th,group-duo'].join('\n'),
+
+  /** 100 แถวที่ผิดเฉพาะแถวที่ 42 ตาม AC ข้อ 2
+   *
+   *  แถวที่ 1 คือ header ดังนั้นแถวที่ 42 ในสายตาคนคือ record ลำดับที่ 41
+   *  เลขที่ error รายงานต้องตรงกับที่คนเห็นใน Excel ไม่ใช่ index ใน array
+   */
+  badRow42(): string {
+    const lines = ['email,group_name']
+    for (let record = 1; record <= 100; record++) {
+      const lineNumber = record + 1
+      const email = lineNumber === 42 ? 'ไม่ใช่อีเมลเลย' : `stu${record}@uni.ac.th`
+      lines.push(`${email},group-${Math.ceil(record / 2)}`)
+    }
+    return lines.join('\n')
+  },
+} as const

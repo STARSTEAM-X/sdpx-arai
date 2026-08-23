@@ -31,8 +31,8 @@
 |---|---|---|
 | WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` ทั้งสองฝั่ง · commit-to-live 42 วิ (ฝั่ง web) |
 | WS-02 Requirements & API Design | ✅ | Backlog 11 stories (ทุกอันมี AC + DoD), architecture + ERD, OpenAPI 13 paths / 14 operations validate ผ่าน, memory-bank |
-| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **86 tests 0.69s** (เพดาน 10 วิ) · fidelity check 5 ครั้ง · coverage backend 72% / frontend 0.4% |
-| WS-04 E2E Testing | ✅ | Journey สร้างห้องเรียนใช้งานได้จริงบน Postgres + API + หน้าเว็บ · **E2E 11 tests · `--repeat-each=3` ได้ 33 passed ไม่ flaky** |
+| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **106 tests 0.65s** (เพดาน 10 วิ) · integration อีก 18 · fidelity check 6 ครั้ง · coverage backend 80% / frontend 0.31% |
+| WS-04 E2E Testing | ✅ | Journey สร้างห้องเรียนและนำเข้ารายชื่อใช้งานได้จริงบน Postgres + API + หน้าเว็บ · **E2E 22 tests · `--repeat-each=3` ได้ 66 passed ไม่ flaky** |
 | WS-05 Docker | ⬜ | |
 | WS-06 CI/CD | ⬜ | |
 | WS-07 Performance | ⬜ | |
@@ -120,11 +120,16 @@ http://127.0.0.1:5173
 ## Test
 
 ```bash
-cd backend && ./.venv/Scripts/python.exe -m pytest    # unit test (ไม่ต้องมี DB)
-cd frontend && npm test                               # unit test
-npm run e2e                                           # E2E (ต้องมี Postgres ขึ้นอยู่)
-npm run e2e:report                                    # เปิด HTML report
+cd backend && ./.venv/Scripts/python.exe -m pytest                 # unit + api (ไม่ต้องมี DB)
+cd backend && ./.venv/Scripts/python.exe -m pytest -m integration  # ต้องมี Postgres
+cd frontend && npm test                                            # unit test
+npm run e2e                                                        # E2E (ต้องมี Postgres ขึ้นอยู่)
+npm run e2e:report                                                 # เปิด HTML report
+npm run lint:api                                                   # validate docs/openapi.yaml
 ```
+
+integration test ถูกตัดออกจาก `pytest` เปล่า ๆ โดยตั้งใจ — ลูปที่ต้องรอ database
+คือลูปที่ไม่มีใครรัน เหตุผลเต็มอยู่ใน [`backend/pytest.ini`](backend/pytest.ini)
 
 รายละเอียดว่า test แต่ละตัวปกป้องกฎอะไร: [`backend/TEST_PLAN.md`](backend/TEST_PLAN.md) ·
 [`frontend/TEST_PLAN.md`](frontend/TEST_PLAN.md) · [`docs/e2e-report.md`](docs/e2e-report.md)

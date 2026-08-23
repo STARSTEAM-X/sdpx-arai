@@ -41,7 +41,13 @@ class PgUserRepository:
                 ON CONFLICT (email_normalized) DO UPDATE SET
                     google_sub    = EXCLUDED.google_sub,
                     display_name  = COALESCE(EXCLUDED.display_name, app_user.display_name),
-                    status        = 'ACTIVE',
+                    -- บัญชีที่ถูกระงับต้องคงสถานะไว้ ไม่ใช่ถูกปลุกคืนด้วยการ login ใหม่
+                    -- เดิมเขียน 'ACTIVE' ตรง ๆ ทำให้ guard USER_DISABLED ใน api/auth.py
+                    -- เป็น dead code — คนที่ถูกแบนแค่ login ซ้ำก็กลับมาใช้ได้
+                    status        = CASE
+                                        WHEN app_user.status = 'DISABLED' THEN 'DISABLED'
+                                        ELSE 'ACTIVE'
+                                    END,
                     last_login_at = now()
                 RETURNING id, email_normalized, display_name, status
                 """,

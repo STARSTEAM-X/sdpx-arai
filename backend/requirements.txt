@@ -14,3 +14,7 @@ email-validator~=2.2.0
 
 # โหลด backend/.env ตอน dev — บน Render ค่ามาจาก render.yaml ซึ่งชนะไฟล์นี้เสมอ
 python-dotenv~=1.2.3
+
+# รับไฟล์ CSV แบบ multipart/form-data ที่ roster:import ใช้
+# FastAPI ต้องมีตัวนี้ถึงจะประกาศ UploadFile ได้ ไม่งั้น import แล้ว throw ตอน start
+python-multipart~=0.0.20

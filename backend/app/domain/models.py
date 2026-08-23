@@ -42,6 +42,22 @@ class ClassroomMember:
 
 
 @dataclass
+class RosterMember:
+    """สมาชิกหนึ่งคนในห้องเรียน ตามที่ `GET /roster` ต้องคืน
+
+    ต่างจาก `RosterRow` ตรงที่ตัวนั้นคือ "แถวใน CSV ที่ยังไม่ได้บันทึก"
+    ส่วนตัวนี้คือ "สิ่งที่อยู่ในระบบแล้ว" จึงมี user id และ status ของบัญชีติดมาด้วย
+    """
+
+    user_id: str
+    email: str
+    role: MemberRole
+    status: str
+    display_name: str | None = None
+    group_name: str | None = None
+
+
+@dataclass
 class RosterRow:
     """หนึ่งแถวใน CSV หลังผ่านการ parse และ normalize แล้ว"""
 

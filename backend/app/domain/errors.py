@@ -31,6 +31,28 @@ class ConflictError(DomainError):
     code = "ALREADY_EXISTS"
 
 
+class NotFoundError(DomainError):
+    """ไม่มี resource นี้ หรือผู้เรียกไม่มีสิทธิ์เห็นว่ามันมีอยู่ — ชั้น API แปลงเป็น 404
+
+    สองกรณีนี้ต้องแยกไม่ออกจากกันโดยตั้งใจ (US-11)
+    ถ้าตอบ 403 เมื่อ resource มีอยู่จริงแต่ไม่ใช่ของเรา คนนอกจะยิงไล่ id
+    แล้วรู้ได้ว่า id ไหนมีอยู่จริง — เป็นการรั่วข้อมูลโดยไม่ต้อง login ด้วยซ้ำ
+    """
+
+    code = "NOT_FOUND"
+
+
+class ForbiddenError(DomainError):
+    """เห็น resource ได้แต่ทำสิ่งนี้ไม่ได้ — ชั้น API แปลงเป็น 403
+
+    ใช้เฉพาะตอนที่ผู้เรียก **เป็นสมาชิกของ classroom นั้นอยู่แล้ว**
+    การบอกว่า "คุณอยู่ในห้องนี้แต่ role ไม่พอ" ไม่ได้รั่วอะไรที่เขายังไม่รู้
+    ถ้าไม่ได้เป็นสมาชิกต้องใช้ NotFoundError แทน
+    """
+
+    code = "FORBIDDEN"
+
+
 class RosterImportError(DomainError):
     """CSV มีแถวที่ผิด — ชั้น API แปลงเป็น 422 พร้อม details รายแถว
 

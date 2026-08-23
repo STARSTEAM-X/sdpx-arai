@@ -196,13 +196,16 @@ export default function ClassroomsPage() {
           ) : (
             <ul data-testid="classroom-list" className="mt-3 space-y-2">
               {items.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3"
-                >
-                  <span className="font-medium">{c.name}</span>
-                  <span className="text-xs text-muted">{c.slug}</span>
-                  <span className="ml-auto text-xs text-muted">{c.timezone}</span>
+                <li key={c.id}>
+                  <Link
+                    to={`/classrooms/${c.id}`}
+                    className="flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3 transition-colors hover:border-brand-200 hover:bg-brand-50"
+                  >
+                    <span className="font-medium">{c.name}</span>
+                    <span className="text-xs text-muted">{c.slug}</span>
+                    <span className="ml-auto text-xs text-muted">{c.timezone}</span>
+                    <span className="text-xs text-brand-700">จัดการรายชื่อ →</span>
+                  </Link>
                 </li>
               ))}
             </ul>

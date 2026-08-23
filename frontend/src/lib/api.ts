@@ -6,11 +6,14 @@ import { getToken } from './session'
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
 /** error shape มาตรฐานของ API — ตรงกับ docs/openapi.yaml */
+export type ApiRowError = { row: number; reason: string }
+
 export type ApiErrorBody = {
   error: {
     code: string
     message: string
     field?: string | null
+    details?: ApiRowError[]
     requestId: string
   }
 }
@@ -21,6 +24,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly field?: string | null,
+    /** ความผิดรายแถว — CSV ที่ import ไม่ผ่านจะส่งมาครบทุกแถว (R2) */
+    readonly details: ApiRowError[] = [],
   ) {
     super(message)
     this.name = 'ApiError'
@@ -35,10 +40,14 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
 
+  // FormData ต้องให้เบราว์เซอร์ตั้ง content-type เอง เพราะต้องแนบ boundary ที่มันสุ่มมา
+  // ถ้าเรายัด application/json ทับ multipart จะพังทั้งก้อนโดยไม่มี error ที่อ่านรู้เรื่อง
+  const isMultipart = init.body instanceof FormData
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
-      'content-type': 'application/json',
+      ...(isMultipart ? {} : { 'content-type': 'application/json' }),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
@@ -51,6 +60,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   let code = 'UNKNOWN'
   let message = `เกิดข้อผิดพลาด (HTTP ${res.status})`
   let field: string | null = null
+  let details: ApiRowError[] = []
 
   try {
     const body = (await res.json()) as Partial<ApiErrorBody> & { detail?: unknown }
@@ -58,6 +68,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       code = body.error.code
       message = body.error.message
       field = body.error.field ?? null
+      details = body.error.details ?? []
     } else if (typeof body.detail === 'string') {
       // FastAPI ตอบ {"detail": "..."} เมื่อ error ไม่ได้ผ่าน handler ของเรา
       // เช่น request ที่ไม่ match route ใดเลย — ทิ้งข้อความนั้นไปทำให้ debug ยากขึ้นเปล่า ๆ
@@ -78,7 +89,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       'backend ที่ deploy อยู่อาจเป็นเวอร์ชันเก่ากว่าหน้าเว็บ'
   }
 
-  throw new ApiError(res.status, code, message, field)
+  throw new ApiError(res.status, code, message, field, details)
 }
 
 export type HealthState =
@@ -163,4 +174,42 @@ export function createClassroom(input: {
     method: 'POST',
     body: JSON.stringify({ allowedEmailDomains: [], ...input }),
   })
+}
+
+// --- Roster (US-03) ---
+
+export type RosterEntry = {
+  userId: string
+  email: string
+  displayName: string | null
+  role: 'OWNER' | 'CO_TEACHER' | 'TA' | 'STUDENT'
+  groupName: string | null
+  status: 'PENDING' | 'ACTIVE' | 'DISABLED'
+}
+
+export type RosterImportResult = {
+  imported: number
+  groupsCreated: number
+  warnings: { type: string; message: string }[]
+}
+
+export function getRoster(classroomId: string): Promise<{ items: RosterEntry[] }> {
+  return apiFetch<{ items: RosterEntry[] }>(
+    `/api/classrooms/${encodeURIComponent(classroomId)}/roster`,
+  )
+}
+
+/** อัปโหลด CSV — ทั้งไฟล์ผ่านหรือไม่บันทึกเลย
+ *
+ *  ถ้าไฟล์มีแถวผิด จะได้ ApiError ที่ `details` บอกเลขแถวและเหตุผลครบทุกแถว
+ *  หน้าจอมีหน้าที่แสดงให้ครบ ไม่ใช่แสดงแค่แถวแรก — คนแก้ไฟล์อยากรู้ทีเดียวจบ
+ */
+export function importRoster(classroomId: string, file: File): Promise<RosterImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+
+  return apiFetch<RosterImportResult>(
+    `/api/classrooms/${encodeURIComponent(classroomId)}/roster:import`,
+    { method: 'POST', body: form },
+  )
 }

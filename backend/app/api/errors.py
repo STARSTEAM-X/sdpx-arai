@@ -9,7 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.domain.errors import ConflictError, DomainError, RosterImportError, ValidationError
+from app.domain.errors import (
+    ConflictError,
+    DomainError,
+    ForbiddenError,
+    NotFoundError,
+    RosterImportError,
+    ValidationError,
+)
 
 # code เริ่มต้นสำหรับ HTTPException ที่ยกขึ้นมาโดยไม่ได้ระบุ code เอง
 # เช่น 404 ที่ FastAPI สร้างให้เองเมื่อไม่มี route ตรงกับ path
@@ -25,6 +32,8 @@ _DEFAULT_CODE_BY_STATUS = {
 
 # ชนิดของ error → status code · ตรงกับที่ประกาศไว้ใน docs/openapi.yaml
 _STATUS_BY_TYPE: list[tuple[type[DomainError], int]] = [
+    (NotFoundError, 404),
+    (ForbiddenError, 403),
     (ConflictError, 409),
     (RosterImportError, 422),
     (ValidationError, 422),

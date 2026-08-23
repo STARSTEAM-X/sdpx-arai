@@ -315,5 +315,24 @@ Milestone: [Sprint 1](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/1) —
 
 US-04 ถึง US-10 ([#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4)–[#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10)) รอ Sprint ถัดไป
 
+### สถานะ ณ 2026-08-23
+
+| Story | AC ที่ผ่าน | หลักฐาน |
+|---|---|---|
+| [#2](https://github.com/STARSTEAM-X/sdpx-arai2/issues/2) US-02 สร้างห้องเรียน | **3/3** | unit `test_classroom_service.py` · E2E `classrooms.spec.ts` |
+| [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) US-11 กันเข้าถึงข้ามห้อง | **3/3** | unit `test_access.py` · E2E `roster.spec.ts` |
+| [#3](https://github.com/STARSTEAM-X/sdpx-arai2/issues/3) US-03 import CSV | **4/4** | unit `test_roster_service.py` · integration `test_classroom_repo.py` · E2E `roster.spec.ts` |
+| [#1](https://github.com/STARSTEAM-X/sdpx-arai2/issues/1) US-01 login | **3/4** | integration `test_user_repo.py` · E2E `classrooms.spec.ts` |
+
+**AC ที่ยังปิดไม่ได้ และเหตุผล** — US-01 ข้อ 3:
+roster มี `Somchai.A+x@uni.ac.th` แล้ว login ด้วย `somchaia@uni.ac.th` ต้องจับคู่สำเร็จ
+
+AC ข้อนี้ขัดกับตัวกฎของ FR-AUTH-03 เอง (ตัดจุด "ใน gmail" เท่านั้น) — `uni.ac.th` ไม่ใช่ gmail
+สองข้อเป็นจริงพร้อมกันไม่ได้ ตอนนี้ระบบทำตาม *ตัวกฎ* และรองรับอีกทางไว้แล้วผ่าน
+`normalize_email(dot_insensitive_domains=...)` เปลี่ยนเป็นตัดจุดทุก domain ได้ทันทีที่ตัดสินใจ
+
+ยังต้องการคำตอบจาก product owner — เป็นคำถามข้อ 4 ในหัวข้อด้านบน
+เหตุผลที่เลือก default ฝั่งนี้อยู่ใน `backend/app/domain/email.py`
+
 > **ยังไม่ได้ตั้ง due date** ของ Sprint 1 เพราะยังไม่รู้ว่ากลุ่มกำหนดความยาว sprint ไว้กี่สัปดาห์
 > ตั้งเพิ่มได้ที่หน้า milestone หรือสั่ง `gh api repos/:owner/:repo/milestones/1 -X PATCH -f due_on=YYYY-MM-DDT00:00:00Z`

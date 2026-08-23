@@ -5,72 +5,88 @@
 > HTML report ฉบับเต็มอยู่ที่ `docs/coverage/backend/index.html` และ `docs/coverage/frontend/index.html`
 > ทั้งสองโฟลเดอร์ถูก gitignore ไว้ — generate ใหม่ด้วยคำสั่งท้ายแต่ละหัวข้อ
 
-## Backend — 72%
+## Backend — 80%
 
 ```
 Name                                    Stmts   Miss  Cover
 -----------------------------------------------------------
+app\domainccess.py                       17      0   100%
 app\domain\classroom_service.py            31      0   100%
 app\domain\email.py                        15      0   100%
-app\domain\models.py                       44      0   100%
-app\domain\repositories.py                  5      0   100%
-app\domain\roster_import.py                61      1    98%
-app\domain\errors.py                       23      1    96%
-app\config.py                              18      1    94%
-app\main.py                                37      3    92%
-app\google_oidc.py                         61      8    87%
-app\auth.py                                26      5    81%
-app\api\errors.py                          42     10    76%
-app\api\classrooms.py                      39     12    69%
-app\db.py                                  18      7    61%
-app\api\test_support.py                    43     21    51%
-app\repositories\pg_user_repo.py           30     15    50%
-app\repositories\pg_classroom_repo.py      37     24    35%
-app\api\auth.py                            47     31    34%
-app\migrate.py                             29     29     0%
+app\domain\models.py                       52      0   100%
+app\domainepositories.py                  8      0   100%
+app\domainoster_service.py               16      0   100%
+app\domainoster_import.py                61      1    98%
+app\domain\errors.py                       27      1    96%
+app\config.py                               18      1    94%
+app\main.py                                 39      3    92%
+app\google_oidc.py                          61      8    87%
+apputh.py                                 26      5    81%
+appepositories\pg_classroom_repo.py      57     11    81%
+apppi\errors.py                          42     10    76%
+app\migrate.py                              29      7    76%
+appepositories\pg_user_repo.py           30      9    70%
+apppi\classrooms.py                      39     12    69%
+apppioster.py                          49     15    69%
+app\db.py                                   18      7    61%
+apppi	est_support.py                    43     21    51%
+apppiuth.py                            47     31    34%
 -----------------------------------------------------------
-TOTAL                                     606    168    72%
-86 passed in 1.62s
+TOTAL                                     725    142    80%
+124 passed in 2.10s
 ```
 
 ```bash
-cd backend && ./.venv/Scripts/python.exe -m pytest --cov --cov-report=html --cov-report=term-missing
+cd backend
+./.venv/Scripts/python.exe -m pytest -m "" --cov --cov-report=html --cov-report=term-missing
 ```
 
+`-m ""` รวม integration test ที่ปกติถูกตัดออก — ต้องมี Postgres ขึ้นก่อน
 `--cov` ไม่ต้องระบุ `=app` เพราะ [`backend/.coveragerc`](../../backend/.coveragerc) ตั้ง `source` และ
 `html directory` ไว้ให้แล้ว — HTML จะไปโผล่ที่ `docs/coverage/backend/` เอง
 
-### ตัวเลขนี้ลดลงจาก 99% ตอน WS-03 — เพราะอะไร
+### test แบ่งเป็นสองชั้น
 
-| | WS-03 | วันนี้ |
-|---|---|---|
-| statements ทั้งหมด | 192 | **606** |
-| statements ที่ test เดินผ่าน | 190 | 438 |
-| coverage | 99% | **72%** |
-| จำนวน test | 52 | 86 |
+| ชั้น | จำนวน | ต้องมี DB | เวลา |
+|---|---|---|---|
+| unit + api (`pytest`) | **106** | ไม่ | **0.65s** |
+| integration (`pytest -m integration`) | **18** | ใช่ | 1.12s |
+| รวม (`pytest -m ""`) | **124** | ใช่ | 1.22s |
 
-**code โตเร็วกว่า test** — WS-04 กับงาน Google OIDC เพิ่ม 414 statements
-ส่วนที่เพิ่มเข้ามาเป็น layer ที่ unit test แตะไม่ถึงโดยธรรมชาติ:
+ลูปที่นักพัฒนารันทุกครั้งที่แก้ code คือชั้นบน — 0.65 วินาที ไม่ต้องยก Postgres
+ชั้น integration มีไว้ปิดช่องว่างที่ fake repository มองไม่เห็น: **SQL ที่เขียนผิด**
+ช่องว่างนั้นคือที่ที่บั๊ก `DISABLED` ซ่อนอยู่มาตลอด (ดู `backend/TEST_PLAN.md`)
+
+### ตัวเลขนี้เดินทางมาอย่างไร
+
+| | WS-03 | ก่อนปิด Sprint 1 | วันนี้ |
+|---|---|---|---|
+| statements | 192 | 606 | **725** |
+| coverage | 99% | 72% | **80%** |
+| จำนวน test | 52 | 86 | **124** |
+
+ที่ขึ้นจาก 72% เป็น 80% ไม่ได้มาจากการไล่เขียน test ให้ครบบรรทัด
+แต่มาจากการเพิ่มชั้น integration ซึ่งเดินผ่าน `pg_*_repo.py` ที่เดิม unit test แตะไม่ถึงเลย
 
 | โมดูล | ทำไมยังต่ำ | ใครทดสอบแทน |
 |---|---|---|
 | `api/auth.py` 34% | flow OAuth เต็มเส้นต้องมี Google จริงตอบกลับ | ตรรกะที่ตัดสินใจจริงอยู่ใน `google_oidc.py` (87%) ซึ่งมี unit test 27 ตัว |
-| `repositories/pg_*.py` 35–50% | เป็น SQL ล้วน — unit test ใช้ fake repo แทนตามที่ `TEST_PLAN.md` ตั้งใจ | E2E 11 ตัวที่ยิงผ่าน Postgres จริง |
+| `api/roster.py` 69% · `api/classrooms.py` 69% | เป็น route บาง ๆ ที่แค่แปลง JSON | E2E 22 ตัวที่ยิงผ่าน HTTP จริง |
 | `api/test_support.py` 51% | seed/cleanup เรียกจาก E2E ไม่ใช่จาก pytest | E2E fixture `cleanDb` |
-| `migrate.py` 0% | script ที่รันมือตอน setup ไม่ใช่ code ที่ request วิ่งผ่าน | ยังไม่มี — รับไว้เป็น gap ที่ยอมรับ |
+| `migrate.py` 76% | เส้นทาง error ตอน migration พังยังไม่ได้ทดสอบ | รับไว้เป็น gap ที่ยอมรับ |
 
-**สิ่งที่ตัวเลขนี้บอกจริง ๆ:** business logic ยังคุ้มครองแน่น (`domain/` ทั้งโฟลเดอร์ 96–100%)
-ส่วนที่ลดคือ adapter layer ซึ่งย้ายภาระไปให้ E2E แล้ว — ไม่ใช่กฎธุรกิจที่หลุดการทดสอบ
+**สิ่งที่ตัวเลขนี้บอกจริง ๆ:** `domain/` ทั้งโฟลเดอร์อยู่ที่ 96–100% รวมถึง `access.py`
+กับ `roster_service.py` ที่เพิ่งเขียนซึ่งได้ 100% ทั้งคู่ — กฎธุรกิจไม่มีข้อไหนหลุดการทดสอบ
 
-## Frontend — 0.4%
+## Frontend — 0.31%
 
 ```
 File               | % Stmts | % Branch | % Funcs | % Lines
 -------------------|---------|----------|---------|--------
-All files          |     0.4 |        0 |       0 |    0.42
+All files          |    0.31 |        0 |       0 |    0.32
  src/lib/scale.ts  |     100 |      100 |     100 |     100
  (ที่เหลือทั้งหมด)   |       0 |        0 |       0 |       0
-Statements : 0.4% ( 1/246 )
+Statements : 0.31% ( 1/316 )
 5 passed
 ```
 
@@ -84,15 +100,15 @@ cd frontend && npm run test:cov
 จึงตั้ง `coverage.all = true` ให้นับไฟล์ที่ยังไม่ถูกทดสอบด้วย
 เหตุผลที่ยังไม่เขียน unit test ให้ component อยู่ใน [`frontend/TEST_PLAN.md`](../../frontend/TEST_PLAN.md)
 
-ที่ลดจาก 0.95% เหลือ 0.4% เพราะตัวหารโตขึ้น (105 → 246 statements จากหน้า classrooms
-และ `GoogleSignInButton`) ตัวเศษยังเป็น `scale.ts` ไฟล์เดิม
+ที่ลดลงเรื่อย ๆ เพราะตัวหารโตขึ้นทุกรอบ (105 → 246 → **316** statements — ล่าสุดจาก
+หน้า `ClassroomDetailPage`) ส่วนตัวเศษยังเป็น `scale.ts` ไฟล์เดิมไฟล์เดียว
 
-## E2E — 11 tests
+## E2E — 22 tests
 
 | รันกับ | ผล | เวลา |
 |---|---|---|
-| local (`npm run e2e`) | **11 passed** | 26.3s |
-| local `--repeat-each=3` | **33 passed** — ไม่ flaky | 52.5s |
+| local (`npm run e2e`) | **22 passed** | 27.4s |
+| local `--repeat-each=3` | **66 passed** — ไม่ flaky | 1.3m |
 | staging | **รันไม่ได้โดยตั้งใจ** — ดูด้านล่าง |
 
 ```bash
