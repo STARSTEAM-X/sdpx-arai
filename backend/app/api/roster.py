@@ -22,6 +22,7 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 
 
 class RosterEntryOut(BaseModel):
+    memberId: str
     userId: str
     email: str
     displayName: str | None
@@ -32,6 +33,7 @@ class RosterEntryOut(BaseModel):
     @staticmethod
     def of(m: RosterMember) -> "RosterEntryOut":
         return RosterEntryOut(
+            memberId=m.member_id,
             userId=m.user_id,
             email=m.email,
             displayName=m.display_name,

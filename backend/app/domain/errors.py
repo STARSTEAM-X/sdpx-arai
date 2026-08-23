@@ -31,6 +31,16 @@ class ConflictError(DomainError):
     code = "ALREADY_EXISTS"
 
 
+class LastOwnerError(ConflictError):
+    """ถอดเจ้าของห้องคนสุดท้ายไม่ได้ — US-12 ระบุ code ของข้อนี้ไว้เจาะจง
+
+    แยก code ออกจาก `ALREADY_EXISTS` เพราะหน้าจอต้องอธิบายคนละอย่าง:
+    อันหนึ่งคือ "มีอยู่แล้ว" อีกอันคือ "ทำแล้วห้องเรียนจะพัง"
+    """
+
+    code = "LAST_OWNER"
+
+
 class NotFoundError(DomainError):
     """ไม่มี resource นี้ หรือผู้เรียกไม่มีสิทธิ์เห็นว่ามันมีอยู่ — ชั้น API แปลงเป็น 404
 

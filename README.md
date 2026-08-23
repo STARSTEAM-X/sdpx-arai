@@ -24,15 +24,15 @@
 
 ## สถานะ
 
-ตัวเลข test / coverage / E2E วัดใหม่เมื่อ **2026-08-23** ไม่ใช่ค่าที่จดไว้ตอนทำ workshop นั้น ๆ
+ตัวเลข test / coverage / E2E วัดใหม่เมื่อ **2026-08-24** ไม่ใช่ค่าที่จดไว้ตอนทำ workshop นั้น ๆ
 ส่วน commit-to-live ยังเป็นค่าที่วัดตอน WS-01 — วิธีวัดซ้ำอยู่ใน [`memory-bank/standards/tech-stack.md`](memory-bank/standards/tech-stack.md)
 
 | Workshop | สถานะ | ได้อะไร |
 |---|---|---|
 | WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` ทั้งสองฝั่ง · commit-to-live 42 วิ (ฝั่ง web) |
-| WS-02 Requirements & API Design | ✅ | Backlog 11 stories (ทุกอันมี AC + DoD), architecture + ERD, OpenAPI 13 paths / 14 operations validate ผ่าน, memory-bank |
-| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **213 tests 0.75s** (เพดาน 10 วิ) · integration อีก 19 · fidelity check 6 ครั้ง · coverage backend 78% |
-| WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 39 tests · `--repeat-each=3` ได้ 117 passed ไม่ flaky** |
+| WS-02 Requirements & API Design | ✅ | Backlog 16 stories (ทุกอันมี AC + DoD), architecture + ERD, OpenAPI 13 paths / 14 operations validate ผ่าน, memory-bank |
+| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **262 tests 0.75s** (เพดาน 10 วิ) · integration อีก 27 · fidelity check 6 ครั้ง · coverage backend 77% |
+| WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 63 tests · `--repeat-each=3` ได้ 189 passed ไม่ flaky** |
 | WS-05 Docker | ⬜ | |
 | WS-06 CI/CD | ⬜ | |
 | WS-07 Performance | ⬜ | |
@@ -43,8 +43,8 @@
 | Sprint | สถานะ | ได้อะไร |
 |---|---|---|
 | [Sprint 1](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/1) | ✅ | login · สร้างห้องเรียน · นำเข้ารายชื่อ CSV · กันการเข้าถึงข้ามห้อง |
-| [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) | 🟡 | สร้างงานประเมิน · ตรวจความเป็นไปได้ · เผยแพร่แล้วระบบจัดคู่อัตโนมัติ — เหลือ US-12 จัดการผู้ร่วมสอนและ TA |
-| [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) | ⬜ | นักศึกษาประเมินและดูคะแนน — ติด 3 คำถามที่ต้องได้คำตอบก่อนเริ่ม |
+| [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) | ✅ | สร้างงานประเมิน · feasibility · เผยแพร่แล้วจัดคู่อัตโนมัติ · จัดการผู้ร่วมสอนและ TA · audit log |
+| [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) | ⬜ | นักศึกษาประเมินและดูคะแนน · scoring engine · finalize — 7 stories, ไม่ติด blocker แล้ว |
 
 แผนและเหตุผลของการแบ่ง Sprint อยู่ใน [`docs/backlog.md`](docs/backlog.md)
 

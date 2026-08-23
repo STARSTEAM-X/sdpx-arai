@@ -188,7 +188,7 @@ class PgClassroomRepository:
             cur.execute(
                 """
                 SELECT u.id, u.email_normalized, u.display_name, u.status,
-                       m.role, m.group_name
+                       m.id AS member_id, m.role, m.group_name
                 FROM classroom_member m
                 JOIN app_user u ON u.id = m.user_id
                 WHERE m.classroom_id = %s
@@ -198,6 +198,7 @@ class PgClassroomRepository:
             )
             return [
                 RosterMember(
+                    member_id=str(row["member_id"]),
                     user_id=str(row["id"]),
                     email=row["email_normalized"],
                     display_name=row["display_name"],
@@ -264,6 +265,96 @@ class PgClassroomRepository:
             status=ClassroomStatus(row["status"]),
             created_at=row["created_at"],
         )
+
+    # --- จัดการสมาชิกฝั่งผู้สอน (US-12) ---
+
+    def get_by_id(self, classroom_id: str) -> Classroom | None:
+        try:
+            uuid.UUID(classroom_id)
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains,
+                       c.status, c.created_at, u.email_normalized AS created_by
+                FROM classroom c
+                JOIN app_user u ON u.id = c.created_by
+                WHERE c.id = %s
+                """,
+                (classroom_id,),
+            )
+            row = cur.fetchone()
+
+        return self._to_entity(row) if row else None
+
+    def count_owners(self, classroom_id: str) -> int:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) AS n FROM classroom_member "
+                "WHERE classroom_id = %s AND role = 'OWNER'",
+                (classroom_id,),
+            )
+            return cur.fetchone()["n"]
+
+    def add_instructor(
+        self, classroom_id: str, *, email_normalized: str, email_raw: str, role: MemberRole
+    ) -> str:
+        """เพิ่มผู้ร่วมสอนหรือ TA — สร้าง user เป็น PENDING ถ้ายังไม่เคย login
+
+        เส้นทางเดียวกับที่ roster import ใช้ (US-03) เพื่อให้คนที่ถูกเพิ่มไว้ก่อน
+        แล้วค่อย login ทีหลัง จับคู่กับบัญชีเดิมได้ ไม่กลายเป็นคนใหม่
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_user (id, email_normalized, email_raw, status)
+                VALUES (%s, %s, %s, 'PENDING')
+                ON CONFLICT (email_normalized) DO NOTHING
+                """,
+                (str(uuid.uuid4()), email_normalized, email_raw),
+            )
+
+            member_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO classroom_member (id, classroom_id, user_id, role)
+                SELECT %s, %s, u.id, %s
+                FROM app_user u
+                WHERE u.email_normalized = %s
+                """,
+                (member_id, classroom_id, str(role), email_normalized),
+            )
+        return member_id
+
+    def get_member(self, classroom_id: str, member_id: str) -> tuple[str, MemberRole] | None:
+        """คืน (email, role) ของสมาชิกแถวหนึ่ง — None ถ้าไม่มีหรือไม่ได้อยู่ห้องนี้"""
+        try:
+            uuid.UUID(member_id)
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT u.email_normalized, m.role
+                FROM classroom_member m
+                JOIN app_user u ON u.id = m.user_id
+                WHERE m.id = %s AND m.classroom_id = %s
+                """,
+                (member_id, classroom_id),
+            )
+            row = cur.fetchone()
+
+        return (row["email_normalized"], MemberRole(row["role"])) if row else None
+
+    def remove_member(self, classroom_id: str, member_id: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM classroom_member WHERE id = %s AND classroom_id = %s",
+                (member_id, classroom_id),
+            )
 
 
 def _assert_matches_protocol() -> None:

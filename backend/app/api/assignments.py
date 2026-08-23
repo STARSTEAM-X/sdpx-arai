@@ -10,12 +10,13 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
 from app.db import transaction
-from app.domain.access import ClassroomAccess
+from app.domain.access import Capability, ClassroomAccess
+from app.domain.audit import AuditAction, AuditEvent
 from app.domain.assignment_service import (
     Assignment,
     AssignmentStatus,
@@ -33,6 +34,7 @@ from app.domain.pairing import (
     solve_individual_feasibility,
 )
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
+from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 
 router = APIRouter(prefix="/api/assignments", tags=["assignments"])
@@ -137,10 +139,10 @@ def _to_criteria(items: list[CriterionIn]) -> list[Criterion]:
 
 
 def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignment:
-    """โหลด assignment แล้วยืนยันว่าผู้เรียกเป็นผู้สอนของห้องนั้น
+    """โหลด assignment แล้วยืนยันว่าผู้เรียกจัดการ assignment ของห้องนั้นได้
 
     ลำดับสำคัญ: ถ้าไม่มี assignment ตอบ 404 · ถ้ามีแต่ไม่ใช่ห้องของเรา
-    `require_instructor` จะตอบ 404 เช่นกัน (ผ่าน require_member) — สองกรณีนี้
+    `require` จะตอบ 404 เช่นกัน (ผ่าน require_member) — สองกรณีนี้
     ต้องแยกไม่ออกจากภายนอก ไม่งั้นคนนอกจะไล่ยิง id เพื่อดูว่าอันไหนมีจริง (US-11)
     """
     repo = PgAssignmentRepository(conn)
@@ -148,8 +150,8 @@ def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignmen
     if assignment is None:
         raise NotFoundError("ไม่พบงานประเมินนี้")
 
-    ClassroomAccess(PgClassroomRepository(conn)).require_instructor(
-        assignment.classroom_id, user_email
+    ClassroomAccess(PgClassroomRepository(conn)).require(
+        assignment.classroom_id, user_email, Capability.MANAGE_ASSIGNMENT
     )
     return assignment
 
@@ -165,8 +167,8 @@ def create_assignment(
 
     with transaction() as conn:
         # ต้องเป็นผู้สอนของห้องนั้น — คนนอกได้ 404 ไม่ใช่ 403
-        ClassroomAccess(PgClassroomRepository(conn)).require_instructor(
-            body.classroomId, user_email
+        ClassroomAccess(PgClassroomRepository(conn)).require(
+            body.classroomId, user_email, Capability.MANAGE_ASSIGNMENT
         )
 
         assignment = Assignment(
@@ -265,7 +267,10 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
 
 @router.post("/{assignment_id}:publish", response_model=PublishOut)
 def publish_assignment(
-    assignment_id: str, user_email: CurrentUser, seed: int | None = None
+    assignment_id: str,
+    user_email: CurrentUser,
+    request: Request,
+    seed: int | None = None,
 ) -> PublishOut:
     """สร้างคู่ประเมินทั้งหมดแล้วเปลี่ยนสถานะเป็น PUBLISHED (US-06)
 
@@ -320,6 +325,25 @@ def publish_assignment(
                 created += len(pairs)
 
         repo.mark_published(assignment.id, seed=chosen_seed, at=datetime.now(UTC))
+
+        # publish คือ event แรกที่ FR-AUDIT-01 บังคับให้บันทึก และอยู่ใน transaction
+        # เดียวกับการสร้างคู่ — ถ้าเขียน log ไม่สำเร็จ การ publish ถูก rollback ตามไปด้วย
+        PgAuditRepository(conn).record(
+            AuditEvent(
+                actor_email=user_email,
+                action=AuditAction.ASSIGNMENT_PUBLISHED,
+                resource_type="assignment",
+                resource_id=assignment.id,
+                classroom_id=assignment.classroom_id,
+                before_state={"status": str(AssignmentStatus.DRAFT)},
+                after_state={
+                    "status": str(AssignmentStatus.PUBLISHED),
+                    "pairsCreated": created,
+                    "pairingSeed": chosen_seed,
+                },
+                ip=request.client.host if request.client else None,
+            )
+        )
 
     return PublishOut(
         assignmentId=assignment.id,

@@ -166,6 +166,133 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationFailed'
 
+  /api/classrooms/{classroomId}/members:
+    post:
+      tags: [classrooms]
+      summary: เพิ่มผู้ร่วมสอนหรือ TA
+      description: |
+        อ้าง US-12 — เฉพาะ `OWNER` เท่านั้นที่ทำได้ · `CO_TEACHER` และ `TA` ได้ `403`
+        ส่วนคนที่ไม่ใช่สมาชิกของห้องนี้ได้ `404` ไม่ใช่ `403` (กฎเดียวกับ US-11)
+
+        ถ้าอีเมลนั้นยังไม่เคย login ระบบสร้าง user สถานะ `PENDING` ให้ เหมือนตอน import roster
+        อีเมลถูก normalize ด้วยกฎเดียวกับ US-01 และ US-03 เพื่อไม่ให้คนเดียวกันกลายเป็นสองบัญชี
+      operationId: addClassroomMember
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [CO_TEACHER, TA]
+                  description: |
+                    `OWNER` เพิ่มผ่าน endpoint นี้ไม่ได้ — เจ้าของเกิดจากการสร้างห้องเรียน
+                    ส่วน `STUDENT` มาจากการ import roster (US-03)
+      responses:
+        '201':
+          description: เพิ่มสำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [memberId, email, role]
+                properties:
+                  memberId:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  role:
+                    $ref: '#/components/schemas/ClassroomRole'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: อีเมลนี้เป็นสมาชิกห้องนี้อยู่แล้ว — 1 คนมีได้ 1 role ต่อ 1 ห้อง (FR-AUTHZ-03)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/classrooms/{classroomId}/members/{memberId}:
+    delete:
+      tags: [classrooms]
+      summary: ถอดสมาชิกออกจากห้องเรียน
+      description: |
+        อ้าง US-12 — เฉพาะ `OWNER` · ถอด `OWNER` คนสุดท้ายไม่ได้ (รวมถึงถอดตัวเอง)
+        `memberId` มาจาก `GET /roster`
+      operationId: removeClassroomMember
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: ถอดสำเร็จ
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            ถอดเจ้าของห้องคนสุดท้ายไม่ได้ — `code: LAST_OWNER`
+            ห้องเรียนที่ไม่มีเจ้าของจะไม่มีใครจัดการสมาชิกหรือตัดสินคะแนนได้อีก
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/classrooms/{classroomId}/audit:
+    get:
+      tags: [classrooms]
+      summary: อ่าน audit log ของห้องเรียน
+      description: |
+        อ้าง US-14 — นักศึกษาได้ `403` · คนนอกห้องได้ `404`
+
+        **ไม่มี endpoint สำหรับแก้หรือลบโดยตั้งใจ** audit เป็น append-only
+        และมี trigger ที่ระดับ database กันไว้อีกชั้น เผื่อทางที่ API ยังไม่ได้ปิด
+      operationId: listAudit
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: รายการเหตุการณ์ เรียงใหม่สุดก่อน
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/classrooms/{classroomId}/roster:
     get:
       tags: [classrooms]
@@ -764,10 +891,43 @@ components:
           items:
             type: string
 
+    AuditEntry:
+      type: object
+      required: [id, actorEmail, action, resourceType, occurredAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        actorEmail:
+          type: string
+        action:
+          type: string
+          description: เหตุการณ์ที่ FR-AUDIT-01 บังคับให้บันทึก
+          examples: [ASSIGNMENT_PUBLISHED, MEMBER_ROLE_CHANGED, SCORES_FINALIZED]
+        resourceType:
+          type: string
+        resourceId:
+          type: [string, 'null']
+        beforeState:
+          type: [object, 'null']
+        afterState:
+          type: [object, 'null']
+        reason:
+          type: [string, 'null']
+          description: บังคับสำหรับ action ที่แทรกแซงคะแนนด้วยมือ (FR-AUDIT-02)
+        occurredAt:
+          type: string
+          format: date-time
+          description: UTC เสมอ
+
     RosterEntry:
       type: object
-      required: [userId, email, role, status]
+      required: [memberId, userId, email, role, status]
       properties:
+        memberId:
+          type: string
+          format: uuid
+          description: id ของแถวสมาชิก — ใช้ตอนถอดสมาชิกออกจากห้อง (US-12)
         userId:
           type: string
           format: uuid

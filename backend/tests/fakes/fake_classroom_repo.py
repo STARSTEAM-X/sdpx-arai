@@ -53,6 +53,7 @@ class FakeClassroomRepo:
         group_of = {r.email_normalized: r.group_name for r in self._roster.get(classroom_id, [])}
         return [
             RosterMember(
+                member_id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{room_id}|{email}")),
                 user_id=str(uuid.uuid5(uuid.NAMESPACE_URL, email)),
                 email=email,
                 role=role,

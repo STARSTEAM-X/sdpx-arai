@@ -53,6 +53,9 @@ class RosterMember:
     email: str
     role: MemberRole
     status: str
+    # id ของแถวใน classroom_member — ต้องมีถึงจะถอดสมาชิกคนนั้นได้
+    # ต่างจาก user_id ตรงที่คนเดียวกันเป็นสมาชิกได้หลายห้อง แต่ละห้องคนละแถว
+    member_id: str = ""
     display_name: str | None = None
     group_name: str | None = None
 

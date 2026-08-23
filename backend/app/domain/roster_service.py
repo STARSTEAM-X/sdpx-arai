@@ -8,7 +8,7 @@
 ถ้ามีแถวผิดมันจะ raise ตั้งแต่ยังไม่มีการเขียนอะไรลง database สักแถว
 """
 
-from app.domain.access import ClassroomAccess
+from app.domain.access import Capability, ClassroomAccess
 from app.domain.models import RosterImportResult, RosterMember
 from app.domain.repositories import ClassroomRepository
 from app.domain.roster_import import parse_roster_csv
@@ -27,7 +27,7 @@ class RosterService:
         ตรวจสิทธิ์ก่อน parse โดยตั้งใจ: คนที่ไม่มีสิทธิ์ไม่ควรได้รู้ด้วยซ้ำว่า
         ไฟล์ที่เขาส่งมาถูกหรือผิด — นั่นก็เป็นข้อมูลรูปแบบหนึ่ง
         """
-        self._access.require_instructor(classroom_id, actor_email)
+        self._access.require(classroom_id, actor_email, Capability.MANAGE_ROSTER)
 
         # raise RosterImportError พร้อมความผิดทุกแถวถ้าไฟล์ไม่ผ่าน (R1 + R2)
         result = parse_roster_csv(raw)

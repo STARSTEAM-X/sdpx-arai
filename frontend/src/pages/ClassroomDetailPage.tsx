@@ -14,7 +14,11 @@ import {
 } from '../lib/api'
 import { clearToken, isSignedIn } from '../lib/session'
 
-const INSTRUCTOR_ROLES = ['OWNER', 'CO_TEACHER', 'TA']
+// ต้องตรงกับ role matrix ฝั่ง server ใน backend/app/domain/access.py
+// หน้าจอที่ซ่อนปุ่มไม่ใช่การกันสิทธิ์ — server กันอยู่แล้ว — แต่ถ้าสองฝั่งไม่ตรงกัน
+// TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ ซึ่งดูเหมือนระบบพังมากกว่าดูเหมือนกฎ
+const CAN_MANAGE_ROSTER = ['OWNER', 'CO_TEACHER', 'TA']
+const CAN_MANAGE_ASSIGNMENT = ['OWNER', 'CO_TEACHER']
 
 const ROLE_LABEL: Record<RosterEntry['role'], string> = {
   OWNER: 'เจ้าของห้อง',
@@ -103,7 +107,8 @@ export default function ClassroomDetailPage() {
   }
 
   const students = items.filter((m) => m.role === 'STUDENT')
-  const canImport = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
+  const canImport = myRole !== null && CAN_MANAGE_ROSTER.includes(myRole)
+  const canManageAssignment = myRole !== null && CAN_MANAGE_ASSIGNMENT.includes(myRole)
 
   return (
     <div className="min-h-screen bg-cream">
@@ -240,7 +245,7 @@ export default function ClassroomDetailPage() {
         </section>
 
         {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
-        {canImport && <AssignmentPanel classroomId={classroomId} />}
+        {canManageAssignment && <AssignmentPanel classroomId={classroomId} />}
       </main>
     </div>
   )

@@ -536,20 +536,32 @@ feasibility คือการคำนวณล่วงหน้าว่า p
 
 **ไม่มี AC ข้อไหนติด blocker** — เริ่มได้ทันที
 
-### สถานะ ณ 2026-08-24 — เหลือ US-12 และ US-14
+### สถานะ ณ 2026-08-24 — ครบทั้ง 5 story
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) US-04 | **4/4** | unit `test_assignment_service.py` · E2E `assignments.spec.ts` |
 | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) US-05 | **2/2** | unit `test_pairing.py::TestGroupFeasibility` · E2E |
 | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) US-06 | **5/5** | unit `test_pairing.py` 88 ตัว · E2E ตรวจกับข้อมูลใน database จริง |
-| [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 | **0/11** | ยังไม่เริ่ม |
-| [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) US-14 | **0/5** | ยังไม่เริ่ม — เพิ่มเข้า Sprint 2 เมื่อ 2026-08-24 |
+| [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) US-12 | **11/11** | unit `test_access.py` (ไล่ role matrix ทุกช่อง) · `test_member_service.py` · E2E `members.spec.ts` |
+| [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) US-14 | **5/5** | integration `test_audit_repo.py` (append-only ที่ระดับ DB) · E2E |
 
-> **US-12 ถูกเพิ่มเข้า Sprint 2 หลังจาก #4–#6 ทำไปแล้ว** และ AC ข้อหนึ่งของมัน
-> ขัดกับสิ่งที่ #4 ทำไปแล้ว: ตอนนี้ `require_instructor` ให้ OWNER, CO_TEACHER และ TA
-> สร้าง assignment ได้เท่ากัน แต่ US-12 ระบุว่า **TA ต้องได้ 403** เมื่อสร้างหรือแก้ assignment
-> ต้องแยก role ให้ละเอียดขึ้นตอนทำ US-12 และแก้ `app/domain/access.py` ย้อนหลัง
+**สิ่งที่ US-12 บังคับให้แก้ย้อนหลัง — แก้แล้ว**
+
+`require_instructor` เดิมรวม OWNER, CO_TEACHER และ TA เป็นก้อนเดียว ซึ่ง**ถูกตราบใดที่
+ระบบมีแค่ roster** เพราะทั้งสาม role จัดการ roster ได้จริงตาม matrix แต่พอมี assignment
+เข้ามาใน #4 ก้อนเดียวกลายเป็นช่องโหว่ทันที — TA สร้าง assignment ได้ทั้งที่ไม่ควร
+
+เปลี่ยนเป็นถามราย capability (`MANAGE_ROSTER`, `MANAGE_ASSIGNMENT`, `MANAGE_MEMBERS`,
+`FINALIZE_SCORES`, `VIEW_AUDIT`) และเขียน role matrix เต็มตารางแทน "ทุก role ยกเว้น..."
+เพราะการเติม role ใหม่แล้วลืมกรอกช่องใดช่องหนึ่งจะกลายเป็นการให้สิทธิ์โดยบังเอิญ
+
+หน้าเว็บถูกแก้ให้ตรงกันด้วย — ถ้าซ่อนไม่ตรงกับ server ผู้ใช้จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ
+ซึ่งดูเหมือนระบบพังมากกว่าดูเหมือนกฎ
+
+**ช่องโหว่ที่เจอตอนเขียน test:** `GET /roster` คืนแต่ `userId` ไม่มี `memberId`
+จึงไม่มีทางรู้ว่าต้องลบแถวไหน — AC ข้อ LAST_OWNER ทดสอบผ่าน API จริงไม่ได้เลย
+เพิ่ม `memberId` เข้า response แล้ว
 
 **สิ่งที่พบระหว่างทาง — pseudocode ใน PRD §8.4 ให้ผลไม่สมดุล**
 
