@@ -7,16 +7,25 @@ Flow ที่ใช้: client ทำ OIDC กับ Google เองแล้�
 ความปลอดภัยมาจากการตรวจลายเซ็นและ `aud` ไม่ใช่จากการเก็บ secret
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.auth import CurrentUser, issue_session
 from app.config import ALLOWED_EMAIL_DOMAINS, GOOGLE_CLIENT_ID
 from app.db import transaction
-from app.google_oidc import EmailDomainNotAllowed, GoogleAuthError, verify_id_token
+from app.google_oidc import (
+    EmailDomainNotAllowed,
+    GoogleAuthError,
+    JwksUnavailable,
+    verify_id_token,
+)
 from app.repositories.pg_user_repo import PgUserRepository
 
 router = APIRouter(prefix="/api", tags=["auth"])
+
+log = logging.getLogger("paireval.auth")
 
 
 class SessionRequest(BaseModel):
@@ -41,6 +50,15 @@ def create_session(body: SessionRequest) -> dict:
             client_id=GOOGLE_CLIENT_ID,
             allowed_domains=ALLOWED_EMAIL_DOMAINS or None,
         )
+    except JwksUnavailable as exc:
+        log.error("ดึง JWKS จาก Google ไม่ได้: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": exc.code,
+                "message": "ตอนนี้ติดต่อ Google ไม่ได้ กรุณาลองใหม่อีกครั้ง",
+            },
+        ) from exc
     except EmailDomainNotAllowed as exc:
         raise HTTPException(
             status_code=403,
@@ -53,6 +71,30 @@ def create_session(body: SessionRequest) -> dict:
             },
         ) from exc
     except GoogleAuthError as exc:
+        # log ฝั่ง server ด้วย เพราะข้อความที่ส่งกลับไปหา client ตั้งใจให้กว้าง ๆ
+        # ไม่บอกละเอียดว่าตรวจตกข้อไหน (กันคนเดา) แต่คนดูแลระบบต้องเห็นเหตุผลจริง
+        #
+        # claims ที่ decode แบบไม่ตรวจลายเซ็นใช้ debug ได้แต่ **ห้ามเชื่อ**
+        # เพราะใครก็ปลอมได้ — พิมพ์ไว้เพื่อดูว่า aud/iss ที่ส่งมาหน้าตาเป็นอย่างไรเท่านั้น
+        try:
+            import jwt as _jwt
+
+            unsafe = _jwt.decode(body.idToken, options={"verify_signature": False})
+            hint = {
+                "aud": unsafe.get("aud"),
+                "iss": unsafe.get("iss"),
+                "exp": unsafe.get("exp"),
+                "email_verified": unsafe.get("email_verified"),
+            }
+        except Exception:  # noqa: BLE001 - debug path ห้ามทำให้ response พังซ้ำ
+            hint = {"note": "decode payload ไม่ได้เลย - token อาจไม่ใช่ JWT"}
+
+        log.warning(
+            "auth/session ปฏิเสธ id_token: %s | คาดหวัง aud=%s | ได้ %s",
+            exc,
+            GOOGLE_CLIENT_ID,
+            hint,
+        )
         raise HTTPException(
             status_code=401, detail={"code": exc.code, "message": str(exc)}
         ) from exc

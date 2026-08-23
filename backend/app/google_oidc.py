@@ -31,6 +31,16 @@ class GoogleAuthError(Exception):
     code = "INVALID_ID_TOKEN"
 
 
+class JwksUnavailable(Exception):
+    """ดึงกุญแจสาธารณะจาก Google ไม่ได้ — ปัญหาฝั่งเรา ชั้น API แปลงเป็น 503
+
+    แยกจาก GoogleAuthError โดยตั้งใจ เพราะการตอบ 401 ตอนที่ระบบเราเองมีปัญหา
+    จะทำให้ผู้ใช้เข้าใจผิดว่าบัญชีตัวเองมีปัญหา แล้วไปลอง login ซ้ำ ๆ โดยเปล่าประโยชน์
+    """
+
+    code = "IDP_UNAVAILABLE"
+
+
 class EmailDomainNotAllowed(Exception):
     """อีเมลอยู่นอก domain ที่อนุญาต — ชั้น API แปลงเป็น 403 (FR-AUTH-02)"""
 
@@ -105,7 +115,15 @@ def validate_claims(
 
 # สร้างครั้งเดียวแล้วใช้ซ้ำ — client ตัวนี้ cache key ของ Google ไว้ให้เอง
 # ถ้าสร้างใหม่ทุก request จะยิงไป Google ทุกครั้งที่มีคน login
-_jwk_client = PyJWKClient(GOOGLE_JWKS_URL, cache_keys=True)
+#
+# timeout สำคัญมาก: ถ้าไม่ตั้ง การดึง JWKS จะรอไม่มีกำหนดเมื่อ Google ช้าหรือเข้าไม่ถึง
+# ทำให้ worker ค้างและ login ทั้งระบบหยุดไปด้วย
+# (เจอจริงตอนทดสอบ — คำสั่งค้างจนหมดเวลา 300 วินาที)
+JWKS_TIMEOUT_SECONDS = 5
+
+_jwk_client = PyJWKClient(
+    GOOGLE_JWKS_URL, cache_keys=True, timeout=JWKS_TIMEOUT_SECONDS
+)
 
 
 def verify_id_token(
@@ -127,6 +145,10 @@ def verify_id_token(
         )
     except jwt.PyJWTError as exc:
         raise GoogleAuthError(f"ตรวจสอบ id_token ไม่ผ่าน: {exc}") from exc
+    except OSError as exc:
+        # ดึง JWKS ไม่ได้ (เน็ตล่ม / timeout) — เป็นปัญหาฝั่งเรา ไม่ใช่ token ของผู้ใช้ผิด
+        # แยกชนิด error ออกมาเพื่อให้ชั้น API ตอบ 503 ไม่ใช่ 401
+        raise JwksUnavailable(f"ติดต่อ Google เพื่อดึงกุญแจไม่สำเร็จ: {exc}") from exc
 
     # ตรวจซ้ำด้วย validate_claims เพื่อให้กฎที่ PyJWT ไม่ได้ตรวจ (email_verified, domain)
     # ผ่านทางเดียวกันกับที่ unit test ครอบไว้

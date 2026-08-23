@@ -5,11 +5,17 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import auth as auth_api
 from app.api import classrooms
-from app.api.errors import domain_error_handler
+from app.api.errors import (
+    domain_error_handler,
+    http_error_handler,
+    validation_error_handler,
+)
 from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
 from app.db import close_pool, open_pool
 from app.domain.errors import DomainError
@@ -53,7 +59,11 @@ async def attach_request_id(
     return response
 
 
+# error ทุกชนิดต้องออกมาในรูป ErrorEnvelope เดียวกัน ไม่งั้น client อ่านไม่ออก
+# แล้วต้องแสดงข้อความ fallback ที่ไม่บอกอะไร (FR-API-03)
 app.add_exception_handler(DomainError, domain_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
 
 app.include_router(auth_api.router)
 app.include_router(classrooms.router)
