@@ -15,7 +15,7 @@
 | WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` · commit-to-live 42 วิ |
 | WS-02 Requirements & API Design | ✅ | Backlog 11 stories, architecture + ERD, OpenAPI 12 endpoints, memory-bank |
 | WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) 52 tests 0.77s · fidelity check 5 ครั้ง · E2E smoke 6 tests |
-| WS-04 E2E Testing | ⬜ | |
+| WS-04 E2E Testing | ✅ | Journey สร้างห้องเรียนใช้งานได้จริง · Postgres + API + หน้าเว็บ · E2E 11 tests, repeat-each=3 ได้ 33 passed |
 | WS-05 Docker | ⬜ | |
 | WS-06 CI/CD | ⬜ | |
 | WS-07 Performance | ⬜ | |
@@ -36,13 +36,20 @@ Sources/      เอกสารประกอบวิชา (MIT)
 
 ต้องเปิด 2 terminal — ฝั่งละอัน
 
+**Database** (ต้องขึ้นก่อน backend)
+
+```bash
+docker compose up -d db
+```
+
 **Backend** (`http://localhost:8000`)
 
 ```bash
 cd backend
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements.txt
+./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 cp .env.example .env
+./.venv/Scripts/python.exe -m app.migrate          # สร้างตาราง รันซ้ำได้
 ./.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
@@ -72,6 +79,18 @@ npm run dev
 ```
 
 ตรวจว่า port ไหนถูกใช้อยู่: `netstat -ano | findstr LISTENING`
+
+## Test
+
+```bash
+cd backend && ./.venv/Scripts/python.exe -m pytest    # unit test (ไม่ต้องมี DB)
+cd frontend && npm test                               # unit test
+npm run e2e                                           # E2E (ต้องมี Postgres ขึ้นอยู่)
+npm run e2e:report                                    # เปิด HTML report
+```
+
+รายละเอียดว่า test แต่ละตัวปกป้องกฎอะไร: [`backend/TEST_PLAN.md`](backend/TEST_PLAN.md) ·
+[`frontend/TEST_PLAN.md`](frontend/TEST_PLAN.md) · [`docs/e2e-report.md`](docs/e2e-report.md)
 
 ## Deploy
 

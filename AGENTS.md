@@ -54,6 +54,27 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest --cov=app    # coverage
 ```
 
+### Database และ E2E (รันจาก root)
+
+```bash
+docker compose up -d db                    # Postgres สำหรับ dev/E2E
+cd backend && ./.venv/Scripts/python.exe -m app.migrate   # สร้างตาราง รันซ้ำได้
+
+npm run e2e                                # E2E ทั้งชุด (ยก API + frontend ให้เอง)
+npx playwright test --repeat-each=3        # จับ flaky ก่อน push
+npm run e2e:report                         # เปิด HTML report
+```
+
+**ENVIRONMENT ต้องเป็น `production` เสมอบน service ที่เข้าถึงได้จาก internet**
+ถ้าไม่ใช่ `production` endpoint `POST /api/test/seed|cleanup|session` จะถูกเปิดขึ้นมา
+ซึ่งแปลว่าใครก็ล้าง database และปลอมเป็นใครก็ได้ — ห้ามเปลี่ยนค่านี้โดยไม่มีเหตุผลชัดเจน
+
+**SESSION_SECRET ต้องยาวอย่างน้อย 32 bytes** (RFC 7518 §3.2) — สั้นกว่านั้น app จะไม่ยอมเริ่มทำงาน
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
 ### API contract (`docs/openapi.yaml`)
 
 ```bash
