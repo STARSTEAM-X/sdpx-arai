@@ -48,7 +48,7 @@ docker compose up -d db
 cd backend
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-cp .env.example .env
+cp .env.example .env                               # แล้วเติมค่าในไฟล์ .env
 ./.venv/Scripts/python.exe -m app.migrate          # สร้างตาราง รันซ้ำได้
 ./.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 ```

@@ -96,6 +96,8 @@ npx @redocly/cli lint docs/openapi.yaml   # ต้องไม่มีทั้
 - **Branch:** `main` = production · `develop` = staging (auto-deploy) · งานใหม่แตกจาก `develop`
 - **ภาษา UI:** ไทย (ตาม NFR-I18N-01 ใน PRD)
 - **Config:** อ่านจาก environment variable เท่านั้น ห้าม hardcode URL, port, credential
+- **ลำดับความสำคัญของ config ฝั่ง backend:** environment variable จากภายนอก **ชนะ** `backend/.env` เสมอ
+  เพราะบน Render ค่ามาจาก `render.yaml` ไม่ใช่จากไฟล์ — `.env` มีไว้ใช้บนเครื่องตัวเองเท่านั้น
 - **CORS:** ระบุ origin เป็นรายตัวใน `CORS_ORIGINS` ห้ามใช้ `*`
 - **ตัวแปร `VITE_*`** เป็น build-time — เปลี่ยนค่าแล้วต้อง build ใหม่ ไม่ใช่แค่ restart
 

@@ -5,6 +5,16 @@
 """
 
 import os
+import pathlib
+
+from dotenv import load_dotenv
+
+# โหลด backend/.env ถ้ามี — ทำให้ขั้นตอน `cp .env.example .env` ที่เขียนไว้ใน README
+# มีผลจริง ไม่ใช่ขั้นตอนที่ทำแล้วไม่เกิดอะไรขึ้น
+#
+# override=False โดยตั้งใจ: environment variable ที่ตั้งจากภายนอกต้องชนะเสมอ
+# เพราะบน Render ค่ามาจาก render.yaml ไม่ใช่จากไฟล์ และ .env ไม่ควรไปทับของจริง
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env", override=False)
 
 
 def _split_csv(raw: str) -> list[str]:

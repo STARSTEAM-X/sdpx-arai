@@ -11,3 +11,6 @@ pyjwt[crypto]~=2.13.0
 
 # pydantic EmailStr ต้องใช้
 email-validator~=2.2.0
+
+# โหลด backend/.env ตอน dev — บน Render ค่ามาจาก render.yaml ซึ่งชนะไฟล์นี้เสมอ
+python-dotenv~=1.2.3
