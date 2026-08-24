@@ -246,6 +246,8 @@ export type Feasibility = {
   totalComparisons: number
   feasible: boolean
   reason: string | null
+  /** เฉพาะฝั่ง INDIVIDUAL — มีกลุ่มที่คะแนนรายบุคคลจะถูกซ่อนโดย k-anonymity ตลอดไป (US-15) */
+  lowAnonymityNote: string | null
 }
 
 export type PublishResult = {
@@ -485,6 +487,60 @@ export type Scores = {
  */
 export function getScores(assignmentId: string): Promise<Scores> {
   return apiFetch<Scores>(`/api/assignments/${encodeURIComponent(assignmentId)}/scores`)
+}
+
+// --- export raw comparison (US-15, FR-EXPORT-03/04) ---
+
+/** ดาวน์โหลดไฟล์แล้วสั่งเซฟเลย — เบราว์เซอร์เป็นคนจัดการ ไม่ผ่าน apiFetch เพราะนี่ไม่ใช่ JSON */
+async function downloadCsv(path: string, init: RequestInit, filenameFallback: string) {
+  const token = getToken()
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  })
+  if (!res.ok) {
+    let message = `เกิดข้อผิดพลาด (HTTP ${res.status})`
+    try {
+      const body = (await res.json()) as Partial<ApiErrorBody>
+      if (body.error) message = body.error.message
+    } catch {
+      // ไม่ใช่ JSON — ใช้ข้อความ default
+    }
+    throw new ApiError(res.status, 'EXPORT_FAILED', message)
+  }
+
+  const disposition = res.headers.get('content-disposition') ?? ''
+  const match = /filename="([^"]+)"/.exec(disposition)
+  const filename = match?.[1] ?? filenameFallback
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** export ปกติ — ผู้ประเมินแสดงเป็นรหัส E1, E2, ... ไม่ใช่ตัวตนจริง (ค่าเริ่มต้นตาม FR-EXPORT-03) */
+export function exportComparisons(assignmentId: string): Promise<void> {
+  return downloadCsv(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/comparisons:export`,
+    { method: 'GET' },
+    `comparisons_${assignmentId}.csv`,
+  )
+}
+
+/** export พร้อมอีเมลจริงของผู้ประเมิน — เฉพาะ OWNER ต้องระบุเหตุผล ถูกบันทึก audit เสมอ (FR-EXPORT-04) */
+export function exportComparisonsIdentified(assignmentId: string, reason: string): Promise<void> {
+  return downloadCsv(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/comparisons:export-identified`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason }) },
+    `comparisons_identified_${assignmentId}.csv`,
+  )
 }
 
 export type MyScore = {

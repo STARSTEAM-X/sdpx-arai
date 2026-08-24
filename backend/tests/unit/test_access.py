@@ -78,6 +78,7 @@ class TestRoleMatrix:
             Capability.MANAGE_MEMBERS,
             Capability.FINALIZE_SCORES,
             Capability.VIEW_AUDIT,
+            Capability.VIEW_EVALUATOR_IDENTITY,
         },
         MemberRole.CO_TEACHER: {
             Capability.VIEW_ROSTER,
@@ -141,6 +142,12 @@ class TestCapabilityChecks:
     def test_AC_มีแต่_OWNER_ที่จัดการสมาชิกได้(self, role: MemberRole):
         with pytest.raises(ForbiddenError):
             access_as(role).require(ROOM_A, AJARN, Capability.MANAGE_MEMBERS)
+
+    # US-15/FR-EXPORT-04 — export ที่มี evaluator identity ต้องเป็น OWNER เท่านั้น
+    @pytest.mark.parametrize("role", [MemberRole.CO_TEACHER, MemberRole.TA])
+    def test_AC_มีแต่_OWNER_ที่เห็นตัวตนผู้ประเมินได้(self, role: MemberRole):
+        with pytest.raises(ForbiddenError):
+            access_as(role).require(ROOM_A, AJARN, Capability.VIEW_EVALUATOR_IDENTITY)
 
     def test_AC_นักศึกษาเรียก_endpoint_ของผู้สอนได้_403(self, access: ClassroomAccess):
         # นักศึกษาอยู่ในห้องนี้จริง จึงรู้อยู่แล้วว่าห้องมีอยู่ — 403 ไม่ได้รั่วอะไรเพิ่ม

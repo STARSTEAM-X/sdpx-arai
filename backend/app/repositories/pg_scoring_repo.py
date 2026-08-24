@@ -23,6 +23,27 @@ class ParticipationCount:
 
 
 @dataclass(frozen=True)
+class ComparisonExportRow:
+    """หนึ่งแถวของ raw comparison export — FR-EXPORT-03
+
+    `evaluator_user_id` เป็น uuid จริงเสมอที่ชั้นนี้ — การแปลงเป็น pseudonym (E1, E2, ...)
+    หรือเปิดเป็นอีเมลจริง เป็นหน้าที่ของ endpoint ชั้นบน ไม่ใช่ของ repo (S2/AR-01 spirit:
+    ชั้นข้อมูลไม่ตัดสินใจเรื่อง privacy — แค่คืนข้อมูลดิบให้ครบ)
+    """
+
+    side: Side
+    criterion_name: str
+    item_a_label: str
+    item_b_label: str
+    display_left_item_id: str
+    item_a_id: str
+    item_b_id: str
+    choice: int
+    evaluator_user_id: str
+    submitted_at: datetime
+
+
+@dataclass(frozen=True)
 class ComputedScoreRow:
     item_id: str
     side: Side
@@ -294,3 +315,46 @@ class PgScoringRepository:
                 (assignment_id, str(side), item_id, item_id),
             )
             return cur.fetchone()["n"]
+
+    def export_comparisons(self, assignment_id: str) -> list[ComparisonExportRow]:
+        """raw comparison ทั้งหมดที่ SUBMITTED แล้วของงานนี้ — FR-EXPORT-03
+
+        เฉพาะ SUBMITTED เหมือน scoring engine (S2) — comparison ที่ยัง DRAFT ไม่เคยเข้า
+        การคำนวณ export จึงไม่ควรมีข้อมูลที่ scoring engine ไม่เห็นเช่นกัน ไม่งั้นตัวเลขใน
+        export กับคะแนนที่ประกาศจริงจะเทียบกันไม่ได้
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.side, cr.name AS criterion_name,
+                       COALESCE(ga.name, ua.display_name, ua.email_normalized) AS item_a_label,
+                       COALESCE(gb.name, ub.display_name, ub.email_normalized) AS item_b_label,
+                       p.display_left_item_id, p.item_a_id, p.item_b_id,
+                       c.choice, c.evaluator_user_id, c.submitted_at
+                FROM comparison c
+                JOIN pair_assignment p ON p.id = c.pair_assignment_id
+                JOIN criterion cr ON cr.id = p.criterion_id
+                LEFT JOIN group_entity ga ON p.side = 'GROUP' AND ga.id = p.item_a_id
+                LEFT JOIN group_entity gb ON p.side = 'GROUP' AND gb.id = p.item_b_id
+                LEFT JOIN app_user ua ON p.side = 'INDIVIDUAL' AND ua.id = p.item_a_id
+                LEFT JOIN app_user ub ON p.side = 'INDIVIDUAL' AND ub.id = p.item_b_id
+                WHERE p.assignment_id = %s AND c.status = 'SUBMITTED'
+                ORDER BY p.side, cr.display_order, c.submitted_at
+                """,
+                (assignment_id,),
+            )
+            return [
+                ComparisonExportRow(
+                    side=Side(r["side"]),
+                    criterion_name=r["criterion_name"],
+                    item_a_label=r["item_a_label"] or str(r["item_a_id"]),
+                    item_b_label=r["item_b_label"] or str(r["item_b_id"]),
+                    display_left_item_id=str(r["display_left_item_id"]),
+                    item_a_id=str(r["item_a_id"]),
+                    item_b_id=str(r["item_b_id"]),
+                    choice=r["choice"],
+                    evaluator_user_id=str(r["evaluator_user_id"]),
+                    submitted_at=r["submitted_at"],
+                )
+                for r in cur.fetchall()
+            ]

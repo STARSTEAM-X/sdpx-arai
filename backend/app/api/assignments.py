@@ -115,6 +115,7 @@ class FeasibilityOut(BaseModel):
     totalComparisons: int
     feasible: bool
     reason: str | None
+    lowAnonymityNote: str | None = None
 
 
 class FeasibilityReport(BaseModel):
@@ -291,7 +292,11 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
     ]
     if assignment.has_individual_side:
         items.append(
-            solve_individual_feasibility(groups, target_coverage=assignment.target_coverage)
+            solve_individual_feasibility(
+                groups,
+                target_coverage=assignment.target_coverage,
+                min_comparisons=assignment.min_comparisons,
+            )
         )
 
     return FeasibilityReport(
@@ -304,6 +309,7 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
                 totalComparisons=f.total_comparisons,
                 feasible=f.feasible,
                 reason=f.reason,
+                lowAnonymityNote=f.low_anonymity_note,
             )
             for f in items
         ]

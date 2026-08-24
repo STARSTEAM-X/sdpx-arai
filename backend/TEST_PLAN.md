@@ -209,6 +209,33 @@ pure function เหมือน `scoring_service` — รู้แค่ "ท�
 13 tests รวม — ครอบคลุมทุก AC ของ US-13 ที่เป็นกฎล้วน (ไม่นับ audit record ซึ่งพิสูจน์ผ่าน
 `e2e/specs/scoring.spec.ts` เพราะต้องมี DB จริงถึงจะเห็น `AuditEvent` ที่บันทึกได้)
 
+### 13. `solve_individual_feasibility()` คำเตือน anonymity ต่ำ + `pseudonymize_evaluators()` — US-15 (Sprint 3)
+
+สองจุดที่ปิด AC ที่เหลือของ US-15 (เดิมเขียนไว้ว่ายังไม่ทำ — ปิดในรอบต่อมาวันเดียวกัน)
+
+| กฎ | Test |
+|---|---|
+| **AC** กลุ่มขนาด m=3 (m−1 < min_comparisons) เตือนว่าคะแนนจะไม่มีวันแสดง แต่ยัง feasible | `test_AC_กลุ่มขนาด_3_เตือนว่า_anonymity_ต่ำ_คะแนนจะไม่มีวันแสดง` |
+| กลุ่มขนาด 4 ขึ้นไป (m−1 ≥ min_comparisons default) ไม่มีคำเตือน | `test_กลุ่มขนาด_4_ขึ้นไปไม่มีคำเตือน` |
+| เตือนเฉพาะกลุ่มที่ได้รับผลกระทบจริง ไม่เหมารวมทุกกลุ่ม | `test_เตือนเฉพาะกลุ่มที่ได้รับผลกระทบจริง_ไม่ใช่ทุกกลุ่ม` |
+| เกณฑ์อิงตาม `min_comparisons` ของ assignment ไม่ใช่เลข 3 ตายตัว | `test_เกณฑ์คำเตือนอิงตาม_min_comparisons_ของ_assignment_ไม่ใช่ค่าตายตัว` |
+| ห้องใหญ่พอทุกกลุ่มไม่มีคำเตือนเลย | `test_ไม่มีกลุ่มไหนเข้าเกณฑ์เตือนเลยเมื่อทุกกลุ่มใหญ่พอ` |
+
+(อยู่ใน `tests/unit/test_pairing.py::TestIndividualFeasibility` ร่วมกับ test เดิมของ US-05/06)
+
+| กฎ (`test_anonymity.py`) | Test |
+|---|---|
+| **AC** คืนรหัสที่ไม่ใช่ uuid จริง | `test_AC_คืนรหัสที่ไม่ใช่_uuid_จริง` |
+| deterministic — เรียงตาม uuid string ไม่ใช่ลำดับที่ส่งเข้ามา | `test_เรียงตาม_uuid_string_ไม่ใช่ลำดับที่ส่งเข้ามา` |
+| evaluator คนเดียวกันปรากฏหลายครั้งได้รหัสเดียว | `test_evaluator_คนเดียวกันปรากฏหลายครั้งได้รหัสเดียว` |
+| edge case: ลิสต์ว่าง / คนเดียว | `test_ลิสต์ว่างคืน_dict_ว่าง` · `test_evaluator_คนเดียวได้_E1` |
+
+**AC ที่เหลือของ US-15** (OWNER เท่านั้นเห็นตัวตนจริง, ต้องยืนยันเหตุผล, มี audit ทุกครั้ง,
+CO_TEACHER เรียก export ปกติได้แต่ export-identified ไม่ได้) พิสูจน์ผ่าน `e2e/specs/scoring.spec.ts`
+กลุ่ม `US-15 export raw comparison` (6 ตัว) เพราะต้องมี DB จริงถึงจะเห็น audit log และ role
+matrix ทำงานครบวงจร — เพิ่ม capability ใหม่ `VIEW_EVALUATOR_IDENTITY` ใน `test_access.py` ด้วย
+(auto-ขยายเป็น test ใหม่ 4 ช่องจาก parametrize matrix เดิม + 2 ตัว AC เฉพาะ)
+
 ---
 
 ## Integration Test — ชั้นที่ unit test มองไม่เห็น

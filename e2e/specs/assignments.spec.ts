@@ -224,6 +224,78 @@ test.describe('US-05 ดูความเป็นไปได้ก่อน�
     expect(group.reason).toBeTruthy()
     expect(group.reason).toMatch(/\d/)
   })
+
+  // AC (US-15): กลุ่มขนาด m = 3 ต้องเตือนว่า anonymity ต่ำมากตอนดู feasibility ฝั่งบุคคล
+  // ผู้ประเมินต่อ item สูงสุดคือ m-1 = 2 คน < min_comparisons default 3 คะแนนรายบุคคล
+  // ของกลุ่มนี้จะไม่มีวันพ้น k-anonymity เลย — ต้องเตือนแต่ยังต้อง feasible (publish ได้ปกติ)
+  test('AC: กลุ่มขนาด 3 คนเตือนว่า anonymity ต่ำมากในผลลัพธ์ฝั่งบุคคล', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const ROSTER_3_GROUPS_OF_3 = [
+      'email,group_name',
+      ...Array.from({ length: 9 }, (_, i) => `stu${i + 1}@kmitl.ac.th,group-${(i % 3) + 1}`),
+    ].join('\n')
+    await seedRoster(api, instructorToken, classroomId, ROSTER_3_GROUPS_OF_3)
+    const created = await api.post('/api/assignments', {
+      headers: { authorization: `Bearer ${instructorToken}` },
+      data: assignmentBody(classroomId),
+    })
+    const { id } = await created.json()
+
+    const res = await api.get(`/api/assignments/${id}/feasibility`, {
+      headers: { authorization: `Bearer ${instructorToken}` },
+    })
+    const individual = (await res.json()).items.find((f: { side: string }) => f.side === 'INDIVIDUAL')
+
+    expect(individual.feasible).toBe(true)
+    expect(individual.lowAnonymityNote).toBeTruthy()
+    expect(individual.lowAnonymityNote).toMatch(/\d/)
+  })
+
+  // AC (US-15) กลับด้าน: กลุ่มขนาด 4 คน (m-1=3 >= min_comparisons default) ไม่ควรมีคำเตือน
+  test('กลุ่มขนาด 4 คนขึ้นไปไม่มีคำเตือน anonymity', async ({ api, instructorToken, classroomId }) => {
+    await seedRoster(api, instructorToken, classroomId) // ROSTER_12 = 3 กลุ่ม กลุ่มละ 4
+    const created = await api.post('/api/assignments', {
+      headers: { authorization: `Bearer ${instructorToken}` },
+      data: assignmentBody(classroomId),
+    })
+    const { id } = await created.json()
+
+    const res = await api.get(`/api/assignments/${id}/feasibility`, {
+      headers: { authorization: `Bearer ${instructorToken}` },
+    })
+    const individual = (await res.json()).items.find((f: { side: string }) => f.side === 'INDIVIDUAL')
+
+    expect(individual.lowAnonymityNote).toBeNull()
+  })
+
+  test.describe('บนหน้าเว็บ', () => {
+    // AC (US-15): คำเตือนต้องเห็นได้จริงบนหน้าจอ ไม่ใช่แค่มีใน API response
+    test('AC: กดตรวจความเป็นไปได้แล้วเห็นคำเตือน anonymity ต่ำของกลุ่มขนาด 3 คน', async ({
+      signedInPage,
+      api,
+      instructorToken,
+      classroomId,
+    }) => {
+      const ROSTER_3_GROUPS_OF_3 = [
+        'email,group_name',
+        ...Array.from({ length: 9 }, (_, i) => `stu${i + 1}@kmitl.ac.th,group-${(i % 3) + 1}`),
+      ].join('\n')
+      await seedRoster(api, instructorToken, classroomId, ROSTER_3_GROUPS_OF_3)
+      await signedInPage.goto(`/classrooms/${classroomId}`)
+
+      await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานทดสอบ anonymity')
+      await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+      await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
+      await expect(signedInPage.getByTestId('assignment-created')).toBeVisible()
+
+      await signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' }).click()
+      await expect(signedInPage.getByTestId('low-anonymity-note-INDIVIDUAL')).toBeVisible()
+      await expect(signedInPage.getByTestId('low-anonymity-note-INDIVIDUAL')).toContainText('k-anonymity')
+    })
+  })
 })
 
 test.describe('US-06 เผยแพร่งานแล้วระบบจัดคู่ให้อัตโนมัติ', () => {

@@ -434,7 +434,7 @@ participation multiplier แยกจาก `score_ratio` อยู่แล้�
 | US-12 จัดการผู้ร่วมสอนและ TA | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) | `POST /api/classrooms/{id}/members` · `DELETE /api/classrooms/{id}/members/{memberId}` — ยังไม่มีใน `openapi.yaml` |
 | US-13 finalize คะแนน | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) | `POST /api/assignments/{id}:finalize` · `POST /api/assignments/{id}:reopen` · `POST /api/assignments/{id}/score-overrides` · `GET /api/assignments/{id}/scores` — ครบใน `openapi.yaml` แล้ว |
 | US-14 audit log | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) | `GET /api/classrooms/{id}/audit` — ส่วนการ**เขียน** audit ไม่มี endpoint ของตัวเอง เหมือน US-11 |
-| US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | **ไม่มี endpoint ของตัวเอง** — เป็นข้อบังคับของทุก endpoint ที่คืนคะแนนและทุก export (export ยังไม่มีในระบบเลย — ดูสถานะ Sprint 3) |
+| US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | `GET /api/assignments/{id}/comparisons:export` · `POST /api/assignments/{id}/comparisons:export-identified` — นอกจากนี้เป็นข้อบังคับ cross-cutting ของทุก endpoint ที่คืนคะแนนด้วย |
 | US-16 คำนวณคะแนน | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) | `POST /api/assignments/{id}:recompute` — ตัว engine ถูกเรียกโดย `my-score`, `/scores` ฝั่งอาจารย์ และ `:finalize` |
 
 ## สองข้อยกเว้นที่ตั้งใจให้เป็นแบบนี้
@@ -602,7 +602,7 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-### สถานะ ณ 2026-08-24 — ครบทั้ง 7 story (US-15 มี 2 AC ที่ยังไม่ทำ — ดูรายละเอียดด้านล่าง)
+### สถานะ ณ 2026-08-24 — ครบทั้ง 7 story ทุก AC (39/39)
 
 | Story | AC | หลักฐาน |
 |---|---|---|
@@ -610,7 +610,7 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 | **5/5** | unit `test_comparison_service.py` (15 ตัว) · e2e `comparisons.spec.ts` (9 ตัว รวม autosave 2 วินาทีจริงผ่าน web-first assertion ไม่ใช้ `waitForTimeout`, ผ่าน `--repeat-each=3`) |
 | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 | **5/5** | e2e `submissions.spec.ts` (8 ตัว รวม idempotency-key จริงและ `window.confirm` dialog, ผ่าน `--repeat-each=3`) |
 | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) US-16 | **8/8** | unit `test_scoring_service.py` (20 ตัว รวม golden test S10) · S7 (`is_final` แก้ตรงไม่ได้) พิสูจน์แล้วผ่าน `computed_score` UNIQUE constraint + `PgScoringRepository.save_computed_scores` ที่ไม่มี path ไหนเขียน `is_final=true` นอก `:finalize` |
-| [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) US-15 | **4/6** | unit ทุกตัวของ `test_finalize_service.py`/`test_scoring_service.py` ไม่มี field ระบุตัวผู้ประเมินเลย · e2e `scoring.spec.ts` พิสูจน์ threshold จริง (m=4 เห็น, m=3 ไม่เห็น) · **2 AC ยังไม่ทำ** — ดูด้านล่าง |
+| [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) US-15 | **6/6** | unit ทุกตัวของ `test_finalize_service.py`/`test_scoring_service.py` ไม่มี field ระบุตัวผู้ประเมินเลย · unit `test_pairing.py` (คำเตือน anonymity ต่ำ) + `test_anonymity.py` (pseudonymize) · e2e `scoring.spec.ts` พิสูจน์ threshold จริง (m=4 เห็น, m=3 ไม่เห็น) และ export ทั้งสองแบบ · e2e `assignments.spec.ts` พิสูจน์คำเตือนบนหน้าเว็บจริง |
 | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) US-10 | **4/4** | e2e `scoring.spec.ts` (my-score ก่อน/หลัง finalize, individual hidden/visible, หน้าเว็บ `ScorePage.tsx`) |
 | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) US-13 | **7/7** | unit `test_finalize_service.py` (13 ตัว) · e2e `scoring.spec.ts` (14 ตัว รวม finalize/reopen/LOW_CONFIDENCE gate/`/scores` label จริงทั้งหมด ผ่าน `--repeat-each=3`) |
 
@@ -651,18 +651,33 @@ US-13 เขียนว่า label "ชั่วคราว" ต้องก�
 บอกไว้เองว่าสำคัญกว่า — AC ข้อ 5 ของ US-13 จึงถือว่าผ่านเฉพาะครึ่งฝั่งอาจารย์ ฝั่งนักศึกษา
 "ผ่าน" โดยไม่มีอะไรให้ต้องติด label เลย (ไม่เคยเห็นคะแนนชั่วคราวตั้งแต่ต้น)
 
-**US-15 — 2 AC ที่ยังไม่ได้ทำ**
+**US-15 — 6/6 AC ผ่านครบแล้ว ณ 2026-08-24 (2 ข้อที่เคยค้างปิดในรอบต่อมา)**
 
 1. *"กลุ่มขนาด m = 3 ต้องเตือนว่า anonymity ต่ำมากตอนอาจารย์จะเปิด individual evaluation"*
-   — พฤติกรรมป้องกันจริงถูกต้อง (m=3 ให้ผู้ประเมินได้แค่ m−1=2 คน < `min_comparisons` default 3
-   จึงถูกซ่อนเสมอ พิสูจน์แล้วใน `scoring.spec.ts`) แต่ยังไม่มี UI เตือน**เชิงรุก**ตอนสร้าง/publish
-   assignment ว่าตั้งค่าแบบนี้แล้วคะแนนรายบุคคลของกลุ่มเล็กจะไม่มีวันแสดงผลเลย — เป็น UX gap
-   ไม่ใช่ security gap (ระบบไม่รั่ว แค่ไม่เตือนล่วงหน้า) บันทึกเป็น follow-up
+   — เพิ่ม `low_anonymity_note` ใน `solve_individual_feasibility()` (`backend/app/domain/pairing.py`)
+   เตือนทุกกลุ่มที่ `size − 1 < min_comparisons` ของ assignment นั้น (ไม่ใช่ตัวเลข 3 ตายตัว —
+   ถ้าวันหนึ่งมีคนตั้ง `min_comparisons` สูงกว่า default กลุ่มขนาดใหญ่กว่าก็ติดเตือนได้เช่นกัน)
+   `feasible` ยังเป็น `true` ปกติ (แค่เตือน ไม่บล็อก publish) โชว์บนหน้าเว็บเป็น banner สีเหลือง
+   ใต้ผลลัพธ์ feasibility ฝั่ง INDIVIDUAL ตอนอาจารย์กด "ตรวจความเป็นไปได้" — unit test 5 ตัวใน
+   `test_pairing.py::TestIndividualFeasibility` + e2e ทั้ง API และ UI ใน `assignments.spec.ts`
 2. *"อาจารย์เปิดดู evaluator identity หรือ export ที่มี identity ต้องเป็น OWNER + ยืนยันเจตนา +
-   audit"* และ *"export แบบ default ต้องเป็น pseudonymous id"* — **ยังไม่มี export feature
-   ในระบบเลย** (`grep -r export backend/app/api/` ไม่เจอ endpoint ไหน) ทั้งสอง AC จึงยังทดสอบ
-   ไม่ได้เพราะไม่มีอะไรให้ทดสอบ ไม่ใช่ regression — เป็นขอบเขตของ story อื่นที่ยังไม่ถึงคิว
-   (export/reporting ไม่อยู่ใน traceability table เพราะไม่มี endpoint เขียนถึง)
+   audit"* และ *"export แบบ default ต้องเป็น pseudonymous id"* — สร้าง export feature ใหม่
+   ที่จำเป็นเพื่อปิด AC นี้โดยเฉพาะ (ไม่ใช่ FR-EXPORT-01/02/05/06 เต็มรูปแบบ — ดูขอบเขตด้านล่าง):
+   - `GET .../comparisons:export` — CSV ที่ผู้ประเมินแสดงเป็นรหัส `E1, E2, ...`
+     (`pseudonymize_evaluators()` ใน `backend/app/domain/anonymity.py` — เรียงตาม uuid string
+     ก่อนนับ ผลจึง deterministic แต่รหัสใช้ได้แค่ภายในไฟล์เดียวกัน ไม่ใช่ id ถาวร) เปิดให้ทุกคนที่มี
+     `MANAGE_ASSIGNMENT` (OWNER, CO_TEACHER) เพราะไฟล์นี้ไม่มีตัวตนจริงอยู่เลย
+   - `POST .../comparisons:export-identified` — CSV พร้อมอีเมลจริง ต้องมี `reason` เสมอ (คือการ
+     "ยืนยันเจตนา" ตาม AC) จำกัดด้วย capability ใหม่ `VIEW_EVALUATOR_IDENTITY` (OWNER เท่านั้น —
+     แยกจาก `FINALIZE_SCORES` ตั้งใจ เพราะคนละความเสี่ยงกัน) และเขียน audit
+     `IDENTIFIED_EXPORT` ทุกครั้งในทรานแซกชันเดียวกับการ export (พิสูจน์จริงว่ามี audit record
+     พร้อม reason หลัง export สำเร็จใน `scoring.spec.ts`)
+
+   **ขอบเขตที่ตั้งใจไม่ทำ:** FR-EXPORT-01/02/05/06 (XLSX 4 sheet, ชื่อไฟล์ตามฟอร์แมต, metadata
+   เวอร์ชันสูตร) ไม่ได้อยู่ใน AC ของ US-15 และไม่มี issue/story ไหนใน Sprint 3 อ้างถึงเลย —
+   ทำแค่ CSV ดิบที่ US-15 ต้องการจริง ๆ (pseudonym เป็น default + identity export ที่มี guard
+   ครบ) ถ้าจะทำรายงาน XLSX เต็มรูปแบบควรเป็น story ใหม่ต่างหาก ไม่ใช่ทำเกินขอบเขตของ US-15 เพียง
+   เพราะ endpoint ชื่อคล้ายกัน
 
 **US-10 — เลือกตอบ 200 + message แทน 404 ตอนยังไม่ finalize**
 
@@ -786,10 +801,10 @@ section ต่อเกณฑ์) พบตอนทดสอบกับ assign
 ### Sprint 3 ปิดจบ — ณ 2026-08-24
 
 ครบทั้ง 7 story (US-07, US-08, US-09, US-16, US-15, US-10, US-13) ตามลำดับที่วางไว้
-39 AC ทั้งหมด ผ่าน **37 ข้อ** เหลือ 2 ข้อของ US-15 ที่ยังไม่ทำ (คำเตือนกลุ่มเล็กตอน setup
-กับ export ที่มี identity — ดูรายละเอียดในหัวข้อ US-15 ด้านบน) ไม่มีข้อไหน**ล้มเหลว** มีแต่
-ข้อที่ยังไม่ถึงคิว — regression suite ทั้งชุด (backend 353 tests, frontend 20 tests, e2e 105
-tests รวม `--repeat-each=3` ของ `scoring.spec.ts`) ผ่านหมดหลังรวมงานทั้ง 7 story เข้าด้วยกัน
+**39/39 AC ผ่านครบ** — 2 ข้อของ US-15 ที่เคยเหลือ (คำเตือนกลุ่มเล็กตอน setup กับ export ที่มี
+identity) ปิดในรอบต่อมาวันเดียวกัน หลังพบว่าทำได้จริงในขอบเขตที่เหมาะสม (ดูรายละเอียดใน
+หัวข้อ US-15 ด้านบน) — regression suite ทั้งชุด (backend 342 unit + 27 integration, frontend 20
+unit tests, e2e **114 tests** รวม `--repeat-each=3` ของ `scoring.spec.ts`) ผ่านหมด
 
 **พร้อมสำหรับ WS-07 (สัปดาห์ 13)** — flow ประเมินเต็มเส้นทาง (US-07→US-08→US-09→US-16→
 US-15→US-10→US-13) ใช้งานได้จริงจาก browser ให้ k6 ยิง "realistic journey" ได้แล้ว

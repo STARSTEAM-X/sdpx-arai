@@ -410,3 +410,127 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
     })
   })
 })
+
+test.describe('US-15 export raw comparison (FR-EXPORT-03/04)', () => {
+  async function setupWithOneSubmission(api: Api, instructorToken: string, classroomId: string) {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    const studentToken = await issueToken(api, 'stu1@kmitl.ac.th')
+    const pairs = await myPairs(api, studentToken, assignmentId, 'GROUP')
+    for (const p of pairs) {
+      await api.put(`/api/comparisons/${p.pairAssignmentId}`, { ...auth(studentToken), data: { choice: 2 } })
+    }
+    await api.post(`/api/assignments/${assignmentId}/submissions`, {
+      ...auth(studentToken),
+      headers: { ...auth(studentToken).headers, 'Idempotency-Key': 'export-setup-1' },
+      data: { side: 'GROUP' },
+    })
+    return assignmentId
+  }
+
+  // AC (US-15/FR-EXPORT-03): export แบบ default ต้องเป็น pseudonymous id ไม่ใช่ตัวตนจริง
+  test('AC: export ปกติไม่มีอีเมลหรือ uuid ของผู้ประเมินเลย มีแต่รหัส E1/E2/...', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+
+    const res = await api.get(`/api/assignments/${assignmentId}/comparisons:export`, auth(instructorToken))
+    expect(res.status()).toBe(200)
+    expect(res.headers()['content-type']).toContain('text/csv')
+    const csv = await res.text()
+
+    expect(csv).not.toContain('stu1@kmitl.ac.th')
+    expect(csv).toMatch(/E\d+/)
+  })
+
+  // CO_TEACHER มี MANAGE_ASSIGNMENT จึงเรียก export แบบไม่เปิดเผยตัวตนได้ปกติ
+  test('CO_TEACHER เรียก export ปกติได้ (ไม่ใช่ identity export)', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    await api.post(`/api/classrooms/${classroomId}/members`, {
+      ...auth(instructorToken),
+      data: { email: 'co-teacher-export@kmitl.ac.th', role: 'CO_TEACHER' },
+    })
+    const coTeacherToken = await issueToken(api, 'co-teacher-export@kmitl.ac.th')
+
+    const res = await api.get(`/api/assignments/${assignmentId}/comparisons:export`, auth(coTeacherToken))
+    expect(res.status()).toBe(200)
+  })
+
+  test('edge case: นักศึกษาเรียก export (แม้แบบ pseudonymous) ไม่ได้ ตอบ 403', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    const studentToken = await issueToken(api, 'stu1@kmitl.ac.th')
+
+    const res = await api.get(`/api/assignments/${assignmentId}/comparisons:export`, auth(studentToken))
+    expect(res.status()).toBe(403)
+  })
+
+  // AC (US-15/FR-EXPORT-04): เปิดเผยตัวตนต้องเป็น OWNER + ยืนยันเจตนา (เหตุผล) + audit
+  test('AC: export-identified ต้องระบุเหตุผล ไม่งั้นตอบ 422', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+
+    const res = await api.post(`/api/assignments/${assignmentId}/comparisons:export-identified`, {
+      ...auth(instructorToken),
+      data: { reason: '' },
+    })
+    expect(res.status()).toBe(422)
+  })
+
+  test('edge case: CO_TEACHER เรียก export-identified ไม่ได้ ตอบ 403 (เฉพาะ OWNER)', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    await api.post(`/api/classrooms/${classroomId}/members`, {
+      ...auth(instructorToken),
+      data: { email: 'co-teacher-export2@kmitl.ac.th', role: 'CO_TEACHER' },
+    })
+    const coTeacherToken = await issueToken(api, 'co-teacher-export2@kmitl.ac.th')
+
+    const res = await api.post(`/api/assignments/${assignmentId}/comparisons:export-identified`, {
+      ...auth(coTeacherToken),
+      data: { reason: 'อยากดู' },
+    })
+    expect(res.status()).toBe(403)
+  })
+
+  // AC: export ที่มี identity สำเร็จ → มีอีเมลจริง และมี audit record พร้อมเหตุผล
+  test('AC: export-identified สำเร็จเห็นอีเมลจริง และถูกบันทึก audit พร้อมเหตุผล', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    const reason = 'ตรวจสอบข้อร้องเรียนเรื่องคะแนนของนักศึกษา'
+
+    const res = await api.post(`/api/assignments/${assignmentId}/comparisons:export-identified`, {
+      ...auth(instructorToken),
+      data: { reason },
+    })
+    expect(res.status()).toBe(200)
+    const csv = await res.text()
+    expect(csv).toContain('stu1@kmitl.ac.th')
+
+    // ดึง classroomId จาก assignment ไม่ได้ตรง ๆ — ใช้ fixture classroomId ที่สร้างงานนี้ไว้แล้ว
+    const auditRes = await api.get(`/api/classrooms/${classroomId}/audit`, auth(instructorToken))
+    const auditBody = await auditRes.json()
+    const entry = auditBody.items.find((e: { action: string }) => e.action === 'IDENTIFIED_EXPORT')
+
+    expect(entry).toBeTruthy()
+    expect(entry.reason).toBe(reason)
+  })
+})

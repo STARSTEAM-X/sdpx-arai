@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 
 import { Banner, Card, CardHead, Pill, Spinner, btn } from './Ui'
-import { IconLock, IconTransparentScore } from './icons'
+import { IconDownload, IconLock, IconTransparentScore } from './icons'
 import {
   ApiError,
   type AssignmentSummary,
   type Scores,
+  exportComparisons,
+  exportComparisonsIdentified,
   finalizeAssignment,
   getScores,
   listClassroomAssignments,
@@ -79,6 +81,8 @@ function AssignmentRow({
   const [scores, setScores] = useState<Scores | null>(null)
   const [scoresError, setScoresError] = useState<string | null>(null)
   const [loadingScores, setLoadingScores] = useState(false)
+  const [exporting, setExporting] = useState<'plain' | 'identified' | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   async function toggleScores() {
     if (scores) {
@@ -93,6 +97,41 @@ function AssignmentRow({
       setScoresError(err instanceof ApiError ? err.message : 'โหลดคะแนนไม่สำเร็จ')
     } finally {
       setLoadingScores(false)
+    }
+  }
+
+  async function handleExport() {
+    setExporting('plain')
+    setExportError(null)
+    try {
+      await exportComparisons(item.id)
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'ส่งออกไม่สำเร็จ')
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  async function handleExportIdentified() {
+    // เปิดเผยตัวตนผู้ประเมิน — ต้องระบุเหตุผลเสมอ (คือการ "ยืนยันเจตนา" ตาม FR-EXPORT-04)
+    // และถูกบันทึกลง audit log ทุกครั้งที่เรียกสำเร็จ
+    const reason = window.prompt(
+      'ไฟล์นี้จะมีอีเมลจริงของผู้ประเมิน — ระบุเหตุผลก่อน (บันทึกไว้ใน audit log):',
+    )
+    if (reason === null) return
+    if (!reason.trim()) {
+      setExportError('ต้องระบุเหตุผลก่อนเปิดเผยตัวตนผู้ประเมิน')
+      return
+    }
+
+    setExporting('identified')
+    setExportError(null)
+    try {
+      await exportComparisonsIdentified(item.id, reason)
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'ส่งออกไม่สำเร็จ')
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -148,11 +187,36 @@ function AssignmentRow({
             เปิดกลับมาแก้
           </button>
         )}
+
+        <button
+          type="button"
+          disabled={exporting !== null}
+          onClick={() => void handleExport()}
+          className={btn('ghost', 'sm')}
+        >
+          {exporting === 'plain' && <Spinner className="size-3.5" />}
+          <IconDownload className="size-3.5" />
+          ส่งออก CSV
+        </button>
+        <button
+          type="button"
+          disabled={exporting !== null}
+          onClick={() => void handleExportIdentified()}
+          className={btn('ghost', 'sm')}
+        >
+          {exporting === 'identified' && <Spinner className="size-3.5" />}
+          ส่งออกพร้อมตัวตนจริง
+        </button>
       </div>
 
       {scoresError && (
         <Banner tone="err" className="mt-3 w-full">
           {scoresError}
+        </Banner>
+      )}
+      {exportError && (
+        <Banner tone="err" data-testid="export-error" className="mt-3 w-full">
+          {exportError}
         </Banner>
       )}
       {scores && <ScoresPanel scores={scores} />}

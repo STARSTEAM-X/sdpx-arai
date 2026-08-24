@@ -33,6 +33,10 @@ class Capability(StrEnum):
     MANAGE_MEMBERS = auto()
     FINALIZE_SCORES = auto()
     VIEW_AUDIT = auto()
+    # เห็นตัวตนจริงของผู้ประเมิน — เฉพาะ export ที่มี identity (FR-EXPORT-04, US-15)
+    # แยกจาก FINALIZE_SCORES โดยตั้งใจ: คนละความเสี่ยงกัน อันหนึ่งกระทบคะแนน
+    # อีกอันกระทบความเป็นส่วนตัวของนักศึกษาที่ประเมิน — รวมกันจะบังตาว่าเหตุผลจริงคืออะไร
+    VIEW_EVALUATOR_IDENTITY = auto()
 
 
 # role matrix จาก PRD §3 — เขียนเป็นตารางเต็มโดยตั้งใจ
@@ -47,6 +51,7 @@ _MATRIX: dict[MemberRole, frozenset[Capability]] = {
             Capability.MANAGE_MEMBERS,
             Capability.FINALIZE_SCORES,
             Capability.VIEW_AUDIT,
+            Capability.VIEW_EVALUATOR_IDENTITY,
         }
     ),
     MemberRole.CO_TEACHER: frozenset(

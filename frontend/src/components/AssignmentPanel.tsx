@@ -383,6 +383,15 @@ export function AssignmentPanel({
                           {f.reason}
                         </p>
                       )}
+                      {f.lowAnonymityNote && (
+                        <p
+                          data-testid={`low-anonymity-note-${f.side}`}
+                          className="mt-2.5 flex items-start gap-2 rounded-lg border border-warn-line bg-warn-soft px-3 py-2 text-warn"
+                        >
+                          <IconAlert className="mt-0.5 size-4 shrink-0" />
+                          <span>{f.lowAnonymityNote}</span>
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

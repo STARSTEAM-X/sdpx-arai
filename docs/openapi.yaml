@@ -829,6 +829,84 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /api/assignments/{assignmentId}/comparisons:export:
+    get:
+      tags: [scoring]
+      summary: ส่งออก raw comparison เป็น CSV (ปกปิดตัวตนผู้ประเมิน)
+      description: |
+        อ้าง US-15, FR-EXPORT-03 — ผู้เรียกที่มี capability `MANAGE_ASSIGNMENT` เรียกได้
+        (OWNER และ CO_TEACHER) เพราะไฟล์นี้**ไม่มี**ตัวตนจริงของผู้ประเมินอยู่เลย มีแต่รหัส
+        `E1, E2, ...` ที่สุ่มลำดับใหม่ทุกครั้งที่เรียก — ใช้ข้ามการ export ครั้งอื่นไม่ได้
+
+        UTF-8 พร้อม BOM (FR-EXPORT-01) กันข้อความไทยเพี้ยนตอนเปิดด้วย Excel
+        เอาเฉพาะ comparison ที่ `SUBMITTED` แล้ว (S2) — DRAFT ไม่เคยเข้าเงื่อนไขการคำนวณ
+        คะแนน จึงไม่ควรอยู่ในไฟล์ที่ใช้ตรวจสอบคะแนนย้อนหลังเช่นกัน
+
+        ต้องการตัวตนจริงของผู้ประเมิน ใช้ `POST .../comparisons:export-identified` แทน
+      operationId: exportComparisons
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: ไฟล์ CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/assignments/{assignmentId}/comparisons:export-identified:
+    post:
+      tags: [scoring]
+      summary: ส่งออก raw comparison พร้อมอีเมลจริงของผู้ประเมิน
+      description: |
+        อ้าง US-15, FR-EXPORT-04 — เฉพาะ OWNER (capability `VIEW_EVALUATOR_IDENTITY`)
+        ต้องระบุเหตุผลเสมอ (คือการ "ยืนยันเจตนา" ตาม AC) และถูกบันทึกลง audit log
+        ทุกครั้งแบบไม่มีข้อยกเว้น (`AuditAction.IDENTIFIED_EXPORT`) — เรียกสำเร็จแล้วไม่มี
+        ร่องรอยเป็นไปไม่ได้ เพราะ audit เขียนใน transaction เดียวกับการ export (FR-AUDIT-01)
+      operationId: exportComparisonsIdentified
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: ไฟล์ CSV พร้อมอีเมลจริงของผู้ประเมิน
+          content:
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `VIEW_EVALUATOR_IDENTITY` — มีเฉพาะ OWNER (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: 'ไม่ได้ระบุเหตุผล (`code: VALIDATION_FAILED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /api/assignments/{assignmentId}/score-overrides:
     post:
       tags: [scoring]
@@ -1324,6 +1402,13 @@ components:
         reason:
           type: [string, 'null']
           description: ถ้า feasible = false ต้องอธิบายด้วยตัวเลข ไม่ใช่คำเตือนลอย ๆ
+        lowAnonymityNote:
+          type: [string, 'null']
+          description: |
+            เฉพาะฝั่ง INDIVIDUAL — เตือนเมื่อมีกลุ่มที่ผู้ประเมินต่อ item (m − 1) ต่ำกว่า
+            min_comparisons ของงานนี้ (US-15) คะแนนรายบุคคลของกลุ่มนั้นจะถูกซ่อนโดย
+            k-anonymity ตลอดไป ไม่ว่าจะรอให้ใครส่งเพิ่มอีกกี่คนก็ตาม — ไม่ใช่ error
+            (feasible ยังเป็น true ปกติ, publish ได้) เป็นแค่คำเตือนให้ตัดสินใจล่วงหน้า
 
     PublishResult:
       type: object

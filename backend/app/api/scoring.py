@@ -4,15 +4,18 @@ route บาง: โหลด assignment, ตรวจสิทธิ์, เร
 PgScoringRepository กฎว่า finalize ได้เมื่อไรอยู่ใน finalize_service ซึ่งทดสอบได้โดยไม่ต้องมี DB
 """
 
+import csv
+import io
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
+from app.domain.anonymity import pseudonymize_evaluators
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.assignment_service import Assignment, AssignmentStatus
 from app.domain.errors import NotFoundError, ValidationError
@@ -32,7 +35,7 @@ from app.domain.scoring_service import (
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
-from app.repositories.pg_scoring_repo import PgScoringRepository
+from app.repositories.pg_scoring_repo import ComparisonExportRow, PgScoringRepository
 
 router = APIRouter(prefix="/api/assignments", tags=["scoring"])
 
@@ -203,6 +206,120 @@ def reopen_assignment(
         )
 
     return ReopenOut(status="CLOSED")
+
+
+def _rows_to_csv(rows: list[ComparisonExportRow], *, evaluator_column: dict[str, str]) -> str:
+    """CSV ดิบของ comparison — FR-EXPORT-03
+
+    `evaluator_column` คือ map `evaluator_user_id → ค่าที่จะโชว์ในคอลัมน์นั้นจริง ๆ`
+    ผู้เรียกเป็นคนตัดสินว่าจะส่ง pseudonym หรืออีเมลจริงเข้ามา ฟังก์ชันนี้แค่ประกอบ CSV
+    ไม่รู้ด้วยซ้ำว่ากำลังเขียนตัวตนจริงหรือรหัสลับ — privacy decision อยู่ที่ผู้เรียกทั้งหมด
+
+    ใช้ UTF-8 BOM (`﻿`) ตาม FR-EXPORT-01 กันข้อความไทยเพี้ยนตอนเปิดด้วย Excel
+    """
+    buf = io.StringIO()
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(
+        ["side", "criterion", "item_a", "item_b", "shown_left", "choice", "evaluator", "submitted_at"]
+    )
+    for r in rows:
+        writer.writerow(
+            [
+                str(r.side),
+                r.criterion_name,
+                r.item_a_label,
+                r.item_b_label,
+                r.item_a_label if r.display_left_item_id == r.item_a_id else r.item_b_label,
+                r.choice,
+                evaluator_column[r.evaluator_user_id],
+                r.submitted_at.isoformat(),
+            ]
+        )
+    return buf.getvalue()
+
+
+@router.get("/{assignment_id}/comparisons:export")
+def export_comparisons(assignment_id: str, user_email: CurrentUser) -> Response:
+    """ส่งออก raw comparison เป็น CSV — ค่าเริ่มต้นซ่อนตัวตนผู้ประเมิน (FR-EXPORT-03)
+
+    ผู้ประเมินแสดงเป็นรหัส `E1, E2, ...` ที่สุ่มลำดับใหม่ทุกครั้งที่ export (ดู
+    `pseudonymize_evaluators`) ไม่ใช่ตัวตนจริงหรือ uuid ดิบ — เปิดดูตัวตนจริงต้องเรียก
+    `:export-identified` แทน ซึ่งจำกัดไว้เฉพาะ OWNER และบันทึก audit ทุกครั้ง (FR-EXPORT-04)
+    """
+    with transaction() as conn:
+        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        rows = PgScoringRepository(conn).export_comparisons(assignment_id)
+
+    pseudonyms = pseudonymize_evaluators([r.evaluator_user_id for r in rows])
+    csv_text = _rows_to_csv(rows, evaluator_column=pseudonyms)
+
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="comparisons_{assignment_id}.csv"'
+        },
+    )
+
+
+class ExportIdentifiedIn(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+@router.post("/{assignment_id}/comparisons:export-identified")
+def export_comparisons_identified(
+    assignment_id: str, body: ExportIdentifiedIn, user_email: CurrentUser, request: Request
+) -> Response:
+    """ส่งออก raw comparison พร้อมอีเมลจริงของผู้ประเมิน — เฉพาะ OWNER (FR-EXPORT-04)
+
+    ต้องระบุเหตุผลเสมอ (คือการ "ยืนยันเจตนา" ตาม AC — สอดคล้องกับ pattern เดียวกับ
+    reopen/score-override ที่ endpoint อื่นในไฟล์นี้ใช้) และถูกบันทึกลง audit log ทุกครั้ง
+    ไม่มีทางเรียกสำเร็จแล้วไม่มีร่องรอยเลย (`AuditAction.IDENTIFIED_EXPORT`)
+    """
+    with transaction() as conn:
+        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        ClassroomAccess(PgClassroomRepository(conn)).require(
+            assignment.classroom_id, user_email, Capability.VIEW_EVALUATOR_IDENTITY
+        )
+
+        rows = PgScoringRepository(conn).export_comparisons(assignment_id)
+        evaluator_ids = {r.evaluator_user_id for r in rows}
+
+        emails: dict[str, str] = {}
+        if evaluator_ids:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, email_normalized FROM app_user WHERE id = ANY(%s)",
+                    (list(evaluator_ids),),
+                )
+                emails = {str(row["id"]): row["email_normalized"] for row in cur.fetchall()}
+
+        csv_text = _rows_to_csv(rows, evaluator_column=emails)
+
+        PgAuditRepository(conn).record(
+            AuditEvent(
+                actor_email=user_email,
+                action=AuditAction.IDENTIFIED_EXPORT,
+                resource_type="assignment",
+                resource_id=assignment_id,
+                classroom_id=assignment.classroom_id,
+                before_state=None,
+                after_state={"rowCount": len(rows)},
+                reason=body.reason.strip(),
+                ip=request.client.host if request.client else None,
+            )
+        )
+
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="comparisons_identified_{assignment_id}.csv"'
+            )
+        },
+    )
 
 
 class ScoreOverrideIn(BaseModel):

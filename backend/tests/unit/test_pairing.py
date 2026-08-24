@@ -135,6 +135,39 @@ class TestIndividualFeasibility:
     def test_coverage_อ้างกลุ่มที่เล็กที่สุดเพราะเป็นขอบล่างของทั้งห้อง(self):
         assert solve_individual_feasibility(make_groups(7, 4)).achievable_coverage == 2
 
+    # US-15 AC: "กลุ่มขนาด m = 3 อาจารย์จะเปิด individual evaluation ต้องเตือนว่า
+    # anonymity ต่ำมาก" — ผู้ประเมินต่อ item ในกลุ่ม m คนมี m − 1 คน (ทุกคนยกเว้นตัวเอง
+    # ประเมินคู่ที่แตะ item นั้นได้อย่างน้อยหนึ่งคู่เสมอเมื่อ m ≥ 3) ถ้า m − 1 < min_comparisons
+    # คะแนนรายบุคคลของกลุ่มนั้นจะไม่มีวันพ้นเกณฑ์ k-anonymity เลยไม่ว่าจะรอนานแค่ไหน
+    def test_AC_กลุ่มขนาด_3_เตือนว่า_anonymity_ต่ำ_คะแนนจะไม่มีวันแสดง(self):
+        f = solve_individual_feasibility(make_groups(3, 3), min_comparisons=3)
+
+        assert f.feasible  # ยัง publish ได้ปกติ — แค่เตือน ไม่ใช่บล็อก
+        assert f.low_anonymity_note is not None
+        assert "3" in f.low_anonymity_note
+
+    def test_กลุ่มขนาด_4_ขึ้นไปไม่มีคำเตือน(self):
+        f = solve_individual_feasibility(make_groups(4, 4), min_comparisons=3)
+
+        assert f.low_anonymity_note is None
+
+    def test_เตือนเฉพาะกลุ่มที่ได้รับผลกระทบจริง_ไม่ใช่ทุกกลุ่ม(self):
+        f = solve_individual_feasibility(make_groups(3, 5), min_comparisons=3)
+
+        assert f.low_anonymity_note is not None
+        assert "กลุ่ม 1" in f.low_anonymity_note
+        assert "กลุ่ม 2" not in f.low_anonymity_note
+
+    def test_เกณฑ์คำเตือนอิงตาม_min_comparisons_ของ_assignment_ไม่ใช่ค่าตายตัว(self):
+        # กลุ่มขนาด 4 ปกติไม่ติดเตือน (m-1=3 >= 3) แต่ถ้า assignment ตั้ง min_comparisons=4
+        # (สูงกว่า default) กลุ่มขนาด 4 คนก็ต้องติดเตือนด้วยเช่นกัน
+        assert solve_individual_feasibility(make_groups(4, 4), min_comparisons=3).low_anonymity_note is None
+        assert solve_individual_feasibility(make_groups(4, 4), min_comparisons=4).low_anonymity_note is not None
+
+    def test_ไม่มีกลุ่มไหนเข้าเกณฑ์เตือนเลยเมื่อทุกกลุ่มใหญ่พอ(self):
+        f = solve_individual_feasibility(make_groups(10, 12), min_comparisons=3)
+        assert f.low_anonymity_note is None
+
 
 class TestGenerateGroupPairs:
     """ใช้ห้อง 5 กลุ่ม กลุ่มละ 4 คน — ใหญ่พอให้ evaluator มีทางเลือกจริง"""

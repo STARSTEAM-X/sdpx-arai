@@ -50,6 +50,9 @@ class Feasibility:
     total_comparisons: int
     feasible: bool
     reason: str | None = None
+    # US-15 AC — เตือนแยกจาก `reason` โดยตั้งใจ: กลุ่มพวกนี้ publish ได้ปกติ (feasible=True)
+    # แค่คะแนนรายบุคคลจะไม่มีวันพ้น k-anonymity เลย ไม่ใช่เรื่อง "จัดคู่ไม่ได้" แบบ reason
+    low_anonymity_note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,12 +195,22 @@ def solve_group_feasibility(
 
 
 def solve_individual_feasibility(
-    groups: list[GroupInfo], *, target_coverage: int = DEFAULT_TARGET_COVERAGE
+    groups: list[GroupInfo],
+    *,
+    target_coverage: int = DEFAULT_TARGET_COVERAGE,
+    min_comparisons: int = 3,
 ) -> Feasibility:
     """coverage ฝั่งบุคคลถูกกำหนดโดยขนาดกลุ่ม ไม่ใช่โดยค่าที่อาจารย์ขอ (D4)
 
     ในกลุ่ม m คน คู่หนึ่งคู่มีคนประเมินได้ m − 2 คน — บังคับ 5 คือเป็นไปไม่ได้เมื่อ m < 7
     ค่าที่รายงานจึงเป็นค่าของ **กลุ่มที่เล็กที่สุด** เพราะนั่นคือขอบล่างที่จริงทั้งห้อง
+
+    นอกจากนี้เตือน (US-15 AC) ถ้ามีกลุ่มที่ประเมินกันเองได้จริง (m ≥ 3) แต่ m − 1 (จำนวน
+    ผู้ประเมินที่ต่างกันสูงสุดที่ item หนึ่งจะมีได้ — ทุกคนในกลุ่มยกเว้นตัวเองประเมินคู่ที่แตะ
+    item นั้นได้อย่างน้อยหนึ่งคู่เสมอเมื่อ m ≥ 3) ยังต่ำกว่า `min_comparisons` ของ assignment
+    นี้ คะแนนรายบุคคลของกลุ่มนั้นจะถูกซ่อนโดย k-anonymity (US-15 AC ข้อ 2) **ตลอดไป**
+    ไม่มีทางพ้นเกณฑ์ได้เลยไม่ว่าจะรอให้ใครส่งเพิ่มอีกกี่คน — อาจารย์ควรรู้เรื่องนี้ตอนตัดสินใจ
+    เปิด individual evaluation ไม่ใช่มาเจอทีหลังตอนคะแนนซ่อนอยู่โดยไม่รู้สาเหตุ
     """
     usable = [g for g in groups if g.size >= MIN_GROUP_SIZE_FOR_INDIVIDUAL]
 
@@ -238,6 +251,20 @@ def solve_individual_feasibility(
             )
         reason = " ".join(parts)
 
+    low_anonymity = sorted(
+        (g for g in usable if g.size - 1 < min_comparisons), key=lambda g: g.name
+    )
+    low_anonymity_note = None
+    if low_anonymity:
+        names = ", ".join(g.name for g in low_anonymity)
+        low_anonymity_note = (
+            f"{len(low_anonymity)} กลุ่มมีผู้ประเมินต่อคนไม่ถึงเกณฑ์ k-anonymity "
+            f"({names}) — คะแนนรายบุคคลของกลุ่มเหล่านี้จะถูกซ่อนตลอดไป "
+            f"เพราะกลุ่ม m คนมีผู้ประเมินต่างกันได้สูงสุด m − 1 = "
+            f"{', '.join(str(g.size - 1) for g in low_anonymity)} คน "
+            f"ซึ่งต่ำกว่าเกณฑ์ min_comparisons ({min_comparisons}) ของงานนี้"
+        )
+
     return Feasibility(
         side=Side.INDIVIDUAL,
         requested_coverage=target_coverage,
@@ -246,6 +273,7 @@ def solve_individual_feasibility(
         total_comparisons=total,
         feasible=True,
         reason=reason,
+        low_anonymity_note=low_anonymity_note,
     )
 
 
