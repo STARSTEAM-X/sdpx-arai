@@ -83,6 +83,14 @@ function AssignmentRow({
   const [loadingScores, setLoadingScores] = useState(false)
   const [exporting, setExporting] = useState<'plain' | 'identified' | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+
+  const workflowHint =
+    item.status === 'FINALIZED'
+      ? 'นักศึกษาเห็นคะแนนแล้ว'
+      : deadlinePassed
+        ? 'เลยกำหนดส่งแล้ว พร้อมตรวจและประกาศผล'
+        : 'ยังไม่ถึงกำหนดส่ง คำนวณคะแนนชั่วคราวได้'
 
   async function toggleScores() {
     if (scores) {
@@ -101,6 +109,7 @@ function AssignmentRow({
   }
 
   async function handleExport() {
+    setExportMenuOpen(false)
     setExporting('plain')
     setExportError(null)
     try {
@@ -113,6 +122,7 @@ function AssignmentRow({
   }
 
   async function handleExportIdentified() {
+    setExportMenuOpen(false)
     // เปิดเผยตัวตนผู้ประเมิน — ต้องระบุเหตุผลเสมอ (คือการ "ยืนยันเจตนา" ตาม FR-EXPORT-04)
     // และถูกบันทึกลง audit log ทุกครั้งที่เรียกสำเร็จ
     const reason = window.prompt(
@@ -136,28 +146,34 @@ function AssignmentRow({
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-xl border border-edge px-4 py-3">
-      <span className="font-display font-medium">{item.name}</span>
-      <Pill tone={item.status === 'FINALIZED' ? 'ok' : 'neutral'}>{STATUS_LABEL[item.status]}</Pill>
-
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={loadingScores}
-          onClick={() => void toggleScores()}
-          className={btn('ghost', 'sm')}
+    <li className="rounded-2xl border border-edge bg-white p-4 shadow-[0_1px_2px_rgba(23,32,51,0.03)]">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display font-semibold leading-6">{item.name}</h3>
+          <p className="mt-1 flex items-center gap-2 text-xs leading-5 text-muted">
+            <span
+              aria-hidden="true"
+              className={`size-1.5 shrink-0 rounded-full ${item.status === 'FINALIZED' ? 'bg-ok-700' : deadlinePassed ? 'bg-brand-600' : 'bg-muted'}`}
+            />
+            {workflowHint}
+          </p>
+        </div>
+        <Pill
+          tone={item.status === 'FINALIZED' ? 'ok' : deadlinePassed ? 'brand' : 'neutral'}
+          className="ml-auto shrink-0"
         >
-          {loadingScores && <Spinner className="size-3.5" />}
-          {scores ? 'ซ่อนคะแนน' : 'ดูคะแนนที่คำนวณ'}
-        </button>
+          {STATUS_LABEL[item.status]}
+        </Pill>
+      </div>
 
-        {canFinalize && (
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-edge pt-4">
+        {canFinalize ? (
           <>
             <button
               type="button"
               disabled={busy !== null}
               onClick={() => onRecompute(item.id)}
-              className={btn('ghost', 'sm')}
+              className={btn('primary', 'sm')}
             >
               {isBusy && busy?.kind === 'recompute' && <Spinner className="size-3.5" />}
               คำนวณคะแนนชั่วคราว
@@ -173,9 +189,7 @@ function AssignmentRow({
               ประกาศผลคะแนน
             </button>
           </>
-        )}
-
-        {item.status === 'FINALIZED' && (
+        ) : item.status === 'FINALIZED' ? (
           <button
             type="button"
             disabled={busy !== null}
@@ -186,27 +200,59 @@ function AssignmentRow({
             <IconLock className="size-3.5" />
             เปิดกลับมาแก้
           </button>
-        )}
+        ) : null}
 
         <button
           type="button"
-          disabled={exporting !== null}
-          onClick={() => void handleExport()}
+          disabled={loadingScores}
+          onClick={() => void toggleScores()}
           className={btn('ghost', 'sm')}
         >
-          {exporting === 'plain' && <Spinner className="size-3.5" />}
-          <IconDownload className="size-3.5" />
-          ส่งออก CSV
+          {loadingScores && <Spinner className="size-3.5" />}
+          {scores ? 'ซ่อนคะแนน' : 'ดูคะแนนที่คำนวณ'}
         </button>
-        <button
-          type="button"
-          disabled={exporting !== null}
-          onClick={() => void handleExportIdentified()}
-          className={btn('ghost', 'sm')}
-        >
-          {exporting === 'identified' && <Spinner className="size-3.5" />}
-          ส่งออกพร้อมตัวตนจริง
-        </button>
+
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            aria-expanded={exportMenuOpen}
+            aria-haspopup="menu"
+            disabled={exporting !== null}
+            onClick={() => setExportMenuOpen((open) => !open)}
+            className={btn('ghost', 'sm')}
+          >
+            {exporting && <Spinner className="size-3.5" />}
+            <IconDownload className="size-3.5" />
+            ส่งออกข้อมูล
+            <span aria-hidden="true" className="text-[10px]">⌄</span>
+          </button>
+
+          {exportMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-72 max-w-[calc(100vw-3rem)] rounded-xl border border-edge bg-white p-2 shadow-[0_14px_36px_-12px_rgba(23,32,51,0.3)]"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void handleExport()}
+                className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-sand"
+              >
+                <span className="block font-display font-semibold">ส่งออก CSV</span>
+                <span className="mt-0.5 block text-xs text-muted">ไม่เปิดเผยตัวตนผู้ประเมิน</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void handleExportIdentified()}
+                className="w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-sand"
+              >
+                <span className="block font-display font-semibold">ส่งออกพร้อมตัวตนจริง</span>
+                <span className="mt-0.5 block text-xs text-muted">ต้องระบุเหตุผลและบันทึกใน audit log</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {scoresError && (
