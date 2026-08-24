@@ -14,6 +14,9 @@ from app.domain.pairing import Side
 
 MAX_NAME_LENGTH = 200
 FULL_WEIGHT = Decimal(100)
+# PRD FR-ASSIGN-02: ผลรวมน้ำหนัก = 100% (± 0.01) — เผื่อเศษปัดเมื่อแบ่งน้ำหนักไม่ลงตัว
+# เช่น 3 เกณฑ์เท่ากัน 33.33 + 33.33 + 33.34 หรือ 33.34 + 33.33 + 33.33 ต้องผ่านได้
+WEIGHT_TOLERANCE = Decimal("0.01")
 
 
 class AssignmentStatus(StrEnum):
@@ -139,8 +142,8 @@ def assert_publishable(assignment: Assignment) -> None:
             )
 
         total = sum((c.weight_pct for c in items), Decimal(0))
-        if total != FULL_WEIGHT:
-            gap = FULL_WEIGHT - total
+        gap = FULL_WEIGHT - total
+        if abs(gap) > WEIGHT_TOLERANCE:
             direction = "ขาดอีก" if gap > 0 else "เกินมา"
             raise ValidationError(
                 f"น้ำหนักเกณฑ์ฝั่ง {side} รวมได้ {total}% — ต้องเป็น 100% พอดี "

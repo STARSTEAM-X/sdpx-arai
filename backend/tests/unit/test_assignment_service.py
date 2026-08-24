@@ -96,6 +96,28 @@ class TestAssertPublishable:
         assert "90" in exc.value.message
         assert "ขาดอีก 10" in exc.value.message
 
+    def test_AC_น้ำหนักคลาดไม่เกิน_0_01_ผ่านได้_PRD_FR_ASSIGN_02(self):
+        # แบ่งน้ำหนัก 3 เกณฑ์เท่า ๆ กันไม่ลงตัว: 33.33 + 33.33 + 33.34 = 100.00 พอดี
+        # แต่ 33.33 × 3 = 99.99 ต้องผ่านได้เช่นกัน เพราะ PRD อนุญาต ± 0.01
+        a = make_assignment(
+            criteria=[
+                crit(Side.GROUP, "33.33"),
+                crit(Side.GROUP, "33.33", "ความคิดสร้างสรรค์"),
+                crit(Side.GROUP, "33.33", "การนำเสนอ"),
+                crit(Side.INDIVIDUAL, "100"),
+            ]
+        )
+
+        assert_publishable(a)
+
+    def test_น้ำหนักคลาดเกิน_0_01_ยังถูกปฏิเสธ(self):
+        a = make_assignment(
+            criteria=[crit(Side.GROUP, "99.98"), crit(Side.INDIVIDUAL, "100")]
+        )
+
+        with pytest.raises(ValidationError):
+            assert_publishable(a)
+
     def test_น้ำหนักเกิน_100_บอกว่าเกินมาเท่าไร(self):
         a = make_assignment(
             criteria=[crit(Side.GROUP, "60"), crit(Side.GROUP, "55", "ความคิดสร้างสรรค์"),

@@ -16,6 +16,18 @@ REQUIRED_HEADERS = {"email", "group_name"}
 OPTIONAL_HEADERS = {"student_id", "display_name"}
 MIN_GROUP_SIZE = 2
 
+# FR-SEC-04 — เซลล์ที่ขึ้นต้นด้วยตัวเหล่านี้ถูกโปรแกรม spreadsheet ตีความเป็นสูตร
+# ต้อง escape ตั้งแต่ตอน import เพราะ group_name/display_name จะถูกนำไปโชว์ใน export
+# ทีหลัง (รายงาน, XLSX) — ถ้าไม่กันตั้งแต่ต้นทาง ค่าที่ปนเปื้อนจะไหลไปถึงตอน export ทันที
+_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
+
+
+def _escape_formula_injection(value: str) -> str:
+    """เติม `'` นำหน้าเพื่อบังคับให้ Excel/Sheets อ่านเป็นข้อความ ไม่ใช่สูตร"""
+    if value.startswith(_FORMULA_TRIGGER_CHARS):
+        return f"'{value}"
+    return value
+
 # เรียงตามความน่าจะเป็นของไฟล์ที่ได้จาก Excel ภาษาไทย (R7)
 _ENCODINGS = ("utf-8-sig", "utf-8", "cp874", "tis-620")
 
@@ -101,14 +113,17 @@ def parse_roster_csv(raw: bytes) -> RosterImportResult:
             continue
         seen_emails[email_norm] = line_no
 
+        student_id = cell(record, "student_id") or None
+        display_name = cell(record, "display_name") or None
+
         rows.append(
             RosterRow(
                 row_number=line_no,
                 email_normalized=email_norm,
                 email_raw=email_raw,
-                group_name=group_name,
-                student_id=cell(record, "student_id") or None,
-                display_name=cell(record, "display_name") or None,
+                group_name=_escape_formula_injection(group_name),
+                student_id=_escape_formula_injection(student_id) if student_id else None,
+                display_name=_escape_formula_injection(display_name) if display_name else None,
             )
         )
 

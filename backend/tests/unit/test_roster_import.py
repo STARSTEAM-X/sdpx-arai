@@ -132,6 +132,36 @@ class TestEncoding:
         assert result.groups == ["กลุ่ม1"]
 
 
+class TestFormulaInjection:
+    """FR-SEC-04 — เซลล์ที่ขึ้นต้นด้วย = + - @ ต้อง escape ตั้งแต่ตอน import
+
+    เพราะ group_name/display_name ถูกนำไปแสดงในรายงานและ export ทีหลัง
+    ถ้าไม่กันตั้งแต่ต้นทาง ค่าที่ปนเปื้อนจะไหลไปถึงตอน export ทันที
+    """
+
+    @pytest.mark.parametrize("trigger", ["=", "+", "-", "@"])
+    def test_group_name_ที่ขึ้นต้นด้วยอักขระสูตรถูก_escape(self, trigger: str):
+        raw = f"email,group_name\na@uni.ac.th,{trigger}cmd|'/c calc'!A1\n".encode()
+
+        result = parse_roster_csv(raw)
+
+        assert result.rows[0].group_name == f"'{trigger}cmd|'/c calc'!A1"
+
+    def test_display_name_ที่ขึ้นต้นด้วยอักขระสูตรถูก_escape(self):
+        raw = "email,group_name,display_name\na@uni.ac.th,G1,=HYPERLINK(\"http://evil\")\n".encode()
+
+        result = parse_roster_csv(raw)
+
+        assert result.rows[0].display_name == "'=HYPERLINK(\"http://evil\")"
+
+    def test_ชื่อกลุ่มปกติไม่ถูกแตะต้อง(self):
+        raw = "email,group_name\na@uni.ac.th,กลุ่ม A\n".encode()
+
+        result = parse_roster_csv(raw)
+
+        assert result.rows[0].group_name == "กลุ่ม A"
+
+
 class TestEmptyInput:
     def test_ไฟล์ที่มีแต่_header_ถูกปฏิเสธ(self):
         with pytest.raises(RosterImportError):
