@@ -426,7 +426,7 @@ participation multiplier แยกจาก `score_ratio` อยู่แล้�
 | US-04 สร้างงานประเมิน | [#4](https://github.com/STARSTEAM-X/sdpx-arai2/issues/4) | `POST /api/assignments` |
 | US-05 ดู feasibility | [#5](https://github.com/STARSTEAM-X/sdpx-arai2/issues/5) | `GET /api/assignments/{id}/feasibility` |
 | US-06 publish + จัดคู่ | [#6](https://github.com/STARSTEAM-X/sdpx-arai2/issues/6) | `POST /api/assignments/{id}:publish` |
-| US-07 รายการที่ต้องประเมิน | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) | `GET /api/assignments/{id}/my-evaluations` |
+| US-07 รายการที่ต้องประเมิน | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) | `GET /api/assignments/{id}/my-evaluations` · `GET /api/classrooms/{id}/assignments` — ตัวหลังไม่มีใน PRD §12 เพิ่มเพราะไม่มีทางอื่นให้รู้ id ของ assignment |
 | US-08 ประเมิน + autosave | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) | `PUT /api/comparisons/{pairAssignmentId}` |
 | US-09 ส่งคำตอบทั้งชุด | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) | `POST /api/assignments/{id}/submissions` |
 | US-10 ดูคะแนนตัวเอง | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) | `GET /api/assignments/{id}/my-score` |
@@ -601,6 +601,38 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 | 7 | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) US-13 finalize คะแนน | ปิด M1 — ทำให้สถานะ `FINALIZED` ที่ US-10 รออยู่เกิดขึ้นจริง |
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
+
+### สถานะ ณ 2026-08-24 — US-07 เสร็จ (US-08, US-09 ยังไม่เริ่ม)
+
+| Story | AC | หลักฐาน |
+|---|---|---|
+| [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 | **4/4** | unit `test_evaluation_service.py` (8 ตัว) · e2e `evaluations.spec.ts` (6 ตัว, ผ่าน `--repeat-each=3`) |
+
+**endpoint ที่ไม่มีระบุไว้ตรง ๆ ใน PRD §12 — เพิ่มเพราะจำเป็นจริง**
+
+`GET /api/classrooms/{classroomId}/assignments` ไม่มีในสเปกทั้งของ PRD และ `docs/openapi.yaml`
+ฉบับร่างจาก WS-02 — ช่องโหว่เดียวกับที่ US-01 (auth) และ US-12 (members) เคยเจอตอนไล่ตาราง
+traceability: ไม่มีทางให้นักศึกษารู้ id ของ assignment เพื่อเรียก `/my-evaluations` ต่อได้เลย
+ก่อนหน้านี้หน้าเว็บของนักศึกษามีแค่รายชื่อ ไม่มีทางไปต่อได้แม้อาจารย์จะ publish งานแล้วก็ตาม
+
+เพิ่มเข้า `docs/openapi.yaml` แล้ว validate ผ่าน · นักศึกษาไม่เห็นงานที่ยังเป็น `DRAFT`
+ผู้สอนเห็นทุกสถานะ
+
+**ช่องโหว่ที่เจอตอนร่าง `openapi.yaml` ฉบับ WS-02 — แก้แล้ว**
+
+สเปกร่างเดิมให้ `PairToEvaluate.left`/`right` มี `artifactUrl` แยกต่อ item แต่ตาราง `assignment`
+มีคอลัมน์ `artifact_url` แค่ช่องเดียวต่อทั้งงาน ไม่ใช่ต่อกลุ่ม — สร้างตาม schema จริงแทน
+คือส่งลิงก์เดียวมากับ response ระดับบนสุด (`MyEvaluations.artifactUrl`) และแก้ 409 ที่ร่างไว้ผิดจุด
+(ของเดิมใส่ `DEADLINE_PASSED` ไว้ที่ endpoint อ่านอย่างเดียว ทั้งที่ FR-EVAL-08 ต้องการแค่ read-only
+หลัง deadline ไม่ใช่ปฏิเสธการอ่าน — 409 ตัวจริงอยู่ที่ `PUT /comparisons/{id}` ซึ่ง endpoint เขียนของ US-08)
+
+**สิ่งที่พบระหว่างทาง — criteria หลายตัวต่อฝั่งต้องแยก section**
+
+ฝั่งเดียวกัน (เช่น GROUP) มีได้หลายเกณฑ์ (UX, Completeness, Innovation) แต่ละเกณฑ์สร้างคู่
+ของตัวเองตอน publish — เขียน query รอบแรกไม่ได้ join `criterion` เข้าไปด้วย ทำให้คู่ของหลาย
+เกณฑ์ปนกันในรายการเดียวโดยไม่มีอะไรบอกว่าคู่ไหนของเกณฑ์ไหน (ขัด FR-EVAL-01 ที่บังคับให้แยก
+section ต่อเกณฑ์) พบตอนทดสอบกับ assignment จริงที่มี 2 criteria ฝั่ง GROUP แก้โดยเพิ่ม
+`criterionId`/`criterionName` เข้าไปใน `EvaluationItem` ทุกตัว
 
 **ไม่ติด blocker แล้ว** — คำถามสามข้อที่เคยกัน Sprint นี้ไว้ PRD ตอบไว้ครบ
 (FR-EVAL-06, FR-ANON-02, §9.4) รายละเอียดอยู่หัวข้อ "คำถามที่เคยค้าง" ด้านบน

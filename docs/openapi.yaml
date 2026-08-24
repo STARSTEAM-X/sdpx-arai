@@ -261,6 +261,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /api/classrooms/{classroomId}/assignments:
+    get:
+      tags: [classrooms]
+      summary: รายการงานประเมินในห้องนี้
+      description: |
+        อ้าง US-07 — **ไม่ได้ระบุไว้ตรง ๆ ใน PRD §12** เป็นช่องว่างเดียวกับที่ US-01/US-12
+        เคยเจอตอนไล่ตาราง traceability: ไม่มีทางให้นักศึกษารู้ id ของ assignment
+        เพื่อเรียก `/my-evaluations` ต่อได้เลยถ้าไม่มี endpoint นี้
+
+        นักศึกษาไม่เห็นงานที่ยังเป็น `DRAFT` เพราะยังไม่ควรรู้ด้วยซ้ำว่ามีงานนี้อยู่
+        ผู้สอน (มี `MANAGE_ASSIGNMENT`) เห็นทุกสถานะเพื่อกลับมาแก้งานที่ทำค้างไว้ได้
+      operationId: listClassroomAssignments
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: รายการงานประเมิน
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AssignmentSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/classrooms/{classroomId}/audit:
     get:
       tags: [classrooms]
@@ -534,7 +566,13 @@ paths:
     get:
       tags: [evaluation]
       summary: คู่ที่ฉันต้องประเมินและความคืบหน้า
-      description: 'อ้าง US-07 — คืนเฉพาะคู่ของผู้เรียกเท่านั้น'
+      description: |
+        อ้าง US-07 — คืนเฉพาะคู่ของผู้เรียกเท่านั้น เปิดให้สมาชิกทุก role ของห้องเรียน
+        ไม่ใช่แค่ผู้สอน เพราะนักศึกษาคือผู้ใช้หลักของ endpoint นี้
+
+        **ยังไม่เปิด (`DRAFT`) ไม่ใช่ error** — ตอบ `200` เสมอพร้อม `opened: false`
+        และ `message` อธิบายเหตุผล เพื่อให้หน้าเว็บ render ข้อความปกติได้ทันที
+        ไม่ต้องแยก branch จัดการ error สำหรับสถานะที่คาดไว้อยู่แล้ว
       operationId: getMyEvaluations
       parameters:
         - $ref: '#/components/parameters/AssignmentId'
@@ -545,23 +583,15 @@ paths:
             $ref: '#/components/schemas/Side'
       responses:
         '200':
-          description: รายการคู่ที่ต้องประเมิน
+          description: 'รายการคู่ที่ต้องประเมิน (หรือ opened=false ถ้ายังไม่เปิด)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyEvaluations'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          description: 'ยังไม่ถึงเวลาเปิด หรือเลย deadline แล้ว (`code: DEADLINE_PASSED`)'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
 
   /api/comparisons/{pairAssignmentId}:
     put:
@@ -1060,6 +1090,26 @@ components:
           items:
             $ref: '#/components/schemas/Criterion'
 
+    AssignmentSummary:
+      type: object
+      description: รูปย่อของ Assignment สำหรับหน้ารายการ — ไม่มี criteria เพราะหน้ารายการไม่ใช้
+      required: [id, name, status, groupDeadlineUtc]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, OPEN, CLOSED, FINALIZED, ARCHIVED]
+        groupDeadlineUtc:
+          type: string
+          format: date-time
+        individualDeadlineUtc:
+          type: [string, 'null']
+          format: date-time
+
     Criterion:
       type: object
       required: [id, side, name, weightPct, displayOrder]
@@ -1114,23 +1164,20 @@ components:
           format: int64
           description: เก็บไว้เพื่อ generate ซ้ำให้ได้ผลเดิม (FR-PAIR-09)
 
-    PairItem:
+    EvaluationItem:
       type: object
-      required: [itemId, label]
-      properties:
-        itemId:
-          type: string
-          format: uuid
-        label:
-          type: string
-          description: ชื่อกลุ่มหรือชื่อที่แสดงแทนตัวบุคคล
-        artifactUrl:
-          type: [string, 'null']
-          format: uri
-
-    PairToEvaluate:
-      type: object
-      required: [pairAssignmentId, criterionId, side, left, right, answered]
+      description: |
+        คู่หนึ่งที่ต้องประเมิน — left/right แบนราบตามตำแหน่งจริงที่สุ่มไว้ตอน publish (D8/FR-PAIR-08)
+        ไม่มี artifactUrl ต่อ item เพราะ assignment มี artifact_url ช่องเดียว (ดู MyEvaluations)
+      required:
+        - pairAssignmentId
+        - criterionId
+        - criterionName
+        - leftId
+        - leftLabel
+        - rightId
+        - rightLabel
+        - completed
       properties:
         pairAssignmentId:
           type: string
@@ -1138,31 +1185,60 @@ components:
         criterionId:
           type: string
           format: uuid
-        side:
-          $ref: '#/components/schemas/Side'
-        left:
-          $ref: '#/components/schemas/PairItem'
-        right:
-          $ref: '#/components/schemas/PairItem'
-        answered:
+        criterionName:
+          type: string
+          description: 'เกณฑ์เดียวกัน (side) มีได้หลายเกณฑ์ — ใช้ค่านี้แบ่ง section ตาม FR-EVAL-01'
+        leftId:
+          type: string
+          format: uuid
+          description: group_entity.id หรือ user.id ตาม side
+        leftLabel:
+          type: string
+        rightId:
+          type: string
+          format: uuid
+        rightLabel:
+          type: string
+        completed:
           type: boolean
-          description: ตอบไปแล้วหรือยัง (สถานะ DRAFT ก็นับว่าตอบแล้ว)
+          description: มี comparison สถานะ SUBMITTED แล้วหรือยัง
 
     MyEvaluations:
       type: object
-      required: [total, completed, deadlineUtc, pairs]
+      required:
+        - side
+        - opened
+        - message
+        - deadlineUtc
+        - artifactUrl
+        - completedCount
+        - totalCount
+        - items
       properties:
-        total:
-          type: integer
-        completed:
-          type: integer
+        side:
+          $ref: '#/components/schemas/Side'
+        opened:
+          type: boolean
+          description: 'false เมื่อ assignment ยังเป็น DRAFT — items จะว่างเสมอตอนนั้น'
+        message:
+          type: [string, 'null']
+          description: อธิบายเหตุผลเมื่อ opened = false หรือเมื่อฝั่งนี้ไม่มีการประเมิน (individualMaxScore = 0)
         deadlineUtc:
-          type: string
+          type: [string, 'null']
           format: date-time
-        pairs:
+          description: null เมื่อ side = INDIVIDUAL แต่ assignment ไม่ได้ตั้ง individualDeadlineUtc
+        artifactUrl:
+          type: [string, 'null']
+          format: uri
+          description: ลิงก์เดียวของทั้งงาน (A5) — ต้องเห็นก่อนเริ่มเปรียบเทียบ
+        completedCount:
+          type: integer
+        totalCount:
+          type: integer
+        items:
           type: array
           items:
-            $ref: '#/components/schemas/PairToEvaluate'
+            $ref: '#/components/schemas/EvaluationItem'
 
     ComparisonSave:
       type: object

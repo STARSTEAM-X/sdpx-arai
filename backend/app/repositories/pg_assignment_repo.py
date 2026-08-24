@@ -12,7 +12,36 @@ from decimal import Decimal
 from psycopg import Connection
 
 from app.domain.assignment_service import Assignment, AssignmentStatus, Criterion
+from app.domain.evaluation_service import EvaluationItem
 from app.domain.pairing import GroupInfo, Pair, Side
+
+_ASSIGNMENT_COLUMNS = """
+    a.id, a.classroom_id, a.name, a.description, a.artifact_url,
+    a.group_max_score, a.individual_max_score,
+    a.group_deadline_utc, a.individual_deadline_utc,
+    a.target_coverage, a.max_workload, a.pairing_seed, a.status,
+    u.email_normalized AS created_by
+"""
+
+
+def _row_to_assignment(row: dict, criteria: list[Criterion] | None = None) -> Assignment:
+    return Assignment(
+        id=str(row["id"]),
+        classroom_id=str(row["classroom_id"]),
+        name=row["name"],
+        description=row["description"],
+        artifact_url=row["artifact_url"],
+        group_max_score=Decimal(row["group_max_score"]),
+        individual_max_score=Decimal(row["individual_max_score"]),
+        group_deadline_utc=row["group_deadline_utc"],
+        individual_deadline_utc=row["individual_deadline_utc"],
+        target_coverage=row["target_coverage"],
+        max_workload=row["max_workload"],
+        pairing_seed=row["pairing_seed"],
+        status=AssignmentStatus(row["status"]),
+        created_by=row["created_by"],
+        criteria=criteria or [],
+    )
 
 
 class PgAssignmentRepository:
@@ -57,12 +86,8 @@ class PgAssignmentRepository:
 
         with self._conn.cursor() as cur:
             cur.execute(
-                """
-                SELECT a.id, a.classroom_id, a.name, a.description, a.artifact_url,
-                       a.group_max_score, a.individual_max_score,
-                       a.group_deadline_utc, a.individual_deadline_utc,
-                       a.target_coverage, a.max_workload, a.pairing_seed, a.status,
-                       u.email_normalized AS created_by
+                f"""
+                SELECT {_ASSIGNMENT_COLUMNS}
                 FROM assignment a
                 JOIN app_user u ON u.id = a.created_by
                 WHERE a.id = %s
@@ -92,23 +117,29 @@ class PgAssignmentRepository:
                 for c in cur.fetchall()
             ]
 
-        return Assignment(
-            id=str(row["id"]),
-            classroom_id=str(row["classroom_id"]),
-            name=row["name"],
-            description=row["description"],
-            artifact_url=row["artifact_url"],
-            group_max_score=Decimal(row["group_max_score"]),
-            individual_max_score=Decimal(row["individual_max_score"]),
-            group_deadline_utc=row["group_deadline_utc"],
-            individual_deadline_utc=row["individual_deadline_utc"],
-            target_coverage=row["target_coverage"],
-            max_workload=row["max_workload"],
-            pairing_seed=row["pairing_seed"],
-            status=AssignmentStatus(row["status"]),
-            created_by=row["created_by"],
-            criteria=criteria,
-        )
+        return _row_to_assignment(row, criteria)
+
+    def list_for_classroom(self, classroom_id: str, *, include_draft: bool) -> list[Assignment]:
+        """งานประเมินทั้งหมดในห้องนี้ — US-07 ต้องรู้ id ก่อนถึงจะเรียก my-evaluations ต่อได้
+
+        `include_draft=False` สำหรับนักศึกษา — งานที่ยังร่างอยู่ไม่ควรให้เห็นด้วยซ้ำ
+        ต่างจากอาจารย์ (`MANAGE_ASSIGNMENT`) ที่ต้องเห็นของที่ยังแก้ไม่เสร็จเพื่อกลับมาทำต่อ
+        """
+        query = f"""
+            SELECT {_ASSIGNMENT_COLUMNS}
+            FROM assignment a
+            JOIN app_user u ON u.id = a.created_by
+            WHERE a.classroom_id = %s
+        """
+        if not include_draft:
+            query += " AND a.status <> 'DRAFT'"
+        query += " ORDER BY a.created_at DESC"
+
+        with self._conn.cursor() as cur:
+            cur.execute(query, (classroom_id,))
+            rows = cur.fetchall()
+
+        return [_row_to_assignment(row) for row in rows]
 
     def count_pairs(self, assignment_id: str) -> int:
         with self._conn.cursor() as cur:
@@ -117,6 +148,72 @@ class PgAssignmentRepository:
                 (assignment_id,),
             )
             return cur.fetchone()["n"]
+
+    def my_pairs(
+        self, assignment_id: str, *, side: Side, evaluator_email: str
+    ) -> list[EvaluationItem]:
+        """คู่ทั้งหมดที่ evaluator คนนี้ต้องประเมินในฝั่งนี้ พร้อม label และสถานะทำแล้วหรือยัง
+
+        label_join/label_a/label_b มาจากค่าคงที่ที่เลือกจาก `side` เท่านั้น ไม่ใช่ query
+        parameter ของผู้เรียก — จึงต่อ string ตรงนี้ได้โดยไม่ผิด FR-SEC-03
+        (ค่าที่มาจาก request จริง ๆ ยังผ่าน %s ทั้งหมด)
+        """
+        if side is Side.GROUP:
+            label_join = (
+                "LEFT JOIN group_entity ga ON ga.id = p.item_a_id "
+                "LEFT JOIN group_entity gb ON gb.id = p.item_b_id"
+            )
+            label_a, label_b = "ga.name", "gb.name"
+        else:
+            label_join = (
+                "LEFT JOIN app_user ua ON ua.id = p.item_a_id "
+                "LEFT JOIN app_user ub ON ub.id = p.item_b_id"
+            )
+            label_a = "COALESCE(ua.display_name, ua.email_normalized)"
+            label_b = "COALESCE(ub.display_name, ub.email_normalized)"
+
+        with self._conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT p.id, p.item_a_id, p.item_b_id, p.display_left_item_id,
+                       cr.id AS criterion_id, cr.name AS criterion_name,
+                       {label_a} AS label_a, {label_b} AS label_b,
+                       (c.status = 'SUBMITTED') AS completed
+                FROM pair_assignment p
+                JOIN app_user e ON e.id = p.evaluator_user_id
+                JOIN criterion cr ON cr.id = p.criterion_id
+                {label_join}
+                LEFT JOIN comparison c ON c.pair_assignment_id = p.id
+                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
+                ORDER BY cr.display_order, cr.name, label_a, label_b
+                """,
+                (assignment_id, str(side), evaluator_email),
+            )
+            rows = cur.fetchall()
+
+        items: list[EvaluationItem] = []
+        for r in rows:
+            item_a_id, item_b_id = str(r["item_a_id"]), str(r["item_b_id"])
+            left_id = str(r["display_left_item_id"])
+            # display_left_item_id บอกว่า item ไหนอยู่ซ้าย (D8) — สลับ a/b ให้ตรงกับตำแหน่งจริง
+            if left_id == item_a_id:
+                left_label, right_id, right_label = r["label_a"], item_b_id, r["label_b"]
+            else:
+                left_label, right_id, right_label = r["label_b"], item_a_id, r["label_a"]
+
+            items.append(
+                EvaluationItem(
+                    pair_assignment_id=str(r["id"]),
+                    criterion_id=str(r["criterion_id"]),
+                    criterion_name=r["criterion_name"],
+                    left_id=left_id,
+                    left_label=left_label,
+                    right_id=right_id,
+                    right_label=right_label,
+                    completed=bool(r["completed"]),
+                )
+            )
+        return items
 
     # --- เขียน ---
 

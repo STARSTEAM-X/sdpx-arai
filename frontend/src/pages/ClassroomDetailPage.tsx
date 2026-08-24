@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { AssignmentPanel } from '../components/AssignmentPanel'
+import { AssignmentsToEvaluateCard } from '../components/AssignmentsToEvaluateCard'
 import { MemberPanel } from '../components/MemberPanel'
 import { RosterImportCard } from '../components/RosterImportCard'
 import { RosterTable } from '../components/RosterTable'
@@ -173,6 +174,10 @@ export default function ClassroomDetailPage() {
               canManageMembers={canManageMembers}
               onRemove={handleRemove}
             />
+
+            {/* ทุก role ที่เป็นสมาชิกเห็นได้ — นักศึกษาคือผู้ใช้หลักของการ์ดนี้ (US-07)
+                การ์ดซ่อนตัวเองถ้าห้องนี้ยังไม่มีงานประเมินที่เผยแพร่แล้วเลย */}
+            {myRole !== null && <AssignmentsToEvaluateCard classroomId={classroomId} />}
 
             {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
             {canManageMembers && (

@@ -284,6 +284,56 @@ export function publishAssignment(assignmentId: string): Promise<PublishResult> 
   )
 }
 
+export type AssignmentSummary = {
+  id: string
+  name: string
+  status: Assignment['status']
+  groupDeadlineUtc: string
+  individualDeadlineUtc: string | null
+}
+
+/** งานประเมินทั้งหมดในห้องนี้ — นักศึกษาเห็นเฉพาะที่ไม่ใช่ DRAFT (US-07) */
+export function listClassroomAssignments(
+  classroomId: string,
+): Promise<{ items: AssignmentSummary[] }> {
+  return apiFetch<{ items: AssignmentSummary[] }>(
+    `/api/classrooms/${encodeURIComponent(classroomId)}/assignments`,
+  )
+}
+
+// --- รายการที่ต้องประเมิน (US-07) ---
+
+export type EvaluationItem = {
+  pairAssignmentId: string
+  criterionId: string
+  criterionName: string
+  leftId: string
+  leftLabel: string
+  rightId: string
+  rightLabel: string
+  completed: boolean
+}
+
+export type MyEvaluations = {
+  side: CriterionSide
+  opened: boolean
+  message: string | null
+  deadlineUtc: string | null
+  artifactUrl: string | null
+  completedCount: number
+  totalCount: number
+  items: EvaluationItem[]
+}
+
+export function getMyEvaluations(
+  assignmentId: string,
+  side: CriterionSide,
+): Promise<MyEvaluations> {
+  return apiFetch<MyEvaluations>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/my-evaluations?side=${side}`,
+  )
+}
+
 // --- สมาชิกฝั่งผู้สอน (US-12) ---
 
 export type InstructorRole = 'CO_TEACHER' | 'TA'

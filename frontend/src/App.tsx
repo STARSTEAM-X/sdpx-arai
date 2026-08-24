@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 
 import ClassroomDetailPage from './pages/ClassroomDetailPage'
 import ClassroomsPage from './pages/ClassroomsPage'
+import EvaluatePage from './pages/EvaluatePage'
 import HomePage from './pages/HomePage'
 
 export default function App() {
@@ -10,6 +11,10 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/classrooms" element={<ClassroomsPage />} />
       <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
+      <Route
+        path="/classrooms/:classroomId/assignments/:assignmentId/evaluate"
+        element={<EvaluatePage />}
+      />
       {/* ทุก path ที่ไม่รู้จักให้กลับหน้าแรก แทนที่จะเห็นหน้าขาว */}
       <Route path="*" element={<HomePage />} />
     </Routes>

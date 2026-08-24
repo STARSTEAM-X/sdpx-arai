@@ -26,6 +26,7 @@ from app.domain.assignment_service import (
     validate_new_assignment,
 )
 from app.domain.errors import NotFoundError, ValidationError
+from app.domain.evaluation_service import build_my_evaluations
 from app.domain.pairing import (
     Side,
     generate_group_pairs,
@@ -125,6 +126,30 @@ class PublishOut(BaseModel):
     pairingSeed: int
 
 
+class EvaluationItemOut(BaseModel):
+    pairAssignmentId: str
+    criterionId: str
+    criterionName: str
+    leftId: str
+    leftLabel: str
+    rightId: str
+    rightLabel: str
+    completed: bool
+
+
+class MyEvaluationsOut(BaseModel):
+    side: str
+    opened: bool
+    message: str | None
+    deadlineUtc: datetime | None
+    # ลิงก์เดียวของทั้งงาน ไม่ใช่ต่อ item — assignment มี artifact_url ช่องเดียว (A5)
+    # นักศึกษาต้องเห็นก่อนเริ่มเปรียบเทียบ ไม่งั้นจะประเมินสิ่งที่ไม่เคยเห็นจริง (R1)
+    artifactUrl: str | None
+    completedCount: int
+    totalCount: int
+    items: list[EvaluationItemOut]
+
+
 def _to_criteria(items: list[CriterionIn]) -> list[Criterion]:
     return [
         Criterion(
@@ -152,6 +177,23 @@ def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignmen
 
     ClassroomAccess(PgClassroomRepository(conn)).require(
         assignment.classroom_id, user_email, Capability.MANAGE_ASSIGNMENT
+    )
+    return assignment
+
+
+def _load_for_member(conn, assignment_id: str, user_email: str) -> Assignment:
+    """โหลด assignment แล้วยืนยันแค่ว่าเป็นสมาชิกห้องนั้น — ไม่เช็ค capability ใด ๆ
+
+    ต่างจาก `_load_for_instructor` เพราะ `/my-evaluations` เป็นของนักศึกษาด้วย
+    ถ้าเช็คด้วย `MANAGE_ASSIGNMENT` นักศึกษาจะได้ 403 ทันที
+    """
+    repo = PgAssignmentRepository(conn)
+    assignment = repo.get(assignment_id)
+    if assignment is None:
+        raise NotFoundError("ไม่พบงานประเมินนี้")
+
+    ClassroomAccess(PgClassroomRepository(conn)).require_member(
+        assignment.classroom_id, user_email
     )
     return assignment
 
@@ -350,4 +392,65 @@ def publish_assignment(
         status=str(AssignmentStatus.PUBLISHED),
         pairsCreated=created,
         pairingSeed=chosen_seed,
+    )
+
+
+@router.get("/{assignment_id}/my-evaluations", response_model=MyEvaluationsOut)
+def get_my_evaluations(
+    assignment_id: str, user_email: CurrentUser, side: Side
+) -> MyEvaluationsOut:
+    """คู่ที่ผู้เรียกต้องประเมินในงานนี้ พร้อมความคืบหน้า (US-07)
+
+    เปิดให้สมาชิกทุก role ของห้องเรียน ไม่ใช่แค่ผู้สอน — นักศึกษาคือผู้ใช้หลักของ endpoint นี้
+    ถ้า assignment ยังเป็น DRAFT หรือฝั่งที่ขอปิดอยู่ (individualMaxScore = 0)
+    จะไม่ query pair เลย เพราะไม่มีทางมีอะไรให้เจอ (build_my_evaluations ตัดสินใจแทน)
+    """
+    with transaction() as conn:
+        assignment = _load_for_member(conn, assignment_id, user_email)
+
+        side_enabled = side is Side.GROUP or assignment.has_individual_side
+        should_query = assignment.status is not AssignmentStatus.DRAFT and side_enabled
+
+        pairs = (
+            PgAssignmentRepository(conn).my_pairs(
+                assignment_id, side=side, evaluator_email=user_email
+            )
+            if should_query
+            else []
+        )
+
+    result = build_my_evaluations(
+        side=side,
+        status=assignment.status,
+        side_enabled=side_enabled,
+        pairs=pairs,
+    )
+
+    deadline = (
+        assignment.group_deadline_utc
+        if side is Side.GROUP
+        else assignment.individual_deadline_utc
+    )
+
+    return MyEvaluationsOut(
+        side=str(result.side),
+        opened=result.opened,
+        message=result.message,
+        deadlineUtc=deadline,
+        artifactUrl=assignment.artifact_url,
+        completedCount=result.completed_count,
+        totalCount=result.total_count,
+        items=[
+            EvaluationItemOut(
+                pairAssignmentId=i.pair_assignment_id,
+                criterionId=i.criterion_id,
+                criterionName=i.criterion_name,
+                leftId=i.left_id,
+                leftLabel=i.left_label,
+                rightId=i.right_id,
+                rightLabel=i.right_label,
+                completed=i.completed,
+            )
+            for i in result.items
+        ],
     )

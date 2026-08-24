@@ -4,13 +4,18 @@ route ที่นี่ทำหน้าที่แค่ 3 อย่าง: 
 กฎธุรกิจทั้งหมดอยู่ใน ClassroomService ซึ่งทดสอบแยกได้โดยไม่ต้องมี HTTP หรือ DB
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
 from app.db import transaction
+from app.domain.access import Capability, ClassroomAccess, capabilities_of
+from app.domain.assignment_service import Assignment
 from app.domain.classroom_service import ClassroomService
 from app.domain.models import Classroom
+from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 
 router = APIRouter(prefix="/api/classrooms", tags=["classrooms"])
@@ -74,3 +79,50 @@ def create_classroom(
 
     response.headers["Location"] = f"/api/classrooms/{classroom.id}"
     return ClassroomOut.of(classroom)
+
+
+class AssignmentSummaryOut(BaseModel):
+    id: str
+    name: str
+    status: str
+    groupDeadlineUtc: datetime
+    individualDeadlineUtc: datetime | None
+
+    @staticmethod
+    def of(a: Assignment) -> "AssignmentSummaryOut":
+        return AssignmentSummaryOut(
+            id=a.id,
+            name=a.name,
+            status=str(a.status),
+            groupDeadlineUtc=a.group_deadline_utc,
+            individualDeadlineUtc=a.individual_deadline_utc,
+        )
+
+
+class AssignmentSummaryList(BaseModel):
+    items: list[AssignmentSummaryOut]
+
+
+@router.get("/{classroom_id}/assignments", response_model=AssignmentSummaryList)
+def list_classroom_assignments(
+    classroom_id: str, user_email: CurrentUser
+) -> AssignmentSummaryList:
+    """งานประเมินทั้งหมดในห้องนี้ — endpoint นี้ไม่มีระบุไว้ตรง ๆ ใน PRD §12
+
+    ช่องว่างเดียวกับที่ US-01 (auth) และ US-12 (members) เคยเจอตอนไล่ตาราง traceability:
+    ไม่มีทางให้นักศึกษารู้ id ของ assignment เพื่อเรียก `/my-evaluations` ต่อได้เลย
+    ถ้าไม่มี endpoint นี้ — US-07 เรียกที่นี่ก่อนเสมอเพื่อได้รายการ id มา
+
+    นักศึกษาไม่เห็นงานที่ยังเป็น DRAFT เพราะยังไม่ควรรู้ด้วยซ้ำว่ามีงานนี้อยู่
+    ผู้สอน (MANAGE_ASSIGNMENT) เห็นทุกสถานะเพื่อกลับมาแก้งานที่ทำค้างไว้ได้
+    """
+    with transaction() as conn:
+        role = ClassroomAccess(PgClassroomRepository(conn)).require_member(
+            classroom_id, user_email
+        )
+        can_manage = Capability.MANAGE_ASSIGNMENT in capabilities_of(role)
+        items = PgAssignmentRepository(conn).list_for_classroom(
+            classroom_id, include_draft=can_manage
+        )
+
+    return AssignmentSummaryList(items=[AssignmentSummaryOut.of(a) for a in items])

@@ -1,0 +1,25 @@
+import { describe, expect, it } from 'vitest'
+
+import { formatDeadline } from './datetime'
+
+/* AC ของ US-07: เวลาที่เห็นต้องเป็น timezone ของ classroom เสมอ ไม่ใช่ timezone เครื่อง
+   ทดสอบด้วยสอง timezone ที่ต่างกันมากพอจะเห็นวันคนละวัน (UTC เที่ยงคืนครึ่งของวันถัดไป) */
+
+describe('formatDeadline', () => {
+  it('แปลงเวลาตาม timezone ของห้องเรียน ไม่ใช่ timezone เครื่อง', () => {
+    const utc = '2027-01-01T18:30:00Z'
+
+    const bangkok = formatDeadline(utc, 'Asia/Bangkok') // UTC+7 → 01:30 ของวันถัดไป
+    const tokyo = formatDeadline(utc, 'Asia/Tokyo') // UTC+9 → 03:30 ของวันถัดไป
+
+    expect(bangkok).toContain('01:30')
+    expect(tokyo).toContain('03:30')
+    expect(bangkok).not.toBe(tokyo)
+  })
+
+  it('timezone เดียวกันให้ผลเดียวกันเสมอไม่ว่าจะเรียกกี่ครั้ง', () => {
+    const utc = '2027-06-15T10:00:00Z'
+
+    expect(formatDeadline(utc, 'Asia/Bangkok')).toBe(formatDeadline(utc, 'Asia/Bangkok'))
+  })
+})
