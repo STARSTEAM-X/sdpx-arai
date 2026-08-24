@@ -40,6 +40,8 @@ tags:
     description: งานประเมินและการจัดคู่
   - name: evaluation
     description: การประเมินของนักศึกษา
+  - name: scoring
+    description: คำนวณ ประกาศ และดูคะแนน (US-13, US-15, US-16)
 
 paths:
   /api/health:
@@ -694,33 +696,209 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationFailed'
 
+  /api/assignments/{assignmentId}:recompute:
+    post:
+      tags: [scoring]
+      summary: คำนวณคะแนนชั่วคราวใหม่
+      description: |
+        อ้าง US-13, US-16 — คำนวณด้วย `is_final=false` ทับ interim เดิมเสมอ เรียกได้ตลอด
+        หลัง publish ไม่ต้องรอ deadline (FR-SCORE-06) ใช้ดูความคืบหน้าระหว่างทาง
+        ไม่เปลี่ยนสถานะ assignment และไม่ถูก audit เพราะยังไม่ใช่คะแนนที่เชื่อถือได้
+      operationId: recomputeScores
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: คำนวณเสร็จ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecomputeResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `MANAGE_ASSIGNMENT` (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/assignments/{assignmentId}:finalize:
+    post:
+      tags: [scoring]
+      summary: ตัดสินและประกาศคะแนน
+      description: |
+        อ้าง US-13 — เฉพาะ OWNER (capability `FINALIZE_SCORES`) เรียกได้ ต้องเลย
+        `groupDeadlineUtc` ไปแล้วและ assignment อยู่ในสถานะ `PUBLISHED`/`OPEN`/`CLOSED`
+        คำนวณด้วย `is_final=true` ทับ interim เดิม แล้ว snapshot ไว้เป็นคะแนนที่เชื่อถือได้
+        (`computed_score` เก็บค่าที่คำนวณได้ ณ ตอนนั้นตรง ๆ — ตรวจย้อนหลังได้แม้สูตรจะเปลี่ยนไปแล้ว)
+
+        ถ้ามี item ที่ผู้ประเมินยังไม่ถึงเกณฑ์ขั้นต่ำ (`LOW_CONFIDENCE`) endpoint นี้จะปฏิเสธ
+        ด้วย 422 จนกว่าจะส่ง `confirmLowConfidence: true` มายืนยัน — ระบบไม่ finalize ให้อัตโนมัติ
+      operationId: finalizeAssignment
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeAssignment'
+      responses:
+        '200':
+          description: ประกาศผลแล้ว
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalizeResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `FINALIZE_SCORES` — มีเฉพาะ OWNER (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'สถานะไม่ใช่ PUBLISHED/OPEN/CLOSED หรือยังไม่ถึง deadline (`code: ALREADY_EXISTS`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: 'มี item ติด LOW_CONFIDENCE และยังไม่ได้ส่ง confirmLowConfidence (`code: VALIDATION_FAILED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/assignments/{assignmentId}:reopen:
+    post:
+      tags: [scoring]
+      summary: เปิดคะแนนที่ finalize แล้วกลับมาแก้
+      description: |
+        อ้าง US-13 — เฉพาะ OWNER เรียกได้ ต้องเป็นงานที่สถานะ `FINALIZED` เท่านั้น
+        สถานะหลัง reopen กลับไปเป็น `CLOSED` (ไม่ใช่ `PUBLISHED`) ต้องเรียก `:finalize` ใหม่
+        อีกครั้งเพื่อประกาศผล ต้องระบุเหตุผลเสมอเพราะกระทบความเชื่อมั่นของนักศึกษาที่เห็นคะแนน
+        ไปแล้ว (`AuditAction.SCORES_REOPENED` อยู่ใน `ACTIONS_REQUIRING_REASON`)
+      operationId: reopenAssignment
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReopenAssignment'
+      responses:
+        '200':
+          description: เปิดกลับมาแก้แล้ว
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [CLOSED]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `FINALIZE_SCORES` (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'ยังไม่ได้ finalize (`code: ALREADY_EXISTS`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: 'ไม่ได้ระบุเหตุผล (`code: VALIDATION_FAILED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/assignments/{assignmentId}/score-overrides:
+    post:
+      tags: [scoring]
+      summary: แก้คะแนนที่คำนวณได้ด้วยมือ
+      description: |
+        อ้าง US-13, FR-SCORE-08 — เฉพาะ OWNER เรียกได้ บันทึกเป็นแถวใหม่เสมอ (ประวัติสะสม
+        ไม่ทับของเดิม) ค่าที่มีผลจริงคือแถวล่าสุดของ item/เกณฑ์นั้น ต้องระบุเหตุผลเสมอ
+        และถูกบันทึกลง audit log ครบ actor/ก่อน/หลัง/เหตุผล/เวลา (FR-AUDIT-02)
+      operationId: createScoreOverride
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreOverrideCreate'
+      responses:
+        '201':
+          description: บันทึกการ override แล้ว
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreOverrideResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `FINALIZE_SCORES` (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: 'ไม่ได้ระบุเหตุผล (`code: VALIDATION_FAILED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /api/assignments/{assignmentId}/my-score:
     get:
       tags: [evaluation]
       summary: คะแนนของฉัน
       description: |
-        อ้าง US-10 — ดูได้เฉพาะเมื่อ assignment สถานะ `FINALIZED`
-        คะแนนรายบุคคลจะถูกซ่อนถ้าจำนวนผู้ประเมินยังไม่ถึงเกณฑ์ k-anonymity (D7)
+        อ้าง US-10 — สมาชิกห้องเรียนคนไหนก็เรียกได้ (ไม่ต้องมี capability พิเศษ)
+        ถ้า assignment ยังไม่ `FINALIZED` ตอบ 200 พร้อม `finalized: false` และ `message`
+        อธิบาย — **ไม่มีตัวเลขคะแนนใด ๆ ติดมาเลย** ไม่ใช่ 404 เพราะ "ยังไม่ประกาศ" เป็นสถานะ
+        ปกติของ workflow ไม่ใช่ error
+
+        คะแนนรายบุคคล (`individualComponent`) จะเป็น `null` และ `individualHidden: true`
+        ถ้าจำนวนผู้ประเมินรายบุคคลของ item นี้ยังไม่ถึงเกณฑ์ k-anonymity (US-15 —
+        ใช้ `min_comparisons` ของ assignment เป็นเกณฑ์ร่วม ไม่มีคอลัมน์แยก) เมื่อซ่อน
+        `finalScore` (ที่รวมคะแนนรายบุคคลไว้ด้วย) จะถูกซ่อนไปด้วยเช่นกัน ไม่ใช่แค่
+        `individualComponent` เพียงอย่างเดียว — เพื่อไม่ให้เดาย้อนกลับได้จากผลรวม
       operationId: getMyScore
       parameters:
         - $ref: '#/components/parameters/AssignmentId'
       responses:
         '200':
-          description: คะแนนของผู้เรียก
+          description: คะแนนของผู้เรียก (หรือสถานะ "ยังไม่ประกาศผล" ถ้ายังไม่ finalize)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyScore'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
         '404':
-          description: ไม่พบงาน หรือยังไม่ประกาศผล
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -1297,41 +1475,109 @@ components:
           type: string
           format: date-time
 
-    ScoreBreakdown:
+    RecomputeResult:
       type: object
-      required: [criterionId, criterionName, weightPct, weightedScore]
+      required: [hasLowConfidenceItems, computedAt]
       properties:
-        criterionId:
+        hasLowConfidenceItems:
+          type: boolean
+          description: มี item ไหนก็ได้ที่ comparison ยังไม่ถึงเกณฑ์ min_comparisons (S8)
+        computedAt:
+          type: string
+          format: date-time
+
+    FinalizeAssignment:
+      type: object
+      properties:
+        confirmLowConfidence:
+          type: boolean
+          default: false
+          description: ยืนยันว่าต้องการประกาศผลต่อแม้มี item ติด LOW_CONFIDENCE
+
+    FinalizeResult:
+      type: object
+      required: [status, finalizedAt, hadLowConfidenceItems]
+      properties:
+        status:
+          type: string
+          enum: [FINALIZED]
+        finalizedAt:
+          type: string
+          format: date-time
+        hadLowConfidenceItems:
+          type: boolean
+
+    ReopenAssignment:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: บันทึกลง audit log — ทำไมต้องเปิดคะแนนที่ประกาศแล้วกลับมาแก้
+
+    ScoreOverrideCreate:
+      type: object
+      required: [side, itemId, overrideValue, reason]
+      properties:
+        side:
+          $ref: '#/components/schemas/Side'
+        itemId:
           type: string
           format: uuid
-        criterionName:
-          type: string
-        weightPct:
+          description: id ของกลุ่ม (side=GROUP) หรือนักศึกษา (side=INDIVIDUAL) ที่จะแก้คะแนน
+        criterionId:
+          type: [string, 'null']
+          format: uuid
+          description: ระบุเพื่อ override เฉพาะเกณฑ์เดียว — เว้นว่างเพื่อ override ผลรวมทั้ง item
+        overrideValue:
           type: number
-        weightedScore:
+        reason:
+          type: string
+          minLength: 1
+
+    ScoreOverrideResult:
+      type: object
+      required: [id, originalValue, overrideValue]
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalValue:
+          type: number
+          description: ค่าก่อน override (คำนวณล่าสุด หรือ override ก่อนหน้าถ้ามี)
+        overrideValue:
           type: number
 
     MyScore:
       type: object
-      required: [assignmentId, groupScore, participationMultiplier]
+      required: [finalized, individualHidden]
       properties:
-        assignmentId:
-          type: string
-          format: uuid
-        groupScore:
-          type: number
-        groupBreakdown:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScoreBreakdown'
-        individualScore:
-          type: [number, 'null']
-          description: null เมื่อยังไม่ถึงเกณฑ์ k-anonymity หรือ assignment ไม่มีฝั่ง individual
-        individualHiddenReason:
+        finalized:
+          type: boolean
+        message:
           type: [string, 'null']
-          description: อธิบายว่าทำไมถึงยังไม่แสดงคะแนนรายบุคคล
+          description: ข้อความอธิบายเมื่อ finalized เป็น false เช่น "ยังไม่ประกาศผลคะแนน"
+        groupComponent:
+          type: [number, 'null']
+          description: คะแนนของกลุ่มที่นักศึกษาสังกัด — null ถ้ายัง finalized เป็น false
+        individualComponent:
+          type: [number, 'null']
+          description: null ถ้ายังไม่ถึงเกณฑ์ k-anonymity, assignment ไม่มีฝั่งบุคคล, หรือยังไม่ finalize
+        individualHidden:
+          type: boolean
+          description: true เมื่อผู้ประเมินรายบุคคลของนักศึกษาคนนี้ยังไม่ถึงเกณฑ์ k-anonymity (US-15)
+        participationRatio:
+          type: [number, 'null']
+          description: สัดส่วนคู่ที่ตอบเทียบกับที่ได้รับมอบหมายทั้งหมด (ก่อนแปลงเป็นตัวคูณ)
         participationMultiplier:
-          type: number
+          type: [number, 'null']
           description: |
-            ตัวคูณจากการมีส่วนร่วม แยกออกจากคะแนนที่ได้รับโดยตั้งใจ (D5)
-            การไม่ประเมินเพื่อนไม่ได้แปลว่างานตัวเองแย่
+            ตัวคูณจากการมีส่วนร่วม (M) — คูณเฉพาะคะแนนส่วนตัวสุดท้ายของนักศึกษาคนนี้
+            ไม่กระทบ groupComponent ของกลุ่มเอง (FR-SCORE-11, D5)
+        finalScore:
+          type: [number, 'null']
+          description: |
+            (groupComponent + individualComponent) × participationMultiplier
+            เป็น null ถ้ายังไม่ finalize หรือ individualHidden เป็น true — ไม่แสดงคะแนนรวม
+            บางส่วนที่อาจเผยให้เดาย้อนกลับไปถึงคะแนนรายบุคคลที่ถูกซ่อนไว้ได้

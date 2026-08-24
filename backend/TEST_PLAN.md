@@ -180,10 +180,34 @@ pure function ล้วน ตาม AR-01 — ไม่รู้จัก SQL �
 > ถ่วงน้ำหนักเกณฑ์, participation) — golden test จึงเริ่มจากค่า q ที่ PRD ให้มาตรง ๆ ส่วนความ
 > ถูกต้องของค่าเฉลี่ยถ่วงน้ำหนักที่ได้ q มา ถูกทดสอบแยกด้วยตัวเลขกลม ๆ ใน `TestComputeQualityIndex`
 
-> **ขอบเขตที่ยังไม่ทำใน US-16:** S7 (`computed_score.is_final = true` แก้ตรง ๆ ไม่ได้)
-> ต้องมีตาราง `computed_score` และ `score_override` จริงถึงจะทดสอบมีความหมาย — ผูกกับตอน
-> US-13 (finalize) ที่เป็นจุดแรกที่ `is_final` ถูกตั้งเป็น `true` จริง เก็บไว้ทำพร้อมกัน
-> เอนจินคำนวณเองพร้อมแล้ว รอแค่ชั้น persistence
+> **S7 — แก้ไขแล้วเมื่อทำ US-13:** ตาราง `computed_score` (`backend/migrations/007_scoring.sql`)
+> มี UNIQUE `(assignment_id, criterion_id, item_id, is_final)` และ `save_computed_scores`
+> เขียนทับได้เฉพาะแถวที่ตรง key เดิม — โค้ดทั้งระบบไม่มี path ไหนเรียกด้วย `is_final=True`
+> นอกจาก `:finalize` (ดูรายละเอียดใน `docs/backlog.md` หัวข้อ Sprint 3) ตรวจได้จากโค้ดตรง ๆ
+> เพราะไม่มี endpoint ให้แก้ `is_final=true` ตรง ๆ เลยตั้งแต่ออกแบบ ไม่ใช่ถูกบล็อกด้วย guard
+> ที่ทดสอบแยกได้
+
+### 12. `finalize_service` — US-13 (Sprint 3)
+
+pure function เหมือน `scoring_service` — รู้แค่ "ทำตอนนี้ได้ไหม" ไม่รู้จัก SQL หรือ HTTP
+ทดสอบได้โดยไม่ต้องมี DB
+
+| กฎ | Test |
+|---|---|
+| finalize ได้เมื่อเลย deadline และ publish แล้ว | `test_deadline_ผ่านแล้ว_finalize_ได้` |
+| **AC** ยังไม่ถึง deadline finalize ไม่ได้ | `test_AC_ยังไม่ถึง_deadline_finalize_ไม่ได้` |
+| ยัง DRAFT อยู่ finalize ไม่ได้ (ต้อง publish ก่อน) | `test_ยังไม่_publish_finalize_ไม่ได้` |
+| FINALIZED อยู่แล้ว finalize ซ้ำไม่ได้ | `test_FINALIZED_อยู่แล้ว_finalize_ซ้ำไม่ได้` |
+| ไม่มี LOW_CONFIDENCE ผ่านได้เลยไม่ต้องยืนยัน | `test_ไม่มี_low_confidence_ผ่านได้เลย` |
+| **AC** มี LOW_CONFIDENCE แต่ยังไม่ยืนยันถูกปฏิเสธ (`field: confirmLowConfidence`) | `test_AC_มี_low_confidence_แต่ยังไม่ยืนยันถูกปฏิเสธ` |
+| **AC** มี LOW_CONFIDENCE แต่ยืนยันแล้วผ่านได้ | `test_AC_มี_low_confidence_แต่ยืนยันแล้วผ่านได้` |
+| FINALIZED แล้ว reopen ได้ | `test_FINALIZED_reopen_ได้` |
+| ยังไม่ FINALIZED reopen ไม่ได้ | `test_ยังไม่_FINALIZED_reopen_ไม่ได้` |
+| override มีเหตุผลผ่านได้ | `test_มีเหตุผลผ่านได้` |
+| **AC** override ไม่กรอกเหตุผล (ว่าง/เว้นวรรค/`None`) ถูกปฏิเสธด้วย 422 (`field: reason`) | `test_AC_ไม่กรอกเหตุผลถูกปฏิเสธด้วย_422` (parametrize 3 ค่า) |
+
+13 tests รวม — ครอบคลุมทุก AC ของ US-13 ที่เป็นกฎล้วน (ไม่นับ audit record ซึ่งพิสูจน์ผ่าน
+`e2e/specs/scoring.spec.ts` เพราะต้องมี DB จริงถึงจะเห็น `AuditEvent` ที่บันทึกได้)
 
 ---
 
@@ -240,6 +264,14 @@ pytest -m integration   # เฉพาะที่ต้องมี Postgres
 > ข้อสังเกต: การลบ R4 ทำให้ test แดงข้ามไฟล์ไปถึง `test_roster_import.py` ด้วย
 > แปลว่า roster import พึ่งพา email normalization จริง ไม่ได้ทำงานแยกกัน
 > ซึ่งตรงกับที่ออกแบบไว้ และ test สะท้อนความจริงข้อนี้ออกมาเอง
+
+### ครั้งที่ 7 — ทำตอน US-13 (Sprint 3, 2026-08-24)
+
+| # | กฎที่ลบ | ไฟล์ | Test ที่แดง | ผล |
+|---|---|---|---|---|
+| 6 | เงื่อนไข `now < deadline` (เปลี่ยนเป็น `if False`) | `finalize_service.py` | `test_AC_ยังไม่ถึง_deadline_finalize_ไม่ได้` | ✅ harness ปกป้องกฎนี้ |
+
+หลังกู้คืน → **326 passed** (313 เดิม + 13 ของ US-13)
 
 ### ครั้งที่ 4 — ทำตอนปิด Sprint 1 (2026-08-23)
 

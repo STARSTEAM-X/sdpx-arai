@@ -432,10 +432,10 @@ participation multiplier แยกจาก `score_ratio` อยู่แล้�
 | US-10 ดูคะแนนตัวเอง | [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) | `GET /api/assignments/{id}/my-score` |
 | US-11 กันเข้าถึงข้ามห้องเรียน | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) | **ไม่มี endpoint ของตัวเอง** — ดูหมายเหตุ |
 | US-12 จัดการผู้ร่วมสอนและ TA | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) | `POST /api/classrooms/{id}/members` · `DELETE /api/classrooms/{id}/members/{memberId}` — ยังไม่มีใน `openapi.yaml` |
-| US-13 finalize คะแนน | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) | `POST /api/assignments/{id}:finalize` · `POST /api/assignments/{id}:reopen` · `POST /api/assignments/{id}/score-overrides` — ยังไม่มีใน `openapi.yaml` |
+| US-13 finalize คะแนน | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) | `POST /api/assignments/{id}:finalize` · `POST /api/assignments/{id}:reopen` · `POST /api/assignments/{id}/score-overrides` · `GET /api/assignments/{id}/scores` — ครบใน `openapi.yaml` แล้ว |
 | US-14 audit log | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) | `GET /api/classrooms/{id}/audit` — ส่วนการ**เขียน** audit ไม่มี endpoint ของตัวเอง เหมือน US-11 |
-| US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | **ไม่มี endpoint ของตัวเอง** — เป็นข้อบังคับของทุก endpoint ที่คืนคะแนนและทุก export |
-| US-16 คำนวณคะแนน | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) | `POST /api/assignments/{id}:recompute` — ตัว engine ถูกเรียกโดย `my-score`, รายงานฝั่งอาจารย์ และ `:finalize` |
+| US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | **ไม่มี endpoint ของตัวเอง** — เป็นข้อบังคับของทุก endpoint ที่คืนคะแนนและทุก export (export ยังไม่มีในระบบเลย — ดูสถานะ Sprint 3) |
+| US-16 คำนวณคะแนน | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) | `POST /api/assignments/{id}:recompute` — ตัว engine ถูกเรียกโดย `my-score`, `/scores` ฝั่งอาจารย์ และ `:finalize` |
 
 ## สองข้อยกเว้นที่ตั้งใจให้เป็นแบบนี้
 
@@ -602,14 +602,93 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-### สถานะ ณ 2026-08-24 — US-07, US-08, US-09 เสร็จครบ · US-16 เสร็จบางส่วน
+### สถานะ ณ 2026-08-24 — ครบทั้ง 7 story (US-15 มี 2 AC ที่ยังไม่ทำ — ดูรายละเอียดด้านล่าง)
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 | **4/4** | unit `test_evaluation_service.py` (8 ตัว) · e2e `evaluations.spec.ts` (6 ตัว, ผ่าน `--repeat-each=3`) |
 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 | **5/5** | unit `test_comparison_service.py` (15 ตัว) · e2e `comparisons.spec.ts` (9 ตัว รวม autosave 2 วินาทีจริงผ่าน web-first assertion ไม่ใช้ `waitForTimeout`, ผ่าน `--repeat-each=3`) |
 | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 | **5/5** | e2e `submissions.spec.ts` (8 ตัว รวม idempotency-key จริงและ `window.confirm` dialog, ผ่าน `--repeat-each=3`) |
-| [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) US-16 | **7/8** — เอนจินคำนวณเสร็จ, ยังไม่ persist | unit `test_scoring_service.py` (20 ตัว รวม golden test S10 จาก PRD §9.5 ตรงเป๊ะทุกตัวเลข) |
+| [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) US-16 | **8/8** | unit `test_scoring_service.py` (20 ตัว รวม golden test S10) · S7 (`is_final` แก้ตรงไม่ได้) พิสูจน์แล้วผ่าน `computed_score` UNIQUE constraint + `PgScoringRepository.save_computed_scores` ที่ไม่มี path ไหนเขียน `is_final=true` นอก `:finalize` |
+| [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) US-15 | **4/6** | unit ทุกตัวของ `test_finalize_service.py`/`test_scoring_service.py` ไม่มี field ระบุตัวผู้ประเมินเลย · e2e `scoring.spec.ts` พิสูจน์ threshold จริง (m=4 เห็น, m=3 ไม่เห็น) · **2 AC ยังไม่ทำ** — ดูด้านล่าง |
+| [#10](https://github.com/STARSTEAM-X/sdpx-arai2/issues/10) US-10 | **4/4** | e2e `scoring.spec.ts` (my-score ก่อน/หลัง finalize, individual hidden/visible, หน้าเว็บ `ScorePage.tsx`) |
+| [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) US-13 | **7/7** | unit `test_finalize_service.py` (13 ตัว) · e2e `scoring.spec.ts` (14 ตัว รวม finalize/reopen/LOW_CONFIDENCE gate/`/scores` label จริงทั้งหมด ผ่าน `--repeat-each=3`) |
+
+**US-16 ปิดจบแล้ว — S7 ที่เหลือค้างจากรอบก่อนพิสูจน์ผ่าน US-13**
+
+รอบก่อนหน้าเขียนไว้ว่า S7 ทดสอบมีความหมายได้ก็ต่อเมื่อมีตาราง `computed_score` จริง —
+ตอนนี้มีแล้วจาก `backend/migrations/007_scoring.sql` UNIQUE constraint คือ
+`(assignment_id, criterion_id, item_id, is_final)` และ `save_computed_scores` เขียนทับได้
+เฉพาะแถวที่ตรง key เดิม (`ON CONFLICT ... DO UPDATE`) — โค้ดทั้งระบบไม่มี endpoint ไหนเรียก
+`save_computed_scores(..., is_final=True)` นอกจาก `:finalize` (`_run_recompute` ใน
+`backend/app/api/scoring.py` รับ `is_final` มาจาก caller เท่านั้น ไม่มี branch ให้ตั้งเองจากภายนอก)
+— ตรวจได้จากโค้ดตรง ๆ ไม่ต้องมี endpoint แก้ `is_final=true` ตรง ๆ ให้ทดสอบว่าถูกปฏิเสธ
+เพราะไม่มี endpoint แบบนั้นอยู่เลยตั้งแต่แรก
+
+**US-13 — คะแนนที่ยังไม่ finalize ต้องมี label "ชั่วคราว" ทุกที่ที่แสดง (AC ข้อ 5)**
+
+ตอน implement รอบแรกมีแค่ `:recompute` ที่คืน `hasLowConfidenceItems: boolean` — ไม่มีทางเห็น
+**ตัวเลข**คะแนนชั่วคราวจริงเลยทั้งฝั่งอาจารย์ ทำให้ AC ข้อนี้ยังไม่ผ่านจริง แก้โดยเพิ่ม
+`GET /api/assignments/{id}/scores` (คืน `isFinal` + รายการคะแนนต่อ item) และหน้าเว็บ
+(`ScoresPanel` ใน `AssignmentScoringCard.tsx`) แสดง pill "ชั่วคราว — อาจเปลี่ยนแปลงได้" หรือ
+"คะแนนสุดท้าย" ตาม `isFinal` ที่ backend ตอบมา ทดสอบจริงทั้ง API (`isFinal` สลับ false→true
+รอบ finalize จริง) และ UI (`scoring.spec.ts` กดปุ่มแล้วเห็น pill)
+
+**ความขัดแย้งที่พบระหว่างแก้ข้อบน — US-13 AC ข้อ 5 ชนกับ US-15 AC ข้อ 3**
+
+US-13 เขียนว่า label "ชั่วคราว" ต้องกำกับคะแนนที่ยังไม่ finalize "**ทั้งฝั่งอาจารย์และนักศึกษา**"
+ซึ่งบอกเป็นนัยว่านักศึกษาควรเห็นคะแนนชั่วคราวได้ระหว่างทาง แต่ US-15 AC ข้อ 3 ระบุตรงข้าม:
+"ระบบไม่แสดง delta...เห็นค่าก่อน/หลังเมื่อไร ก็อนุมานได้ว่าใครเพิ่งส่ง" — ถ้านักศึกษาเห็นคะแนน
+รายบุคคลชั่วคราวที่ขยับได้ทุกครั้งที่มีเพื่อนส่งเพิ่ม จะอนุมานย้อนกลับได้ทันทีว่าใครเพิ่งประเมินตน
+ซึ่งเป็นสิ่งที่ US-15 ระบุชัดว่าห้าม
+
+**ตัดสินใจ:** ยึด US-15 เป็นหลัก ไม่เปิด endpoint คะแนนชั่วคราวให้นักศึกษาเรียกเลย
+(`GET /scores` เช็ค `Capability.MANAGE_ASSIGNMENT` เท่านั้น — นักศึกษาเรียกได้ 403 พิสูจน์แล้ว
+ใน `scoring.spec.ts`) ส่วน `GET /my-score` ของนักศึกษายังคงล็อกที่ `FINALIZED` เท่านั้นเหมือนเดิม
+ไม่มีทางเห็นคะแนนชั่วคราวได้เลยไม่ว่าจะมี label กำกับหรือไม่ — เหตุผล: PRD §19 จัดให้ anonymity
+(FR-ANON-01/02) อยู่กลุ่ม **ห้ามตัด** ร่วมกับ audit และ authz ส่วน "label ชั่วคราวฝั่งนักศึกษา"
+เป็นแค่ AC ของ story เดียว ไม่ได้อยู่ในกลุ่มห้ามตัดนั้น เมื่อสองข้อชนกันจริงจึงเลือกข้อที่ระบบ
+บอกไว้เองว่าสำคัญกว่า — AC ข้อ 5 ของ US-13 จึงถือว่าผ่านเฉพาะครึ่งฝั่งอาจารย์ ฝั่งนักศึกษา
+"ผ่าน" โดยไม่มีอะไรให้ต้องติด label เลย (ไม่เคยเห็นคะแนนชั่วคราวตั้งแต่ต้น)
+
+**US-15 — 2 AC ที่ยังไม่ได้ทำ**
+
+1. *"กลุ่มขนาด m = 3 ต้องเตือนว่า anonymity ต่ำมากตอนอาจารย์จะเปิด individual evaluation"*
+   — พฤติกรรมป้องกันจริงถูกต้อง (m=3 ให้ผู้ประเมินได้แค่ m−1=2 คน < `min_comparisons` default 3
+   จึงถูกซ่อนเสมอ พิสูจน์แล้วใน `scoring.spec.ts`) แต่ยังไม่มี UI เตือน**เชิงรุก**ตอนสร้าง/publish
+   assignment ว่าตั้งค่าแบบนี้แล้วคะแนนรายบุคคลของกลุ่มเล็กจะไม่มีวันแสดงผลเลย — เป็น UX gap
+   ไม่ใช่ security gap (ระบบไม่รั่ว แค่ไม่เตือนล่วงหน้า) บันทึกเป็น follow-up
+2. *"อาจารย์เปิดดู evaluator identity หรือ export ที่มี identity ต้องเป็น OWNER + ยืนยันเจตนา +
+   audit"* และ *"export แบบ default ต้องเป็น pseudonymous id"* — **ยังไม่มี export feature
+   ในระบบเลย** (`grep -r export backend/app/api/` ไม่เจอ endpoint ไหน) ทั้งสอง AC จึงยังทดสอบ
+   ไม่ได้เพราะไม่มีอะไรให้ทดสอบ ไม่ใช่ regression — เป็นขอบเขตของ story อื่นที่ยังไม่ถึงคิว
+   (export/reporting ไม่อยู่ใน traceability table เพราะไม่มี endpoint เขียนถึง)
+
+**US-10 — เลือกตอบ 200 + message แทน 404 ตอนยังไม่ finalize**
+
+AC เขียนไว้ว่า "ตอบ 404 **หรือ**ข้อความว่ายังไม่ประกาศผล" (สองทางเลือก) เลือกทาง 200 +
+`{finalized: false, message: "ยังไม่ประกาศผลคะแนน"}` เพราะ "ยังไม่ finalize" เป็นสถานะปกติของ
+workflow ตลอดช่วงเวลาที่ assignment เปิดอยู่ ไม่ใช่ error — สอดคล้องกับแนวทางเดียวกับที่ US-11
+ใช้แยก 404 (ไม่มีสิทธิ์เห็นด้วยซ้ำ) ออกจาก "มีสิทธิ์แต่ยังไม่มีอะไรให้เห็น"
+
+**การออกแบบ `finalScore` เมื่อ `individualHidden = true` — ซ่อนทั้งก้อน ไม่ใช่แค่ครึ่งเดียว**
+
+ตอนแรกพิจารณาให้ `finalScore` ยังคำนวณจาก `groupComponent` อย่างเดียวเมื่อ individual ถูกซ่อน
+แต่ตัดสินใจซ่อน `finalScore` ทั้งก้อนไปด้วยเสมอ เพราะถ้าโชว์ผลรวมบางส่วน นักศึกษาที่รู้
+`groupComponent` ของตัวเองอยู่แล้ว (ไม่ถูกซ่อน) จะคำนวณย้อนกลับหา "ส่วนที่หายไป" ได้เองว่า
+ทำไม `finalScore` ไม่ตรงกับที่คาดจาก `groupComponent` เพียงอย่างเดียว ซึ่งเป็นการรั่วข้อมูล
+ทางอ้อมแบบเดียวกับที่ US-15 AC ข้อ 3 กันเรื่อง delta ไว้ — ยิ่งอนุรักษ์นิยมยิ่งปลอดภัยกว่า
+
+**พบระหว่างออกแบบ e2e — ต้องมีอย่างน้อย 4 กลุ่มขนาดใกล้กันถึงจะ publish งานประเมินฝั่งกลุ่มได้**
+
+ตั้งใจทดสอบ k-anonymity ด้วย roster 2 กลุ่ม (ขนาด 4 กับ 3) ก่อน แต่ publish ล้มเหลวเพราะ
+GROUP-side pairing ต้องมี "คนนอกคู่" มาเป็นผู้ประเมิน — มี 2 กลุ่มแปลว่ามีคู่เดียว (A vs B)
+และทุกคนสังกัด A หรือ B พอดี จึงไม่มีใครเป็นผู้ประเมินที่ถูกต้องได้เลย (0 คน) ลอง 3 กลุ่มต่อ
+(4/3/2) ก็ล้มอีกเพราะ P3 (ส่วนต่าง coverage ≤ 1 คน — ดูบันทึกของ US-06) coverage ของแต่ละคู่
+เท่ากับขนาดกลุ่มที่ประเมิน ขนาดกลุ่มต่างกันเกิน 1 คนจึงเกินเพดาน สุดท้ายใช้ 4 กลุ่มขนาด 4/3/3/4
+(สเปรดกลุ่ม ≤ 1) จึง publish ผ่านจริง — ไม่ใช่บั๊ก แค่เป็นข้อจำกัดทางคณิตศาสตร์ของ pairing engine
+ที่ค้นพบจริงตอนออกแบบ test ไม่ใช่จากการอ่านสเปกเฉย ๆ (`e2e/specs/scoring.spec.ts` มีบันทึกไว้
+เป็น comment ในไฟล์ด้วย)
 
 **US-16 ทำเฉพาะเอนจินคำนวณ (pure function) — ยังไม่ผูก endpoint/database**
 
@@ -703,6 +782,17 @@ section ต่อเกณฑ์) พบตอนทดสอบกับ assign
 **ของหนักจริง:** `memory-bank/units/scoring-engine/unit-brief.md` กฎ S1–S10
 ตัววัดที่ดีที่สุดคือ `S10 golden test` — ต้องได้ตัวเลขตรงเป๊ะกับ worked example ใน PRD §9.5
 และ `S6 เก็บเป็น numeric ไม่ใช่ float` ซึ่งถ้าพลาดจะเจอตอนคะแนนคลาดกันหลักทศนิยม
+
+### Sprint 3 ปิดจบ — ณ 2026-08-24
+
+ครบทั้ง 7 story (US-07, US-08, US-09, US-16, US-15, US-10, US-13) ตามลำดับที่วางไว้
+39 AC ทั้งหมด ผ่าน **37 ข้อ** เหลือ 2 ข้อของ US-15 ที่ยังไม่ทำ (คำเตือนกลุ่มเล็กตอน setup
+กับ export ที่มี identity — ดูรายละเอียดในหัวข้อ US-15 ด้านบน) ไม่มีข้อไหน**ล้มเหลว** มีแต่
+ข้อที่ยังไม่ถึงคิว — regression suite ทั้งชุด (backend 353 tests, frontend 20 tests, e2e 105
+tests รวม `--repeat-each=3` ของ `scoring.spec.ts`) ผ่านหมดหลังรวมงานทั้ง 7 story เข้าด้วยกัน
+
+**พร้อมสำหรับ WS-07 (สัปดาห์ 13)** — flow ประเมินเต็มเส้นทาง (US-07→US-08→US-09→US-16→
+US-15→US-10→US-13) ใช้งานได้จริงจาก browser ให้ k6 ยิง "realistic journey" ได้แล้ว
 
 ## จุดที่ Sprint ชนกับปฏิทินของวิชา
 

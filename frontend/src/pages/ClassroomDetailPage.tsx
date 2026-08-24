@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { AssignmentPanel } from '../components/AssignmentPanel'
+import { AssignmentScoringCard } from '../components/AssignmentScoringCard'
 import { AssignmentsToEvaluateCard } from '../components/AssignmentsToEvaluateCard'
 import { MemberPanel } from '../components/MemberPanel'
 import { RosterImportCard } from '../components/RosterImportCard'
@@ -74,6 +75,9 @@ export default function ClassroomDetailPage() {
   const canImport = myRole !== null && CAN_MANAGE_ROSTER.includes(myRole)
   const canManageAssignment = myRole !== null && CAN_MANAGE_ASSIGNMENT.includes(myRole)
   const canManageMembers = myRole !== null && CAN_MANAGE_MEMBERS.includes(myRole)
+  // FINALIZE_SCORES เป็นของ OWNER เท่านั้นตาม role matrix — CO_TEACHER จัดการ assignment ได้
+  // แต่ตัดสินคะแนนสุดท้ายไม่ได้ เพราะ reopen/override ย้อนกลับไม่ได้เหมือนงานอื่น
+  const canFinalizeScores = myRole === 'OWNER'
   const isInstructor = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
 
   /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
@@ -197,6 +201,9 @@ export default function ClassroomDetailPage() {
                 studentCount={students.length}
               />
             )}
+
+            {/* ตัดสินและประกาศคะแนน — เฉพาะเจ้าของห้อง (US-13) */}
+            {canFinalizeScores && <AssignmentScoringCard classroomId={classroomId} />}
           </div>
 
           {canManageAssignment && (

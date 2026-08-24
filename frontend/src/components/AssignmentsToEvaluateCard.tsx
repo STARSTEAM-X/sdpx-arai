@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Card, CardHead, Pill } from './Ui'
-import { IconArrowRight, IconClipboardCheck } from './icons'
+import { IconArrowRight, IconClipboardCheck, IconTransparentScore } from './icons'
 import { ApiError, type AssignmentSummary, listClassroomAssignments } from '../lib/api'
 
 const STATUS_LABEL: Record<AssignmentSummary['status'], string> = {
@@ -62,18 +62,36 @@ export function AssignmentsToEvaluateCard({ classroomId }: { classroomId: string
         )}
 
         {items.map((a) => (
-          <Link
+          <div
             key={a.id}
-            to={`/classrooms/${classroomId}/assignments/${a.id}/evaluate`}
-            data-testid={`evaluate-link-${a.id}`}
-            className="flex items-center gap-3 rounded-xl border border-edge px-4 py-3 transition-colors hover:border-edge-strong hover:bg-sand"
+            className="flex items-center gap-3 rounded-xl border border-edge px-4 py-3"
           >
             <span className="font-display font-medium">{a.name}</span>
             <Pill tone={a.status === 'DRAFT' ? 'neutral' : 'ok'} className="ml-auto">
               {STATUS_LABEL[a.status]}
             </Pill>
-            <IconArrowRight className="size-4 text-muted" />
-          </Link>
+
+            {/* ประกาศผลแล้วให้ไปดูคะแนนแทน — คำตอบปิดแก้ไขอยู่แล้ว ไปหน้าประเมินซ้ำไม่มีประโยชน์ (US-10) */}
+            {a.status === 'FINALIZED' ? (
+              <Link
+                to={`/classrooms/${classroomId}/assignments/${a.id}/score`}
+                data-testid={`score-link-${a.id}`}
+                className="flex items-center gap-1.5 text-sm font-semibold text-accent-ink transition-colors hover:underline"
+              >
+                ดูคะแนน
+                <IconTransparentScore className="size-4" />
+              </Link>
+            ) : (
+              <Link
+                to={`/classrooms/${classroomId}/assignments/${a.id}/evaluate`}
+                data-testid={`evaluate-link-${a.id}`}
+                className="flex items-center gap-1.5 text-sm font-semibold text-accent-ink transition-colors hover:underline"
+              >
+                ประเมิน
+                <IconArrowRight className="size-4" />
+              </Link>
+            )}
+          </div>
         ))}
       </div>
     </Card>

@@ -15,6 +15,7 @@ from app.api import classrooms
 from app.api import comparisons as comparisons_api
 from app.api import members as members_api
 from app.api import roster as roster_api
+from app.api import scoring as scoring_api
 from app.api.errors import (
     domain_error_handler,
     http_error_handler,
@@ -75,6 +76,7 @@ app.include_router(roster_api.router)
 app.include_router(assignments_api.router)
 app.include_router(members_api.router)
 app.include_router(comparisons_api.router)
+app.include_router(scoring_api.router)
 
 # ---------------------------------------------------------------------------
 # endpoint สำหรับ test จะถูกลงทะเบียนก็ต่อเมื่อไม่ใช่ production เท่านั้น

@@ -20,6 +20,8 @@ _ASSIGNMENT_COLUMNS = """
     a.group_max_score, a.individual_max_score,
     a.group_deadline_utc, a.individual_deadline_utc,
     a.target_coverage, a.max_workload, a.pairing_seed, a.status,
+    a.instructor_weight, a.min_comparisons, a.score_floor, a.score_ceiling,
+    a.completion_threshold, a.finalized_at,
     u.email_normalized AS created_by
 """
 
@@ -38,6 +40,12 @@ def _row_to_assignment(row: dict, criteria: list[Criterion] | None = None) -> As
         target_coverage=row["target_coverage"],
         max_workload=row["max_workload"],
         pairing_seed=row["pairing_seed"],
+        instructor_weight=Decimal(row["instructor_weight"]),
+        min_comparisons=row["min_comparisons"],
+        score_floor=Decimal(row["score_floor"]),
+        score_ceiling=Decimal(row["score_ceiling"]),
+        completion_threshold=Decimal(row["completion_threshold"]),
+        finalized_at=row["finalized_at"],
         status=AssignmentStatus(row["status"]),
         created_by=row["created_by"],
         criteria=criteria or [],
@@ -294,6 +302,20 @@ class PgAssignmentRepository:
                 (seed, assignment_id),
             )
         _ = at  # เก็บพารามิเตอร์ไว้ให้ชั้นบนส่งเวลาเข้ามาได้เมื่อเพิ่มคอลัมน์ published_at
+
+    def mark_finalized(self, assignment_id: str, *, at: datetime) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "UPDATE assignment SET status = 'FINALIZED', finalized_at = %s WHERE id = %s",
+                (at, assignment_id),
+            )
+
+    def mark_reopened(self, assignment_id: str) -> None:
+        """PRD state diagram: FINALIZED → CLOSED เมื่อ reopen — finalized_at คงไว้เป็นประวัติ
+        ว่าเคย finalize ครั้งล่าสุดเมื่อไร ไม่ล้างทิ้ง เผื่อกลับมา finalize ใหม่จะได้เทียบเวลาได้
+        """
+        with self._conn.cursor() as cur:
+            cur.execute("UPDATE assignment SET status = 'CLOSED' WHERE id = %s", (assignment_id,))
 
     def save_pairs(self, assignment_id: str, pairs: list[Pair], *, criterion_id: str) -> None:
         """บันทึกคู่ทั้งชุดของ criterion หนึ่ง

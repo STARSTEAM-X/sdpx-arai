@@ -420,3 +420,89 @@ export function removeMember(classroomId: string, memberId: string): Promise<voi
     { method: 'DELETE' },
   )
 }
+
+// --- คำนวณและประกาศคะแนน (US-13, US-15, US-16) ---
+
+export type RecomputeResult = {
+  hasLowConfidenceItems: boolean
+  computedAt: string
+}
+
+/** คำนวณคะแนนชั่วคราวใหม่ — เรียกได้ตลอดหลัง publish ไม่ต้องรอ deadline */
+export function recomputeScores(assignmentId: string): Promise<RecomputeResult> {
+  return apiFetch<RecomputeResult>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}:recompute`,
+    { method: 'POST' },
+  )
+}
+
+export type FinalizeResult = {
+  status: string
+  finalizedAt: string
+  hadLowConfidenceItems: boolean
+}
+
+/** ตัดสินและประกาศคะแนน — เฉพาะ OWNER เรียกได้ ต้องเลย deadline แล้ว
+ *
+ *  ถ้ามี item ที่ยังผู้ประเมินไม่ถึงเกณฑ์ (LOW_CONFIDENCE) จะถูกปฏิเสธจนกว่าจะส่ง
+ *  confirmLowConfidence: true มายืนยันว่ารู้แล้วและต้องการประกาศต่อไป
+ */
+export function finalizeAssignment(
+  assignmentId: string,
+  confirmLowConfidence = false,
+): Promise<FinalizeResult> {
+  return apiFetch<FinalizeResult>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}:finalize`,
+    { method: 'POST', body: JSON.stringify({ confirmLowConfidence }) },
+  )
+}
+
+/** เปิดคะแนนที่ finalize แล้วกลับมาแก้ — ต้องระบุเหตุผลเสมอ */
+export function reopenAssignment(assignmentId: string, reason: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}:reopen`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  )
+}
+
+export type ComputedScoreItem = {
+  itemId: string
+  side: CriterionSide
+  itemLabel: string
+  component: string
+  flags: string[]
+}
+
+export type Scores = {
+  isFinal: boolean
+  items: ComputedScoreItem[]
+}
+
+/** คะแนนที่คำนวณล่าสุดของทุก item ในงาน — เฉพาะอาจารย์เรียกได้ (US-13)
+ *
+ *  ไม่ใช่คู่กับ getMyScore — endpoint นี้ตอบคะแนนชั่วคราวได้ (isFinal: false) ให้อาจารย์
+ *  ตรวจก่อนกด finalize ส่วน getMyScore ของนักศึกษาล็อกไว้ที่ FINALIZED เท่านั้นเสมอ (US-15)
+ */
+export function getScores(assignmentId: string): Promise<Scores> {
+  return apiFetch<Scores>(`/api/assignments/${encodeURIComponent(assignmentId)}/scores`)
+}
+
+export type MyScore = {
+  finalized: boolean
+  message: string | null
+  groupComponent: string | null
+  individualComponent: string | null
+  individualHidden: boolean
+  participationRatio: string | null
+  participationMultiplier: string | null
+  finalScore: string | null
+}
+
+/** คะแนนของฉันเอง — เห็นได้ก็ต่อเมื่องานประกาศผลแล้ว (US-10)
+ *
+ *  ถ้า individualHidden เป็น true แปลว่าจำนวนผู้ประเมินรายบุคคลยังไม่ถึงเกณฑ์
+ *  k-anonymity (US-15) — ระบบซ่อนตัวเลขนั้นและ finalScore ที่รวมมันไว้ด้วย
+ */
+export function getMyScore(assignmentId: string): Promise<MyScore> {
+  return apiFetch<MyScore>(`/api/assignments/${encodeURIComponent(assignmentId)}/my-score`)
+}
