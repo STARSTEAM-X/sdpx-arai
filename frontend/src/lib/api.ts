@@ -179,6 +179,8 @@ export function createClassroom(input: {
 // --- Roster (US-03) ---
 
 export type RosterEntry = {
+  /** id ของแถวสมาชิก — ใช้ตอนถอดออกจากห้อง ต่างจาก userId ที่ใช้ร่วมกันทุกห้อง */
+  memberId: string
   userId: string
   email: string
   displayName: string | null
@@ -279,5 +281,42 @@ export function publishAssignment(assignmentId: string): Promise<PublishResult> 
   return apiFetch<PublishResult>(
     `/api/assignments/${encodeURIComponent(assignmentId)}:publish`,
     { method: 'POST' },
+  )
+}
+
+// --- สมาชิกฝั่งผู้สอน (US-12) ---
+
+export type InstructorRole = 'CO_TEACHER' | 'TA'
+
+export type AddedMember = {
+  memberId: string
+  email: string
+  role: string
+}
+
+/** เพิ่มผู้ร่วมสอนหรือ TA — เฉพาะ OWNER เท่านั้นที่เรียกสำเร็จ
+ *
+ *  ถ้าอีเมลนั้นยังไม่เคย login ระบบสร้างบัญชีสถานะ PENDING ให้
+ *  แล้วจับคู่ให้เองตอนเขา login ครั้งแรก จึงเพิ่มล่วงหน้าได้
+ */
+export function addMember(
+  classroomId: string,
+  input: { email: string; role: InstructorRole },
+): Promise<AddedMember> {
+  return apiFetch<AddedMember>(
+    `/api/classrooms/${encodeURIComponent(classroomId)}/members`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+}
+
+/** ถอดสมาชิกออกจากห้อง — ใช้ memberId ไม่ใช่ userId
+ *
+ *  คนเดียวกันเป็นสมาชิกได้หลายห้อง แต่ละห้องคนละแถว การอ้างด้วย userId
+ *  จึงไม่พอที่จะบอกว่าจะถอดเขาออกจากห้องไหน
+ */
+export function removeMember(classroomId: string, memberId: string): Promise<void> {
+  return apiFetch<void>(
+    `/api/classrooms/${encodeURIComponent(classroomId)}/members/${encodeURIComponent(memberId)}`,
+    { method: 'DELETE' },
   )
 }

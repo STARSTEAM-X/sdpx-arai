@@ -404,3 +404,83 @@ test.describe('หน้าเว็บซ่อนสิ่งที่ role �
     await expect(page.getByTestId('assignment-panel')).toBeVisible()
   })
 })
+
+test.describe('จัดการผู้ร่วมสอนบนหน้าเว็บ', () => {
+  test('เจ้าของห้องเพิ่ม TA แล้วเห็นในรายการทันที', async ({ signedInPage, classroomId }) => {
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    const panel = signedInPage.getByTestId('member-panel')
+    await expect(panel).toBeVisible()
+
+    await signedInPage.getByLabel('อีเมล').fill('ta.ui@kmitl.ac.th')
+    await signedInPage.getByLabel('บทบาท').selectOption('TA')
+    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+
+    await expect(signedInPage.getByTestId('member-notice')).toContainText('ta.ui@kmitl.ac.th')
+    const row = signedInPage.getByTestId('instructor-list').getByRole('listitem').filter({ hasText: 'ta.ui@kmitl.ac.th' })
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('ผู้ช่วยสอน')
+    // ยังไม่เคย login — ต้องบอกให้เห็น ไม่งั้นอาจารย์จะคิดว่าเพิ่มไม่สำเร็จ
+    await expect(row).toContainText('ยังไม่เคยเข้าระบบ')
+  })
+
+  test('ถอดผู้ร่วมสอนออกได้แล้วหายจากรายการ', async ({ signedInPage, classroomId }) => {
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    await signedInPage.getByLabel('อีเมล').fill('co.ui@kmitl.ac.th')
+    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+    const row = signedInPage.getByTestId('instructor-list').getByRole('listitem').filter({ hasText: 'co.ui@kmitl.ac.th' })
+    await expect(row).toBeVisible()
+
+    await row.getByRole('button', { name: 'ถอดออก' }).click()
+
+    await expect(signedInPage.getByTestId('member-notice')).toContainText('ถอด')
+    await expect(row).toHaveCount(0)
+  })
+
+  test('ปุ่มถอดของเจ้าของห้องคนสุดท้ายถูกปิดไว้', async ({ signedInPage, classroomId }) => {
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    const ownerRow = signedInPage
+      .getByTestId('instructor-list')
+      .getByRole('listitem')
+      .filter({ hasText: 'เจ้าของห้อง' })
+
+    // server ตอบ 409 LAST_OWNER อยู่แล้ว — ปิดปุ่มเพื่อไม่ให้กดแล้วเจอ error ที่รู้ล่วงหน้า
+    await expect(ownerRow.getByRole('button', { name: 'ถอดออก' })).toBeDisabled()
+  })
+
+  test('อีเมลที่เป็นสมาชิกอยู่แล้วขึ้นข้อความจาก API ตรง ๆ', async ({
+    signedInPage,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await importRoster(api, instructorToken, classroomId)
+    await signedInPage.goto(`/classrooms/${classroomId}`)
+
+    await signedInPage.getByLabel('อีเมล').fill('somchai@uni.ac.th')
+    await signedInPage.getByLabel('บทบาท').selectOption('TA')
+    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+
+    await expect(signedInPage.getByTestId('member-error')).toContainText('STUDENT')
+  })
+
+  test('CO_TEACHER ไม่เห็นกล่องจัดการสมาชิก', async ({
+    page,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const { token } = await addAndSignIn(api, instructorToken, classroomId, 'co-nopanel@uni.ac.th', 'CO_TEACHER')
+    await page.addInitScript(
+      ([key, t]) => window.localStorage.setItem(key, t),
+      ['paireval.session', token] as const,
+    )
+
+    await page.goto(`/classrooms/${classroomId}`)
+
+    await expect(page.getByTestId('assignment-panel')).toBeVisible()
+    await expect(page.getByTestId('member-panel')).toHaveCount(0)
+  })
+})

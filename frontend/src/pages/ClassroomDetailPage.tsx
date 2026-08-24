@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { AssignmentPanel } from '../components/AssignmentPanel'
+import { MemberPanel } from '../components/MemberPanel'
 import { LogoMark } from '../components/icons'
 import {
   ApiError,
@@ -19,6 +20,8 @@ import { clearToken, isSignedIn } from '../lib/session'
 // TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ ซึ่งดูเหมือนระบบพังมากกว่าดูเหมือนกฎ
 const CAN_MANAGE_ROSTER = ['OWNER', 'CO_TEACHER', 'TA']
 const CAN_MANAGE_ASSIGNMENT = ['OWNER', 'CO_TEACHER']
+const CAN_MANAGE_MEMBERS = ['OWNER']
+const INSTRUCTOR_ROLES = ['OWNER', 'CO_TEACHER', 'TA']
 
 const ROLE_LABEL: Record<RosterEntry['role'], string> = {
   OWNER: 'เจ้าของห้อง',
@@ -109,6 +112,8 @@ export default function ClassroomDetailPage() {
   const students = items.filter((m) => m.role === 'STUDENT')
   const canImport = myRole !== null && CAN_MANAGE_ROSTER.includes(myRole)
   const canManageAssignment = myRole !== null && CAN_MANAGE_ASSIGNMENT.includes(myRole)
+  const canManageMembers = myRole !== null && CAN_MANAGE_MEMBERS.includes(myRole)
+  const instructors = items.filter((m) => INSTRUCTOR_ROLES.includes(m.role))
 
   return (
     <div className="min-h-screen bg-cream">
@@ -243,6 +248,15 @@ export default function ClassroomDetailPage() {
             </p>
           )}
         </section>
+
+        {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
+        {canManageMembers && (
+          <MemberPanel
+            classroomId={classroomId}
+            instructors={instructors}
+            onChanged={refresh}
+          />
+        )}
 
         {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
         {canManageAssignment && <AssignmentPanel classroomId={classroomId} />}
