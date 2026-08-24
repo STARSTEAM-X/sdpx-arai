@@ -1,5 +1,6 @@
 import { expect, test } from '../fixtures'
 import { rosterCsv } from '../seed/test-data'
+import type { Page } from '@playwright/test'
 
 /* Feature test ของ Sprint 2
  *
@@ -13,6 +14,23 @@ import { rosterCsv } from '../seed/test-data'
  */
 
 const DEADLINE = '2027-01-31T16:59:00Z'
+
+/** เลือกกำหนดส่งผ่าน UI จริง เพื่อคุมทั้งปฏิทินไทยและเวลา 24 ชั่วโมง */
+async function chooseDeadline(page: Page) {
+  await page.getByLabel('กำหนดส่ง').click()
+
+  const now = new Date()
+  const bangkok = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
+  const monthDistance = (2027 - bangkok.getFullYear()) * 12 + (0 - bangkok.getMonth())
+  for (let index = 0; index < monthDistance; index += 1) {
+    await page.getByRole('button', { name: 'เดือนถัดไป' }).click()
+  }
+
+  await page.getByRole('button', { name: /^31 มกราคม 2570$/ }).click()
+  await page.getByRole('combobox', { name: 'ชั่วโมง' }).selectOption('23')
+  await page.getByRole('combobox', { name: 'นาที' }).selectOption('55')
+  await page.getByRole('button', { name: 'ยืนยันกำหนดส่ง' }).click()
+}
 
 /** roster 12 คน 3 กลุ่มเท่า ๆ กัน — ขนาดที่ feasibility ผ่านและ P3 เป็นไปได้ */
 const ROSTER_12 = [
@@ -287,7 +305,7 @@ test.describe('US-05 ดูความเป็นไปได้ก่อน�
       await signedInPage.goto(`/classrooms/${classroomId}`)
 
       await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานทดสอบ anonymity')
-      await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+      await chooseDeadline(signedInPage)
       await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
       await expect(signedInPage.getByTestId('assignment-created')).toBeVisible()
 
@@ -515,7 +533,7 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     await expect(panel).toBeVisible()
 
     await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานกลุ่มปลายภาค')
-    await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+    await chooseDeadline(signedInPage)
     await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
 
     await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
@@ -541,7 +559,7 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     await seedRoster(api, instructorToken, classroomId)
     await signedInPage.goto(`/classrooms/${classroomId}`)
 
-    await signedInPage.getByLabel('กำหนดส่ง').fill('2027-01-31T23:59')
+    await chooseDeadline(signedInPage)
     await signedInPage.getByLabel('น้ำหนักเกณฑ์ฝั่งกลุ่ม (%)').fill('90')
     await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
     await expect(signedInPage.getByTestId('assignment-status')).toBeVisible()

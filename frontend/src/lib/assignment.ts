@@ -1,4 +1,5 @@
 import type { CriterionSide } from './api'
+import { classroomLocalToUtc } from './datetime'
 
 /** ค่าที่อาจารย์กรอกในฟอร์มสร้างงานประเมิน — ยังไม่ใช่รูปแบบที่ API รับ
  *
@@ -87,7 +88,7 @@ export function draftBlocker(draft: AssignmentDraft, studentCount: number): stri
  *  input type="datetime-local" ให้เวลาท้องถิ่นที่ไม่มี timezone — ถ้าส่งดิบ ๆ
  *  backend จะตีความเป็น UTC แล้ว deadline จะเพี้ยนไปตามเขตเวลาของเครื่องผู้ใช้
  */
-export function toCreateInput(draft: AssignmentDraft, classroomId: string) {
+export function toCreateInput(draft: AssignmentDraft, classroomId: string, timezone?: string) {
   const individual = individualEnabled(draft)
 
   return {
@@ -95,7 +96,9 @@ export function toCreateInput(draft: AssignmentDraft, classroomId: string) {
     name: draft.name.trim(),
     groupMaxScore: 15,
     individualMaxScore: draft.individualMaxScore,
-    groupDeadlineUtc: new Date(draft.deadline).toISOString(),
+    groupDeadlineUtc: timezone
+      ? classroomLocalToUtc(draft.deadline, timezone)
+      : new Date(draft.deadline).toISOString(),
     targetCoverage: draft.targetCoverage,
     criteria: [
       { side: 'GROUP' as CriterionSide, name: 'คุณภาพงาน', weightPct: draft.groupWeight },

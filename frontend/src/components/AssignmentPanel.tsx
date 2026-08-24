@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { DeadlinePicker } from './DeadlinePicker'
 import { Banner, CTRL, Card, CardHead, Pill, Spinner, btn } from './Ui'
 import { IconAlert, IconCheckCircle, IconClipboardCheck } from './icons'
 import {
@@ -100,11 +101,13 @@ export function AssignmentPanel({
   draft,
   onDraftChange,
   studentCount,
+  timezone,
 }: {
   classroomId: string
   draft: AssignmentDraft
   onDraftChange: (next: AssignmentDraft) => void
   studentCount: number
+  timezone: string
 }) {
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [feasibility, setFeasibility] = useState<Feasibility[] | null>(null)
@@ -139,7 +142,11 @@ export function AssignmentPanel({
 
     setFeasibility(null)
     setPublished(null)
-    void run('create', () => createAssignment(toCreateInput(draft, classroomId)), setAssignment)
+    void run(
+      'create',
+      () => createAssignment(toCreateInput(draft, classroomId, timezone)),
+      setAssignment,
+    )
   }
 
   return (
@@ -177,15 +184,14 @@ export function AssignmentPanel({
                 <Field
                   id="assignment-deadline"
                   label="กำหนดส่ง"
-                  help="เวลาตามเขตเวลาเครื่องคุณ ระบบแปลงเป็น UTC ให้เองก่อนบันทึก"
+                  help="เลือกด้วยปี พ.ศ. และเวลาแบบ 24 ชั่วโมง ระบบบันทึกตามเขตเวลาของห้องเรียน"
                 >
-                  <input
+                  <DeadlinePicker
                     id="assignment-deadline"
-                    type="datetime-local"
                     value={draft.deadline}
-                    aria-describedby="assignment-deadline-help"
-                    onChange={(e) => set('deadline', e.target.value)}
-                    className={CTRL}
+                    timezone={timezone}
+                    describedBy="assignment-deadline-help"
+                    onChange={(value) => set('deadline', value)}
                   />
                 </Field>
               </div>

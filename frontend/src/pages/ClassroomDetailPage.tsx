@@ -25,6 +25,7 @@ import {
   type RosterEntry,
   getMe,
   getRoster,
+  listClassrooms,
   removeMember,
 } from '../lib/api'
 import { DEFAULT_DRAFT, type AssignmentDraft } from '../lib/assignment'
@@ -144,6 +145,7 @@ export default function ClassroomDetailPage() {
   const [items, setItems] = useState<RosterEntry[]>([])
   const [myRole, setMyRole] = useState<ClassroomRole | null>(null)
   const [classroomName, setClassroomName] = useState('ห้องเรียนนี้')
+  const [classroomTimezone, setClassroomTimezone] = useState('Asia/Bangkok')
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState<AssignmentDraft>(DEFAULT_DRAFT)
@@ -161,7 +163,7 @@ export default function ClassroomDetailPage() {
     }
     try {
       // สมาชิกทุก role มี VIEW_ROSTER ฝั่ง server; สิทธิ์ STUDENT เป็นแบบอ่านอย่างเดียว
-      const profile = await getMe()
+      const [profile, classrooms] = await Promise.all([getMe(), listClassrooms()])
       const membership = profile.classrooms.find((c) => c.classroomId === classroomId)
       if (!membership || !isClassroomRole(membership.role)) {
         setError('ไม่พบห้องเรียน หรือคุณไม่มีสิทธิ์เข้าถึงห้องเรียนนี้')
@@ -172,6 +174,9 @@ export default function ClassroomDetailPage() {
 
       setMyRole(membership.role)
       setClassroomName(membership.classroomName)
+      setClassroomTimezone(
+        classrooms.items.find((classroom) => classroom.id === classroomId)?.timezone ?? 'Asia/Bangkok',
+      )
       const roster = await getRoster(classroomId)
       setItems(roster.items)
       setError(null)
@@ -455,6 +460,7 @@ export default function ClassroomDetailPage() {
                     draft={draft}
                     onDraftChange={setDraft}
                     studentCount={students.length}
+                    timezone={classroomTimezone}
                   />
                 )}
               </section>
