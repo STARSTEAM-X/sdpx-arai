@@ -473,6 +473,35 @@ test.describe('US-06 เผยแพร่งานแล้วระบบจ�
 })
 
 test.describe('เส้นทางที่อาจารย์กดเองบนหน้าเว็บ', () => {
+  test('เมนู section เปลี่ยนสถานะ active ตาม hash ที่เปิดและรายการที่กด', async ({
+    signedInPage,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    await signedInPage.goto(`/classrooms/${classroomId}#members`)
+
+    const nav = signedInPage.getByRole('navigation', { name: 'ส่วนต่าง ๆ ในห้องเรียน' })
+    const overview = nav.getByRole('link', { name: 'ภาพรวม' })
+    const members = nav.getByRole('link', { name: 'สมาชิก' })
+    const assignments = nav.getByRole('link', { name: 'งานประเมิน' })
+    const scores = nav.getByRole('link', { name: 'คะแนน' })
+
+    await expect(members).toHaveAttribute('aria-current', 'location')
+    await expect(overview).not.toHaveAttribute('aria-current', 'location')
+
+    await assignments.click()
+    await expect(signedInPage).toHaveURL(/#assignments$/)
+    await expect(assignments).toHaveAttribute('aria-current', 'location')
+    await expect(members).not.toHaveAttribute('aria-current', 'location')
+
+    await scores.click()
+    await expect(signedInPage).toHaveURL(/#scores$/)
+    await expect(scores).toHaveAttribute('aria-current', 'location')
+    await expect(assignments).not.toHaveAttribute('aria-current', 'location')
+  })
+
   test('import รายชื่อ → สร้างงาน → ตรวจความเป็นไปได้ → เผยแพร่', async ({
     signedInPage,
     api,

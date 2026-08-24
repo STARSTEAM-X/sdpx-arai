@@ -34,6 +34,7 @@ import { clearToken, isSignedIn } from '../lib/session'
 // หน้าจอที่ซ่อนปุ่มไม่ใช่การกันสิทธิ์ — server กันอยู่แล้ว — แต่ถ้าสองฝั่งไม่ตรงกัน
 // TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ ซึ่งดูเหมือนระบบพังมากกว่าดูเหมือนกฎ
 type ClassroomRole = RosterEntry['role']
+type ClassroomSection = 'overview' | 'members' | 'assignments' | 'scores'
 
 const CAN_MANAGE_ROSTER: ClassroomRole[] = ['OWNER', 'CO_TEACHER', 'TA']
 const CAN_MANAGE_ASSIGNMENT: ClassroomRole[] = ['OWNER', 'CO_TEACHER']
@@ -146,6 +147,12 @@ export default function ClassroomDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState<AssignmentDraft>(DEFAULT_DRAFT)
+  const [activeSection, setActiveSection] = useState<ClassroomSection>(() => {
+    const hash = window.location.hash.slice(1)
+    return ['overview', 'members', 'assignments', 'scores'].includes(hash)
+      ? (hash as ClassroomSection)
+      : 'overview'
+  })
 
   const refresh = useCallback(async () => {
     if (!isSignedIn()) {
@@ -198,6 +205,54 @@ export default function ClassroomDetailPage() {
   const canFinalizeScores = myRole === 'OWNER'
   const isInstructor = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
   const roleCopy = myRole ? ROLE_COPY[myRole] : null
+
+  useEffect(() => {
+    if (!myRole) return
+    const available: ClassroomSection[] = []
+    if (isInstructor) available.push('overview')
+    if (canImport) available.push('members')
+    if (myRole !== 'TA') available.push('assignments')
+    if (canFinalizeScores) available.push('scores')
+    if (available.length === 0) return
+
+    const updateFromHash = () => {
+      const hash = window.location.hash.slice(1) as ClassroomSection
+      if (!available.includes(hash)) return false
+      setActiveSection(hash)
+      return true
+    }
+    const updateFromScroll = () => {
+      const reachedBottom =
+        window.scrollY > 0 &&
+        window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
+      if (reachedBottom) {
+        setActiveSection(available[available.length - 1])
+        return
+      }
+      // 140px เผื่อ AppNav + section nav ที่ sticky อยู่ด้านบน
+      const passed = available.filter((section) => {
+        const element = document.getElementById(section)
+        return element !== null && element.getBoundingClientRect().top <= 140
+      })
+      if (passed.length > 0) setActiveSection(passed[passed.length - 1])
+    }
+
+    if (!available.includes(activeSection)) setActiveSection(available[0])
+    if (!updateFromHash()) updateFromScroll()
+    window.addEventListener('hashchange', updateFromHash)
+    window.addEventListener('scroll', updateFromScroll, { passive: true })
+    return () => {
+      window.removeEventListener('hashchange', updateFromHash)
+      window.removeEventListener('scroll', updateFromScroll)
+    }
+  }, [myRole, isInstructor, canImport, canFinalizeScores])
+
+  const sectionLinkClass = (section: ClassroomSection) =>
+    `min-h-11 shrink-0 border-b-2 px-4 py-3 text-sm transition-colors ${
+      activeSection === section
+        ? 'border-brand-600 font-semibold text-accent-ink'
+        : 'border-transparent text-ink-2 hover:border-edge-strong hover:text-ink'
+    }`
 
   /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
   const stepState = (done: boolean, previousDone: boolean): StepState =>
@@ -275,7 +330,9 @@ export default function ClassroomDetailPage() {
             {isInstructor && (
               <a
                 href="#overview"
-                className="min-h-11 shrink-0 border-b-2 border-brand-600 px-4 py-3 text-sm font-semibold text-accent-ink"
+                aria-current={activeSection === 'overview' ? 'location' : undefined}
+                onClick={() => setActiveSection('overview')}
+                className={sectionLinkClass('overview')}
               >
                 ภาพรวม
               </a>
@@ -283,7 +340,9 @@ export default function ClassroomDetailPage() {
             {canImport && (
               <a
                 href="#members"
-                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+                aria-current={activeSection === 'members' ? 'location' : undefined}
+                onClick={() => setActiveSection('members')}
+                className={sectionLinkClass('members')}
               >
                 สมาชิก
               </a>
@@ -291,7 +350,9 @@ export default function ClassroomDetailPage() {
             {myRole !== 'TA' && (
               <a
                 href="#assignments"
-                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+                aria-current={activeSection === 'assignments' ? 'location' : undefined}
+                onClick={() => setActiveSection('assignments')}
+                className={sectionLinkClass('assignments')}
               >
                 งานประเมิน
               </a>
@@ -299,7 +360,9 @@ export default function ClassroomDetailPage() {
             {canFinalizeScores && (
               <a
                 href="#scores"
-                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+                aria-current={activeSection === 'scores' ? 'location' : undefined}
+                onClick={() => setActiveSection('scores')}
+                className={sectionLinkClass('scores')}
               >
                 คะแนน
               </a>
