@@ -9,13 +9,25 @@ import {
   importRoster,
 } from '../lib/api'
 
-/** ไฟล์ตัวอย่างที่ดาวน์โหลดได้จริง — เขียนเป็น data URL เพราะเนื้อหาแค่ 4 บรรทัด
- *  การเพิ่มไฟล์ static ใน public/ เพื่อ 4 บรรทัดนี้ทำให้ต้องแก้สองที่เวลารูปแบบ CSV เปลี่ยน */
+/** ไฟล์ตัวอย่างที่ดาวน์โหลดได้จริง — เนื้อหาตรงกับ docs/examples/roster-import-example.csv
+ *  เขียนเป็น data URL เพราะเนื้อหาสั้น การเพิ่มไฟล์ static ใน public/ ทำให้ต้องแก้สองที่เวลารูปแบบ CSV เปลี่ยน */
 const SAMPLE_CSV = [
   'email,group_name',
-  'nattapong@kmitl.ac.th,กลุ่ม A',
-  'pimchanok@kmitl.ac.th,กลุ่ม A',
-  'worawit@kmitl.ac.th,กลุ่ม B',
+  'user01@example.com,Group 1',
+  'user02@example.com,Group 1',
+  'user03@example.com,Group 1',
+  'user04@example.com,Group 2',
+  'user05@example.com,Group 2',
+  'user06@example.com,Group 2',
+  'user07@example.com,Group 3',
+  'user08@example.com,Group 3',
+  'user09@example.com,Group 3',
+  'user10@example.com,Group 4',
+  'user11@example.com,Group 4',
+  'user12@example.com,Group 4',
+  'user13@example.com,Group 5',
+  'user14@example.com,Group 5',
+  'user15@example.com,Group 5',
 ].join('\n')
 
 const SAMPLE_HREF = `data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`
