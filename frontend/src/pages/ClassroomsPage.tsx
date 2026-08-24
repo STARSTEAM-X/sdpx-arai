@@ -190,7 +190,7 @@ export default function ClassroomsPage() {
             <div className="p-6 max-sm:p-4">
               <h2 className="font-display text-lg font-semibold">รายการห้องเรียน</h2>
 
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <div className="relative min-w-0 flex-1">
                   <IconSearch className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" />
                   <input
@@ -202,15 +202,20 @@ export default function ClassroomsPage() {
                     className={`${CTRL} pl-10`}
                   />
                 </div>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOrder)}
-                  aria-label="เรียงลำดับ"
-                  className={`${CTRL} w-auto`}
-                >
-                  <option value="recent">อัปเดตล่าสุด</option>
-                  <option value="name">ชื่อ ก-ฮ</option>
-                </select>
+                {/* ห่อด้วย div ที่กำหนดความกว้างแทนการต่อ "w-auto" ท้าย CTRL
+                    เพราะ CTRL มี w-full ฝังอยู่แล้ว — ลำดับ class ของ Tailwind ตัดสินกันที่
+                    stylesheet ไม่ใช่ตัวที่เขียนทีหลัง จึง "w-auto" แพ้ไม่แน่นอน (ดู btn() ใน Ui.tsx) */}
+                <div className="shrink-0 sm:w-48">
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as SortOrder)}
+                    aria-label="เรียงลำดับ"
+                    className={CTRL}
+                  >
+                    <option value="recent">อัปเดตล่าสุด</option>
+                    <option value="name">ชื่อ ก-ฮ</option>
+                  </select>
+                </div>
               </div>
 
               <div className="mt-5">
