@@ -11,18 +11,51 @@
   --color-brand-600: #ec5b28;
   --color-brand-700: #cf4718;
 
+  /* ส้มสองตัวนี้แยกจาก brand-600 เพราะ contrast ไม่พอ ไม่ใช่เพราะอยากได้เฉดใหม่
+     ตัวอักษรขาวบน brand-600 ได้ 3.5:1 · WCAG AA ขอ 4.5:1 สำหรับตัวอักษรปกติ
+     cta = พื้นทึบที่มีตัวอักษรขาว (4.8:1) · accent-ink = ตัวอักษรสีส้มบนพื้นอ่อน (5.5:1)
+     ส่วน brand-600 ยังใช้ได้ตามเดิมกับสิ่งที่ไม่ใช่ตัวอักษร เช่น เส้น focus จุด และแถบ */
+  --color-cta: #ce4014;
+  --color-cta-hover: #ad3a19;
+  --color-accent-ink: #b8401f;
+  --color-accent-soft: #fdeee8;
+  --color-accent-line: #f3bca6;
+
   /* สีเขียว = สถานะสำเร็จ / ตัวเลขคุณภาพ */
   --color-ok-50: #eaf7f0;
   --color-ok-500: #2e9e6b;
   --color-ok-600: #238156;
+  --color-ok-700: #1f7a54;
+  --color-ok-line: #bee2d0;
+
+  /* แดงหม่น ไม่ใช่แดงเตือนภัย — หน้าจัดการรายชื่อขึ้น error บ่อยจนแดงจัดกลายเป็นเสียงรบกวน */
+  --color-err: #b23a2c;
+  --color-err-soft: #fcefec;
+  --color-err-line: #efc8c0;
+
+  /* เหลืองอำพัน = "สำเร็จแต่มีข้อสังเกต" เช่นกลุ่มที่มีสมาชิกคนเดียว */
+  --color-warn: #8a6011;
+  --color-warn-soft: #fbf3e3;
+  --color-warn-line: #e9d6af;
 
   /* กลาง ๆ อุ่นกว่า gray มาตรฐานเล็กน้อย ให้เข้ากับส้ม */
   --color-ink: #1d2430;
+  --color-ink-2: #3d4759;
   --color-muted: #6d7280;
   --color-cream: #fffaf6;
   --color-line: #f1e6dc;
+  /* พื้นหลังหน้า dashboard และพื้นรองในการ์ด — เข้มกว่า cream พอให้การ์ดขาวลอยขึ้นมา */
+  --color-ground: #faf8f5;
+  --color-sand: #f3efe9;
+  --color-edge: #e8e2dc;
+  --color-edge-strong: #d6ccc2;
 
   --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  /* คู่ฟอนต์: Plex ทรงเหลี่ยมใช้กับหัวข้อและป้าย · Noto อ่านง่ายกว่าใช้กับเนื้อความยาว
+     Mono ใช้เฉพาะตัวเลขที่ต้องอ่านเทียบกันเป็นคอลัมน์ เช่น % เลขแถว CSV และขนาดไฟล์ */
+  --font-display: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Noto Sans Thai", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
 }
 
 html {
@@ -34,4 +67,10 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* ตัวเลขในตารางและช่อง % ต้องกว้างเท่ากันทุกหลัก ไม่งั้นค่าที่เปลี่ยนแบบ real-time
+   จะขยับซ้ายขวาจนอ่านไม่ทัน */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }

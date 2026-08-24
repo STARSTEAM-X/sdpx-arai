@@ -224,6 +224,154 @@ export function IconImagePlaceholder({ className }: IconProps) {
   )
 }
 
+export function IconUploadCloud({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M12 13v8" />
+      <path d="m8 17 4-4 4 4" />
+      <path d="M20.9 18.4A5 5 0 0 0 18 9.5h-1.3A8 8 0 1 0 4 16.7" />
+    </svg>
+  )
+}
+
+export function IconDownload({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M12 15V3" />
+    </svg>
+  )
+}
+
+export function IconFile({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+    </svg>
+  )
+}
+
+export function IconSearch({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+export function IconClose({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+export function IconChevronLeft({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+/** เมนูสามจุดแนวตั้ง — ตัวเดียวในชุดที่เป็น fill เพราะจุดทึบอ่านง่ายกว่าวงกลมเส้น */
+export function IconDots({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="12" cy="19" r="1.7" />
+    </svg>
+  )
+}
+
+export function IconClock({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+export function IconAlert({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0" />
+      <path d="M12 9v4M12 17v.01" />
+    </svg>
+  )
+}
+
+export function IconInfo({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-5M12 8v.01" />
+    </svg>
+  )
+}
+
+export function IconCheck({ className }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeWidth={2.4}>
+      <path d="m5 13 4 4L19 7" />
+    </svg>
+  )
+}
+
+export function IconCircleDashed({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeDasharray="3 3">
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  )
+}
+
+export function IconUserMinus({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 11h-6" />
+    </svg>
+  )
+}
+
+export function IconUserPlus({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </svg>
+  )
+}
+
+export function IconTeach({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M20 7h-9M14 17H5" />
+      <circle cx="17" cy="17" r="3" />
+      <circle cx="7" cy="7" r="3" />
+    </svg>
+  )
+}
+
+export function IconClipboardCheck({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+      <rect x="9" y="2" width="6" height="4" rx="1" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  )
+}
+
 /** โลโก้ Google หลายสีสำหรับปุ่ม login — ตัวเดียวในชุดที่ไม่ใช้ currentColor */
 export function IconGoogle({ className }: IconProps) {
   return (

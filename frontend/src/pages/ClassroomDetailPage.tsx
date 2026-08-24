@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { MemberPanel } from '../components/MemberPanel'
-import { LogoMark } from '../components/icons'
+import { RosterImportCard } from '../components/RosterImportCard'
+import { RosterTable } from '../components/RosterTable'
+import { SetupStepper, type StepState } from '../components/SetupStepper'
+import { SetupSummary } from '../components/SetupSummary'
+import { Banner, Pill } from '../components/Ui'
+import { IconChevronLeft, LogoMark } from '../components/icons'
 import {
   ApiError,
-  type ApiRowError,
   type RosterEntry,
-  type RosterImportResult,
   getMe,
   getRoster,
-  importRoster,
+  removeMember,
 } from '../lib/api'
+import { DEFAULT_DRAFT, type AssignmentDraft } from '../lib/assignment'
 import { clearToken, isSignedIn } from '../lib/session'
 
 // ต้องตรงกับ role matrix ฝั่ง server ใน backend/app/domain/access.py
@@ -23,31 +27,14 @@ const CAN_MANAGE_ASSIGNMENT = ['OWNER', 'CO_TEACHER']
 const CAN_MANAGE_MEMBERS = ['OWNER']
 const INSTRUCTOR_ROLES = ['OWNER', 'CO_TEACHER', 'TA']
 
-const ROLE_LABEL: Record<RosterEntry['role'], string> = {
-  OWNER: 'เจ้าของห้อง',
-  CO_TEACHER: 'ผู้สอนร่วม',
-  TA: 'ผู้ช่วยสอน',
-  STUDENT: 'นักศึกษา',
-}
-
-const STATUS_LABEL: Record<RosterEntry['status'], string> = {
-  PENDING: 'ยังไม่เคยเข้าระบบ',
-  ACTIVE: 'ใช้งานอยู่',
-  DISABLED: 'ถูกระงับ',
-}
-
 export default function ClassroomDetailPage() {
   const { classroomId = '' } = useParams()
 
   const [items, setItems] = useState<RosterEntry[]>([])
   const [myRole, setMyRole] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [rowErrors, setRowErrors] = useState<ApiRowError[]>([])
-  const [result, setResult] = useState<RosterImportResult | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [loaded, setLoaded] = useState(false)
-
-  const fileInput = useRef<HTMLInputElement>(null)
+  const [draft, setDraft] = useState<AssignmentDraft>(DEFAULT_DRAFT)
 
   const refresh = useCallback(async () => {
     if (!isSignedIn()) {
@@ -79,187 +66,152 @@ export default function ClassroomDetailPage() {
     void refresh()
   }, [refresh])
 
-  async function handleUpload(event: React.FormEvent) {
-    event.preventDefault()
-    const file = fileInput.current?.files?.[0]
-    if (!file) {
-      setError('เลือกไฟล์ CSV ก่อน')
-      return
-    }
-
-    setUploading(true)
-    setError(null)
-    setRowErrors([])
-    setResult(null)
-
-    try {
-      setResult(await importRoster(classroomId, file))
-      await refresh()
-      if (fileInput.current) fileInput.current.value = ''
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-        // แสดงทุกแถวที่ผิด ไม่ใช่แค่แถวแรก — คนแก้ไฟล์จะได้แก้ทีเดียวจบ (R2)
-        setRowErrors(err.details)
-      } else {
-        setError('นำเข้ารายชื่อไม่สำเร็จ')
-      }
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const students = items.filter((m) => m.role === 'STUDENT')
+  const instructors = items.filter((m) => INSTRUCTOR_ROLES.includes(m.role))
+  const groupCount = new Set(students.map((s) => s.groupName)).size
+
   const canImport = myRole !== null && CAN_MANAGE_ROSTER.includes(myRole)
   const canManageAssignment = myRole !== null && CAN_MANAGE_ASSIGNMENT.includes(myRole)
   const canManageMembers = myRole !== null && CAN_MANAGE_MEMBERS.includes(myRole)
-  const instructors = items.filter((m) => INSTRUCTOR_ROLES.includes(m.role))
+  const isInstructor = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
+
+  /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
+  const stepState = (done: boolean, previousDone: boolean): StepState =>
+    done ? 'done' : previousDone ? 'current' : 'todo'
+
+  const hasStudents = students.length > 0
+  const hasCoTeacher = instructors.length > 1
+  const steps = [
+    { title: 'เพิ่มสมาชิก', state: stepState(hasStudents, true) },
+    { title: 'กำหนดผู้ร่วมสอน', state: stepState(hasCoTeacher, hasStudents) },
+    { title: 'สร้างงานประเมิน', state: stepState(false, hasStudents) },
+  ]
+
+  /** ถอดสมาชิกออกจากเมนูในตาราง — ถามยืนยันก่อนเพราะย้อนกลับไม่ได้
+   *  และคนที่ถูกถอดจะหลุดจากคู่ประเมินที่จัดไว้แล้วทันที */
+  function handleRemove(entry: RosterEntry) {
+    const label = entry.displayName ? `${entry.displayName} (${entry.email})` : entry.email
+    if (!window.confirm(`นำ ${label} ออกจากห้องเรียนนี้? การถอดออกย้อนกลับไม่ได้`)) return
+
+    void (async () => {
+      try {
+        await removeMember(classroomId, entry.memberId)
+        await refresh()
+        setError(null)
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'ถอดสมาชิกไม่สำเร็จ')
+      }
+    })()
+  }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="border-b border-line bg-white">
+    <div className="min-h-screen bg-ground font-body text-ink">
+      <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
         <nav
           data-testid="main-nav"
           aria-label="เมนูหลัก"
-          className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3.5"
+          className="mx-auto flex h-16 max-w-300 items-center gap-4 px-6 max-sm:px-4"
         >
-          <Link to="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <LogoMark className="size-7" />
+          <Link
+            to="/"
+            className="flex min-h-11 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
+          >
+            <LogoMark className="size-8" />
             PairEval
           </Link>
-          <Link to="/classrooms" className="ml-auto text-sm text-muted hover:text-ink">
-            ← ห้องเรียนทั้งหมด
+
+          <Link
+            to="/classrooms"
+            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-sand hover:text-ink"
+          >
+            <IconChevronLeft className="size-4" />
+            ห้องเรียนทั้งหมด
           </Link>
         </nav>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <h1 className="text-3xl font-bold tracking-tight">รายชื่อในห้องเรียน</h1>
+      <main
+        className={`mx-auto max-w-300 px-6 pt-8 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-16'}`}
+      >
+        <div className="mb-8 flex flex-wrap items-start gap-x-6 gap-y-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
+              จัดการสมาชิกและงานประเมิน
+            </h1>
+            <p className="mt-1.5 max-w-[62ch] text-muted">
+              เพิ่มสมาชิก กำหนดผู้ร่วมสอน และสร้างงานประเมินสำหรับห้องเรียนนี้
+            </p>
+          </div>
+
+          <span className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-edge bg-white px-4 font-display text-sm font-semibold shadow-[0_1px_2px_rgba(23,32,51,0.05)]">
+            <span aria-hidden="true" className="size-2 rounded-full bg-brand-600" />
+            สมาชิก <span className="font-mono tabular">{items.length}</span> คน
+          </span>
+        </div>
 
         {error && (
-          <p
-            data-testid="error-msg"
-            role="alert"
-            className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"
-          >
+          <Banner tone="err" data-testid="error-msg" role="alert" className="mb-6">
             {error}
-          </p>
+          </Banner>
         )}
 
-        {rowErrors.length > 0 && (
-          <div
-            data-testid="row-errors"
-            className="mt-3 rounded-lg border border-red-200 bg-white p-4"
-          >
-            <p className="text-sm font-medium text-red-700">
-              ไม่มีแถวใดถูกบันทึก — แก้ {rowErrors.length} แถวนี้แล้วอัปโหลดใหม่
-            </p>
-            <ul className="mt-2 space-y-1 text-sm text-red-700">
-              {rowErrors.map((e) => (
-                <li key={`${e.row}-${e.reason}`}>
-                  <span className="font-mono">แถว {e.row}</span> — {e.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {isInstructor && <SetupStepper steps={steps} />}
 
-        {result && (
-          <div
-            data-testid="import-result"
-            role="status"
-            className="mt-4 rounded-lg border border-ok-500 bg-ok-50 px-4 py-2.5 text-sm text-ok-600"
-          >
-            นำเข้าสำเร็จ {result.imported} คน · {result.groupsCreated} กลุ่ม
-            {result.warnings.length > 0 && (
-              <ul data-testid="import-warnings" className="mt-2 list-disc pl-5 text-ink">
-                {result.warnings.map((w) => (
-                  <li key={w.message}>{w.message}</li>
-                ))}
-              </ul>
+        <div className="grid items-start gap-6 lg:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-6 lg:col-span-8">
+            {canImport && (
+              <RosterImportCard
+                classroomId={classroomId}
+                onImported={refresh}
+                onError={setError}
+              />
+            )}
+
+            <RosterTable
+              items={items}
+              loaded={loaded}
+              canManageMembers={canManageMembers}
+              onRemove={handleRemove}
+            />
+
+            {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
+            {canManageMembers && (
+              <MemberPanel
+                classroomId={classroomId}
+                instructors={instructors}
+                onChanged={refresh}
+              />
+            )}
+
+            {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
+            {canManageAssignment && (
+              <AssignmentPanel
+                classroomId={classroomId}
+                draft={draft}
+                onDraftChange={setDraft}
+                studentCount={students.length}
+              />
             )}
           </div>
-        )}
 
-        {canImport && (
-          <form
-            onSubmit={handleUpload}
-            data-testid="roster-import"
-            className="mt-6 rounded-xl border border-line bg-white p-6"
-          >
-            <h2 className="text-lg font-semibold">นำเข้ารายชื่อจาก CSV</h2>
-            <p className="mt-1 text-sm text-muted">
-              ต้องมี column <code>email</code> และ <code>group_name</code> (ไม่สนตัวพิมพ์เล็กใหญ่)
-              · ไฟล์ใหม่จะแทนที่รายชื่อนักศึกษาทั้งชุด
-            </p>
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <label htmlFor="roster-file" className="sr-only">
-                ไฟล์รายชื่อ CSV
-              </label>
-              <input
-                id="roster-file"
-                ref={fileInput}
-                type="file"
-                accept=".csv,text/csv"
-                className="text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-cream file:px-3 file:py-1.5 file:text-sm"
+          {canManageAssignment && (
+            <aside aria-label="สรุปการตั้งค่า" className="lg:sticky lg:top-22 lg:col-span-4">
+              <SetupSummary
+                draft={draft}
+                memberCount={items.length}
+                studentCount={students.length}
+                groupCount={groupCount}
               />
-              <button
-                type="submit"
-                disabled={uploading}
-                className="rounded-lg bg-brand-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {uploading ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold">สมาชิก {items.length} คน</h2>
-
-          {loaded && items.length === 0 ? (
-            <p data-testid="roster-empty" className="mt-3 text-sm text-muted">
-              ยังไม่มีรายชื่อในห้องเรียนนี้
-            </p>
-          ) : (
-            <ul data-testid="roster-list" className="mt-3 space-y-2">
-              {items.map((m) => (
-                <li
-                  key={m.userId}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-white px-4 py-3"
-                >
-                  <span className="font-medium">{m.displayName ?? m.email}</span>
-                  {m.displayName && <span className="text-xs text-muted">{m.email}</span>}
-                  {m.groupName && (
-                    <span className="rounded bg-cream px-2 py-0.5 text-xs">{m.groupName}</span>
-                  )}
-                  <span className="ml-auto text-xs text-muted">{ROLE_LABEL[m.role]}</span>
-                  <span className="text-xs text-muted">· {STATUS_LABEL[m.status]}</span>
-                </li>
-              ))}
-            </ul>
+            </aside>
           )}
+        </div>
 
-          {students.length > 0 && (
-            <p data-testid="student-count" className="mt-3 text-sm text-muted">
-              นักศึกษา {students.length} คน ใน{' '}
-              {new Set(students.map((s) => s.groupName)).size} กลุ่ม
-            </p>
-          )}
-        </section>
-
-        {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
-        {canManageMembers && (
-          <MemberPanel
-            classroomId={classroomId}
-            instructors={instructors}
-            onChanged={refresh}
-          />
+        {!isInstructor && loaded && items.length > 0 && (
+          <p className="mt-6 flex items-center gap-2 text-sm text-muted">
+            <Pill>นักศึกษา</Pill>
+            คุณดูรายชื่อได้อย่างเดียว การจัดการรายชื่อและงานประเมินเป็นสิทธิ์ของผู้สอน
+          </p>
         )}
-
-        {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
-        {canManageAssignment && <AssignmentPanel classroomId={classroomId} />}
       </main>
     </div>
   )

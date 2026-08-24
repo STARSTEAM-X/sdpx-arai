@@ -20,7 +20,8 @@ export class ClassroomDetailPage {
   readonly studentCount: Locator
 
   constructor(private readonly page: Page) {
-    this.heading = page.getByRole('heading', { level: 1, name: 'รายชื่อในห้องเรียน' })
+    // ชื่อหน้าเปลี่ยนตอน redesign เป็น dashboard — หน้านี้ทำมากกว่าแค่ "แสดงรายชื่อ" แล้ว
+    this.heading = page.getByRole('heading', { level: 1, name: 'จัดการสมาชิกและงานประเมิน' })
     this.errorMessage = page.getByTestId('error-msg')
     this.rowErrors = page.getByTestId('row-errors')
     this.importResult = page.getByTestId('import-result')
@@ -51,8 +52,12 @@ export class ClassroomDetailPage {
     await this.submitButton.click()
   }
 
-  /** แถวของสมาชิกคนหนึ่ง อ้างด้วยอีเมล */
+  /** แถวของสมาชิกคนหนึ่ง อ้างด้วยอีเมล
+   *
+   *  รายชื่อเป็น <table> ไม่ใช่ <ul> แล้ว เพราะแต่ละแถวมี 4 คอลัมน์ที่ต้องอ่านเทียบกัน
+   *  (กลุ่ม บทบาท สถานะ) — role ที่ตรงกับ <tr> คือ 'row' ไม่ใช่ 'listitem'
+   */
   memberRow(email: string): Locator {
-    return this.rosterList.getByRole('listitem').filter({ hasText: email })
+    return this.rosterList.getByRole('row').filter({ hasText: email })
   }
 }

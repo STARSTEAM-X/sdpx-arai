@@ -1,6 +1,19 @@
 import { useState } from 'react'
 
 import {
+  Avatar,
+  Banner,
+  CTRL,
+  Card,
+  CardHead,
+  FieldError,
+  RolePill,
+  Spinner,
+  StatusPill,
+  btn,
+} from './Ui'
+import { IconTeach } from './icons'
+import {
   ApiError,
   type InstructorRole,
   type RosterEntry,
@@ -9,9 +22,18 @@ import {
 } from '../lib/api'
 
 const ROLE_OPTIONS: { value: InstructorRole; label: string; hint: string }[] = [
-  { value: 'CO_TEACHER', label: 'ผู้สอนร่วม', hint: 'จัดการรายชื่อและงานประเมินได้ แต่ตัดสินคะแนนสุดท้ายไม่ได้' },
+  {
+    value: 'CO_TEACHER',
+    label: 'ผู้สอนร่วม',
+    hint: 'จัดการรายชื่อและงานประเมินได้ แต่ตัดสินคะแนนสุดท้ายไม่ได้',
+  },
   { value: 'TA', label: 'ผู้ช่วยสอน', hint: 'ดูแลรายชื่อได้อย่างเดียว สร้างงานประเมินไม่ได้' },
 ]
+
+/** ตรวจแค่ว่า "มีชื่อ @ โดเมน.สกุล" — ไม่พยายามทำ RFC 5322 ให้ครบ
+ *  เพราะ regex ที่ครบจริงยาวเป็นบรรทัดและยังตัดสินไม่ได้อยู่ดีว่ากล่องนั้นมีอยู่จริงไหม
+ *  หน้าที่ตรงนี้คือกันพิมพ์ผิดชัด ๆ ส่วนการตัดสินขั้นสุดท้ายเป็นของ server */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 /** เพิ่มและถอดผู้ร่วมสอนกับ TA — US-12
  *
@@ -29,12 +51,15 @@ export function MemberPanel({
   onChanged: () => Promise<void> | void
 }) {
   const [email, setEmail] = useState('')
+  const [touched, setTouched] = useState(false)
   const [role, setRole] = useState<InstructorRole>('CO_TEACHER')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const owners = instructors.filter((m) => m.role === 'OWNER')
+  const emailOk = EMAIL_RE.test(email.trim())
+  const showEmailError = touched && email.trim().length > 0 && !emailOk
 
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true)
@@ -55,126 +80,144 @@ export function MemberPanel({
 
   function handleAdd(event: React.FormEvent) {
     event.preventDefault()
+    setTouched(true)
+    if (!emailOk) return
+
     void run(async () => {
-      await addMember(classroomId, { email, role })
+      await addMember(classroomId, { email: email.trim(), role })
       setEmail('')
-    }, `เพิ่ม ${email} เรียบร้อย`)
+      setTouched(false)
+    }, `เพิ่ม ${email.trim()} เรียบร้อย`)
   }
 
   return (
-    <section
-      data-testid="member-panel"
-      className="mt-8 rounded-xl border border-line bg-white p-6"
-    >
-      <h2 className="text-lg font-semibold">ผู้ร่วมสอนและผู้ช่วยสอน</h2>
-      <p className="mt-1 text-sm text-muted">
-        เพิ่มได้แม้เขายังไม่เคยเข้าระบบ — ระบบจะจับคู่ให้เองตอนเขาเข้าครั้งแรก
-      </p>
+    <Card data-testid="member-panel" aria-labelledby="h-staff">
+      <CardHead
+        id="h-staff"
+        icon={<IconTeach className="size-5" />}
+        title="ผู้ร่วมสอนและผู้ช่วยสอน"
+        hint="เพิ่มได้แม้เขายังไม่เคยเข้าระบบ ระบบจะจับคู่บัญชีให้เองตอนเขาเข้าครั้งแรก"
+      />
 
-      {error && (
-        <p
-          data-testid="member-error"
-          role="alert"
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"
+      <div className="p-6 max-sm:p-4">
+        {error && (
+          <Banner tone="err" data-testid="member-error" role="alert" className="mb-5">
+            {error}
+          </Banner>
+        )}
+
+        {notice && (
+          <Banner tone="ok" data-testid="member-notice" role="status" className="mb-5">
+            {notice}
+          </Banner>
+        )}
+
+        <form
+          onSubmit={handleAdd}
+          noValidate
+          className="grid items-start gap-4 sm:grid-cols-[2fr_1fr_auto]"
         >
-          {error}
-        </p>
-      )}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="member-email" className="font-display text-sm font-semibold">
+              อีเมล
+            </label>
+            <input
+              id="member-email"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={email}
+              aria-invalid={showEmailError}
+              aria-describedby={showEmailError ? 'member-email-error' : undefined}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="somsak@kmitl.ac.th"
+              className={CTRL}
+            />
+            {showEmailError && (
+              <FieldError id="member-email-error">
+                รูปแบบอีเมลไม่ถูกต้อง — ต้องเป็นแบบ ชื่อ@โดเมน เช่น somsak@kmitl.ac.th
+              </FieldError>
+            )}
+          </div>
 
-      {notice && (
-        <p
-          data-testid="member-notice"
-          role="status"
-          className="mt-4 rounded-lg border border-ok-500 bg-ok-50 px-4 py-2.5 text-sm text-ok-600"
-        >
-          {notice}
-        </p>
-      )}
-
-      <form onSubmit={handleAdd} className="mt-4 grid gap-4 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
-        <div>
-          <label htmlFor="member-email" className="block text-sm font-medium">
-            อีเมล
-          </label>
-          <input
-            id="member-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="somsak@kmitl.ac.th"
-            className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-brand-500"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="member-role" className="block text-sm font-medium">
-            บทบาท
-          </label>
-          <select
-            id="member-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as InstructorRole)}
-            className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-brand-500"
-          >
-            {ROLE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="submit"
-          disabled={busy || !email.trim()}
-          className="rounded-lg bg-brand-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busy ? 'กำลังทำงาน…' : 'เพิ่ม'}
-        </button>
-      </form>
-
-      <p className="mt-2 text-xs text-muted">
-        {ROLE_OPTIONS.find((o) => o.value === role)?.hint}
-      </p>
-
-      <ul data-testid="instructor-list" className="mt-5 space-y-2">
-        {instructors.map((m) => {
-          // เจ้าของห้องคนสุดท้ายถอดไม่ได้ — server ตอบ 409 LAST_OWNER อยู่แล้ว
-          // ปิดปุ่มไว้ด้วยเพื่อไม่ให้กดแล้วเจอ error ที่คาดเดาได้ตั้งแต่แรก
-          const isLastOwner = m.role === 'OWNER' && owners.length <= 1
-
-          return (
-            <li
-              key={m.memberId}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-line px-4 py-2.5 text-sm"
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="member-role" className="font-display text-sm font-semibold">
+              บทบาท
+            </label>
+            <select
+              id="member-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as InstructorRole)}
+              className={CTRL}
             >
-              <span className="font-medium">{m.displayName ?? m.email}</span>
-              {m.displayName && <span className="text-xs text-muted">{m.email}</span>}
-              {m.status === 'PENDING' && (
-                <span className="rounded bg-cream px-2 py-0.5 text-xs">ยังไม่เคยเข้าระบบ</span>
-              )}
-              <span className="ml-auto text-xs text-muted">
-                {m.role === 'OWNER' ? 'เจ้าของห้อง' : m.role === 'CO_TEACHER' ? 'ผู้สอนร่วม' : 'ผู้ช่วยสอน'}
-              </span>
+              {ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[12.5px] text-muted">
+              {ROLE_OPTIONS.find((o) => o.value === role)?.hint}
+            </p>
+          </div>
 
-              <button
-                type="button"
-                disabled={busy || isLastOwner}
-                title={isLastOwner ? 'ถอดเจ้าของห้องคนสุดท้ายไม่ได้' : undefined}
-                onClick={() =>
-                  void run(
-                    () => removeMember(classroomId, m.memberId),
-                    `ถอด ${m.email} ออกจากห้องแล้ว`,
-                  )
-                }
-                className="rounded-lg border border-line px-3 py-1 text-xs transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
+          <div className="flex flex-col gap-1.5">
+            <span aria-hidden="true" className="invisible font-display text-sm font-semibold">
+              เพิ่ม
+            </span>
+            <button
+              type="submit"
+              disabled={busy || !emailOk}
+              className={btn('primary', 'md', 'max-sm:w-full')}
+            >
+              {busy && <Spinner />}
+              {busy ? 'กำลังทำงาน…' : 'เพิ่ม'}
+            </button>
+          </div>
+        </form>
+
+        <ul data-testid="instructor-list" className="mt-5 flex list-none flex-col gap-2 p-0">
+          {instructors.map((m) => {
+            // เจ้าของห้องคนสุดท้ายถอดไม่ได้ — server ตอบ 409 LAST_OWNER อยู่แล้ว
+            // ปิดปุ่มไว้ด้วยเพื่อไม่ให้กดแล้วเจอ error ที่คาดเดาได้ตั้งแต่แรก
+            const isLastOwner = m.role === 'OWNER' && owners.length <= 1
+
+            return (
+              <li
+                key={m.memberId}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-edge px-3.5 py-2.5 hover:bg-sand"
               >
-                ถอดออก
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+                <Avatar name={m.displayName ?? m.email} muted={m.role !== 'OWNER'} />
+                <span className="min-w-40 flex-1">
+                  <span className="block truncate font-display text-sm font-semibold">
+                    {m.displayName ?? m.email}
+                  </span>
+                  <span className="block truncate text-[12.5px] text-muted">{m.email}</span>
+                </span>
+
+                <RolePill role={m.role} />
+                <StatusPill status={m.status} />
+
+                <button
+                  type="button"
+                  disabled={busy || isLastOwner}
+                  title={isLastOwner ? 'ถอดเจ้าของห้องคนสุดท้ายไม่ได้' : undefined}
+                  onClick={() =>
+                    void run(
+                      () => removeMember(classroomId, m.memberId),
+                      `ถอด ${m.email} ออกจากห้องแล้ว`,
+                    )
+                  }
+                  className={btn('ghost', 'sm')}
+                >
+                  ถอดออก
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </Card>
   )
 }
