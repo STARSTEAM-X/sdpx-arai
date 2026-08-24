@@ -489,6 +489,16 @@ export function getScores(assignmentId: string): Promise<Scores> {
   return apiFetch<Scores>(`/api/assignments/${encodeURIComponent(assignmentId)}/scores`)
 }
 
+export function createScoreOverride(
+  assignmentId: string,
+  input: { side: 'GROUP' | 'INDIVIDUAL'; itemId: string; overrideValue: string; reason: string },
+): Promise<{ id: string; originalValue: string; overrideValue: string }> {
+  return apiFetch(`/api/assignments/${encodeURIComponent(assignmentId)}/score-overrides`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 // --- export raw comparison (US-15, FR-EXPORT-03/04) ---
 
 /** ดาวน์โหลดไฟล์แล้วสั่งเซฟเลย — เบราว์เซอร์เป็นคนจัดการ ไม่ผ่าน apiFetch เพราะนี่ไม่ใช่ JSON */

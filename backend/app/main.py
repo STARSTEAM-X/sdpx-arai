@@ -1,8 +1,9 @@
 """PairEval API"""
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -23,14 +24,21 @@ from app.api.errors import (
 )
 from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
 from app.db import close_pool, open_pool
+from app.daily_scoring import daily_scoring_loop
 from app.domain.errors import DomainError
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     open_pool()
-    yield
-    close_pool()
+    scoring_task = asyncio.create_task(daily_scoring_loop())
+    try:
+        yield
+    finally:
+        scoring_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scoring_task
+        close_pool()
 
 
 app = FastAPI(

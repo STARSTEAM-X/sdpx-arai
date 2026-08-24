@@ -6,6 +6,7 @@ import {
   ApiError,
   type AssignmentSummary,
   type Scores,
+  createScoreOverride,
   exportComparisons,
   exportComparisonsIdentified,
   finalizeAssignment,
@@ -28,7 +29,13 @@ type Busy = { id: string; kind: 'recompute' | 'finalize' | 'reopen' } | null
 
 /** ตารางคะแนนที่คำนวณล่าสุดของ item หนึ่งงาน — ติด label "ชั่วคราว" ตาม isFinal ที่ backend ตอบมา
  *  ตาม AC ของ US-13 ("คะแนนที่ยังไม่ finalize ต้องมี label กำกับเสมอไม่ว่าจะแสดงที่ไหน") */
-function ScoresPanel({ scores }: { scores: Scores }) {
+function ScoresPanel({
+  scores,
+  onOverride,
+}: {
+  scores: Scores
+  onOverride: (item: Scores['items'][number]) => void
+}) {
   return (
     <div className="mt-3 w-full rounded-xl border border-edge bg-sand p-4">
       <div className="mb-3 flex items-center gap-2">
@@ -53,6 +60,14 @@ function ScoresPanel({ scores }: { scores: Scores }) {
                 </Pill>
               )}
               <span className="ml-auto font-mono tabular">{s.component}</span>
+              <button
+                type="button"
+                className={btn('ghost', 'sm')}
+                onClick={() => onOverride(s)}
+                aria-label={`ปรับคะแนน ${s.itemLabel}`}
+              >
+                ปรับคะแนน
+              </button>
             </li>
           ))}
         </ul>
@@ -142,6 +157,36 @@ function AssignmentRow({
       setExportError(err instanceof ApiError ? err.message : 'ส่งออกไม่สำเร็จ')
     } finally {
       setExporting(null)
+    }
+  }
+
+  async function handleOverride(scoreItem: Scores['items'][number]) {
+    const value = window.prompt(`คะแนนใหม่ของ ${scoreItem.itemLabel}:`, scoreItem.component)
+    if (value === null) return
+    if (!value.trim() || !Number.isFinite(Number(value))) {
+      setScoresError('กรุณาระบุคะแนนเป็นตัวเลข')
+      return
+    }
+    const reason = window.prompt('ระบุเหตุผลในการปรับคะแนน (บันทึกใน audit log):')
+    if (reason === null) return
+    if (!reason.trim()) {
+      setScoresError('ต้องระบุเหตุผลในการปรับคะแนน')
+      return
+    }
+    setLoadingScores(true)
+    setScoresError(null)
+    try {
+      await createScoreOverride(item.id, {
+        side: scoreItem.side,
+        itemId: scoreItem.itemId,
+        overrideValue: value.trim(),
+        reason: reason.trim(),
+      })
+      setScores(await getScores(item.id))
+    } catch (err) {
+      setScoresError(err instanceof ApiError ? err.message : 'ปรับคะแนนไม่สำเร็จ')
+    } finally {
+      setLoadingScores(false)
     }
   }
 
@@ -265,7 +310,7 @@ function AssignmentRow({
           {exportError}
         </Banner>
       )}
-      {scores && <ScoresPanel scores={scores} />}
+      {scores && <ScoresPanel scores={scores} onOverride={(score) => void handleOverride(score)} />}
     </li>
   )
 }

@@ -137,6 +137,35 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
     expect(typeof body.hasLowConfidenceItems).toBe('boolean')
   })
 
+  test('FR-SCORE-08: OWNER override คะแนนได้พร้อมเหตุผลและค่าที่แสดงเปลี่ยนจริง', async ({
+    api, instructorToken, classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    await answerAndSubmitAll(api, assignmentId)
+    await api.post(`/api/assignments/${assignmentId}:recompute`, auth(instructorToken))
+    const before = await (await api.get(
+      `/api/assignments/${assignmentId}/scores`, auth(instructorToken),
+    )).json()
+    const target = before.items[0]
+
+    const overridden = await api.post(`/api/assignments/${assignmentId}/score-overrides`, {
+      ...auth(instructorToken),
+      data: {
+        side: target.side,
+        itemId: target.itemId,
+        overrideValue: '7.25',
+        reason: 'ตรวจหลักฐานเพิ่มเติมแล้ว',
+      },
+    })
+    expect(overridden.status()).toBe(201)
+
+    const after = await (await api.get(
+      `/api/assignments/${assignmentId}/scores`, auth(instructorToken),
+    )).json()
+    expect(after.items.find((item: { itemId: string }) => item.itemId === target.itemId).component).toBe('7.2500')
+  })
+
   // AC (US-13): "คะแนนที่ยังไม่ finalize ต้องมี label ชั่วคราวกำกับเสมอไม่ว่าจะแสดงที่ไหน" —
   // /scores คือจุดเดียวที่อาจารย์เห็นตัวเลขก่อน finalize ตรวจว่า isFinal บอกสถานะถูกต้องจริง
   test('AC: /scores บอก isFinal:false ก่อน finalize และ isFinal:true หลัง finalize', async ({
@@ -360,6 +389,7 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
       await expect(page.getByRole('heading', { level: 1, name: 'คะแนนของฉัน' })).toBeVisible()
       await expect(page.getByTestId('group-component')).toBeVisible()
       await expect(page.getByTestId('final-score')).toBeVisible()
+      await expect(page.getByTestId('participation-multiplier')).toBeVisible()
     })
 
     test('AC: อาจารย์เห็นปุ่มควบคุมคะแนน และหลังประกาศผลเห็นปุ่มเปิดกลับมาแก้', async ({

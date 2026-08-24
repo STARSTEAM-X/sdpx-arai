@@ -489,17 +489,21 @@ def submit_evaluations(
     ไม่ใช่ 422) หน้าจอเป็นคนแสดง "ยังเหลือ N คู่ ยืนยันจะส่งไหม" ก่อนเรียก endpoint นี้เอง
     เพราะ client มีตัวเลข completed/total จาก my-evaluations อยู่แล้ว
 
-    ตรวจ idempotency-key **ก่อน** ตรวจ deadline โดยตั้งใจ — คำขอที่เคยสำเร็จไปแล้วต้องได้
-    ผลลัพธ์เดิมเสมอ แม้จะเรียกซ้ำหลัง deadline ผ่านไปแล้วก็ตาม (FR-API-02)
+    ตรวจสมาชิกก่อนเสมอ แล้ว serialize/check key ภายใน scope ของ assignment+side+ผู้ใช้
+    ก่อนตรวจ deadline — คำขอที่เคยสำเร็จยังได้ผลเดิมหลัง deadline (FR-API-02)
     """
     with transaction() as conn:
         comparison_repo = PgComparisonRepository(conn)
+        assignment = _load_for_member(conn, assignment_id, user_email)
+        comparison_repo.lock_idempotency_scope(
+            assignment_id, body.side, user_email, idempotency_key
+        )
 
-        cached = comparison_repo.get_idempotent_response(idempotency_key)
+        cached = comparison_repo.get_idempotent_response(
+            assignment_id, body.side, user_email, idempotency_key
+        )
         if cached is not None:
             return SubmissionResultOut(**cached)
-
-        assignment = _load_for_member(conn, assignment_id, user_email)
 
         deadline = (
             assignment.group_deadline_utc
@@ -516,7 +520,8 @@ def submit_evaluations(
 
         result = SubmissionResultOut(side=str(body.side), submittedCount=count, submittedAt=now)
         comparison_repo.store_idempotent_response(
-            idempotency_key, {"side": result.side, "submittedCount": result.submittedCount, "submittedAt": now.isoformat()}
+            assignment_id, body.side, user_email, idempotency_key,
+            {"side": result.side, "submittedCount": result.submittedCount, "submittedAt": now.isoformat()}
         )
 
     return result

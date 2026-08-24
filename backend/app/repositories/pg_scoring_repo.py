@@ -66,7 +66,7 @@ class PgScoringRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT p.item_a_id, p.item_b_id, p.display_left_item_id, c.choice,
+                SELECT p.criterion_id, p.item_a_id, p.item_b_id, p.display_left_item_id, c.choice,
                        (m.role IN ('OWNER', 'CO_TEACHER')) AS is_instructor
                 FROM comparison c
                 JOIN pair_assignment p ON p.id = c.pair_assignment_id
@@ -81,6 +81,7 @@ class PgScoringRepository:
 
         return [
             SubmittedComparison(
+                criterion_id=str(r["criterion_id"]),
                 item_a_id=str(r["item_a_id"]),
                 item_b_id=str(r["item_b_id"]),
                 display_left_item_id=str(r["display_left_item_id"]),
@@ -104,26 +105,30 @@ class PgScoringRepository:
         """เขียนทับ interim (`is_final=false`) เสมอ — ส่วน `is_final=true` เขียนได้แค่ตอน
         finalize เท่านั้น (repo ไม่เช็คว่าใครเรียก แต่ endpoint ชั้นบนเป็นคนคุมผ่าน finalize_service)
 
-        `ON CONFLICT` ใช้ UNIQUE (assignment_id, criterion_id, item_id, is_final) — recompute
-        ซ้ำกี่ครั้งก่อน finalize ก็ยังเป็นแถวเดียว ไม่สะสมประวัติมั่ว ๆ (ประวัติจริงคือ audit log)
+        interim ใช้ partial UNIQUE จึงเขียนทับชุดล่าสุดได้ ส่วน final เป็น append-only batch
+        (ทุกแถวใน batch ใช้ `computed_at` เดียวกัน) ตาม DR-03
         """
         with self._conn.cursor() as cur:
             for item in items:
                 for c in item.criteria:
-                    cur.execute(
-                        """
-                        INSERT INTO computed_score
-                            (id, assignment_id, criterion_id, side, item_id, comparison_count,
-                             quality_index, score_ratio, weighted_score, flags, is_final,
-                             computed_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (assignment_id, criterion_id, item_id, is_final) DO UPDATE SET
+                    conflict_clause = "" if is_final else """
+                        ON CONFLICT (assignment_id, criterion_id, item_id)
+                        WHERE is_final = false DO UPDATE SET
                             comparison_count = EXCLUDED.comparison_count,
                             quality_index    = EXCLUDED.quality_index,
                             score_ratio      = EXCLUDED.score_ratio,
                             weighted_score   = EXCLUDED.weighted_score,
                             flags            = EXCLUDED.flags,
                             computed_at      = EXCLUDED.computed_at
+                    """
+                    cur.execute(
+                        f"""
+                        INSERT INTO computed_score
+                            (id, assignment_id, criterion_id, side, item_id, comparison_count,
+                             quality_index, score_ratio, weighted_score, flags, is_final,
+                             computed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        {conflict_clause}
                         """,
                         (
                             str(uuid.uuid4()),
@@ -148,8 +153,12 @@ class PgScoringRepository:
                 SELECT COALESCE(SUM(weighted_score), 0) AS total
                 FROM computed_score
                 WHERE assignment_id = %s AND side = %s AND item_id = %s AND is_final = %s
+                  AND (NOT %s OR computed_at = (
+                      SELECT MAX(computed_at) FROM computed_score
+                      WHERE assignment_id = %s AND is_final = true
+                  ))
                 """,
-                (assignment_id, str(side), item_id, is_final),
+                (assignment_id, str(side), item_id, is_final, is_final, assignment_id),
             )
             return Decimal(cur.fetchone()["total"])
 
@@ -159,10 +168,77 @@ class PgScoringRepository:
                 """
                 SELECT count(*) AS n FROM computed_score
                 WHERE assignment_id = %s AND is_final = %s AND 'LOW_CONFIDENCE' = ANY(flags)
+                  AND (NOT %s OR computed_at = (
+                      SELECT MAX(computed_at) FROM computed_score
+                      WHERE assignment_id = %s AND is_final = true
+                  ))
                 """,
-                (assignment_id, is_final),
+                (assignment_id, is_final, is_final, assignment_id),
             )
             return cur.fetchone()["n"] > 0
+
+    def create_final_snapshot(self, assignment_id: str, *, computed_at: datetime) -> str:
+        """เก็บ input และ output ของ finalization ครั้งนี้แบบ append-only (FR-SCORE-09)."""
+        snapshot_id = str(uuid.uuid4())
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO score_snapshot
+                    (id, assignment_id, formula_version, input_json, output_json, created_at)
+                SELECT %s, a.id, 'v2.0',
+                       jsonb_build_object(
+                           'assignment', jsonb_build_object(
+                               'instructorWeight', a.instructor_weight,
+                               'minComparisons', a.min_comparisons,
+                               'scoreFloor', a.score_floor,
+                               'scoreCeiling', a.score_ceiling,
+                               'completionThreshold', a.completion_threshold,
+                               'groupMaxScore', a.group_max_score,
+                               'individualMaxScore', a.individual_max_score
+                           ),
+                           'criteria', COALESCE((
+                               SELECT jsonb_agg(to_jsonb(x) ORDER BY x.side, x.display_order)
+                               FROM (SELECT id, side, name, weight_pct, display_order
+                                     FROM criterion WHERE assignment_id = a.id) x
+                           ), '[]'::jsonb),
+                           'comparisons', COALESCE((
+                               SELECT jsonb_agg(to_jsonb(x) ORDER BY x.pair_assignment_id)
+                               FROM (SELECT p.id AS pair_assignment_id, p.side, p.criterion_id,
+                                            p.item_a_id, p.item_b_id, p.display_left_item_id,
+                                            c.choice, c.evaluator_user_id, c.submitted_at
+                                     FROM comparison c
+                                     JOIN pair_assignment p ON p.id = c.pair_assignment_id
+                                     WHERE p.assignment_id = a.id AND c.status = 'SUBMITTED') x
+                           ), '[]'::jsonb),
+                           'scoreOverrides', COALESCE((
+                               SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at)
+                               FROM (SELECT side, item_id, criterion_id, original_value,
+                                            override_value, reason, created_by, created_at
+                                     FROM score_override WHERE assignment_id = a.id) x
+                           ), '[]'::jsonb)
+                       ),
+                       jsonb_build_object(
+                           'computedScores', COALESCE((
+                               SELECT jsonb_agg(to_jsonb(x) ORDER BY x.side, x.item_id, x.criterion_id)
+                               FROM (SELECT criterion_id, side, item_id, comparison_count,
+                                            quality_index, score_ratio, weighted_score, flags
+                                     FROM computed_score
+                                     WHERE assignment_id = a.id AND is_final = true
+                                       AND computed_at = %s) x
+                           ), '[]'::jsonb),
+                           'scoreOverrides', COALESCE((
+                               SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at)
+                               FROM (SELECT side, item_id, criterion_id, original_value,
+                                            override_value, reason, created_by, created_at
+                                     FROM score_override WHERE assignment_id = a.id) x
+                           ), '[]'::jsonb)
+                       ),
+                       %s
+                FROM assignment a WHERE a.id = %s
+                """,
+                (snapshot_id, computed_at, computed_at, assignment_id),
+            )
+        return snapshot_id
 
     def participation(self, assignment_id: str, side: Side, evaluator_email: str) -> ParticipationCount:
         with self._conn.cursor() as cur:
@@ -257,6 +333,55 @@ class PgScoringRepository:
             row = cur.fetchone()
             return Decimal(row["override_value"]) if row else None
 
+    def effective_component_for_item(
+        self, assignment_id: str, side: Side, item_id: str, *, is_final: bool
+    ) -> Decimal:
+        """คะแนนที่มีผลจริง: override ทั้ง item ชนะ override รายเกณฑ์ และค่าคำนวณตามลำดับ."""
+        item_override = self.latest_override_value(assignment_id, side, item_id, None)
+        if item_override is not None:
+            return item_override
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE((
+                    SELECT so.override_value FROM score_override so
+                    WHERE so.assignment_id = cs.assignment_id AND so.side = cs.side
+                      AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
+                    ORDER BY so.created_at DESC LIMIT 1
+                ), cs.weighted_score)), 0) AS total
+                FROM computed_score cs
+                WHERE cs.assignment_id = %s AND cs.side = %s AND cs.item_id = %s
+                  AND cs.is_final = %s
+                  AND (NOT %s OR cs.computed_at = (
+                      SELECT MAX(computed_at) FROM computed_score
+                      WHERE assignment_id = %s AND is_final = true
+                  ))
+                """,
+                (assignment_id, str(side), item_id, is_final, is_final, assignment_id),
+            )
+            return Decimal(cur.fetchone()["total"])
+
+    def computed_value_for_target(
+        self, assignment_id: str, side: Side, item_id: str, criterion_id: str | None,
+        *, is_final: bool,
+    ) -> Decimal | None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT SUM(weighted_score) AS value FROM computed_score
+                WHERE assignment_id = %s AND side = %s AND item_id = %s AND is_final = %s
+                  AND (%s::uuid IS NULL OR criterion_id = %s::uuid)
+                  AND (NOT %s OR computed_at = (
+                      SELECT MAX(computed_at) FROM computed_score
+                      WHERE assignment_id = %s AND is_final = true
+                  ))
+                """,
+                (assignment_id, str(side), item_id, is_final, criterion_id, criterion_id,
+                 is_final, assignment_id),
+            )
+            row = cur.fetchone()
+            return Decimal(row["value"]) if row and row["value"] is not None else None
+
     def list_computed_scores(self, assignment_id: str, *, is_final: bool) -> list["ComputedScoreRow"]:
         """สรุปคะแนนต่อ item (รวมทุกเกณฑ์แล้ว) — ให้อาจารย์เห็นก่อนตัดสินใจ finalize (US-13)
 
@@ -268,19 +393,36 @@ class PgScoringRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
+                WITH base AS (
+                    SELECT cs.* FROM computed_score cs
+                    WHERE cs.assignment_id = %s AND cs.is_final = %s
+                      AND (NOT %s OR cs.computed_at = (
+                          SELECT MAX(computed_at) FROM computed_score
+                          WHERE assignment_id = %s AND is_final = true
+                      ))
+                )
                 SELECT cs.item_id, cs.side,
                        COALESCE(g.name, u.display_name, u.email_normalized) AS item_label,
-                       SUM(cs.weighted_score) AS component,
+                       COALESCE((
+                           SELECT so.override_value FROM score_override so
+                           WHERE so.assignment_id = %s AND so.side = cs.side
+                             AND so.item_id = cs.item_id AND so.criterion_id IS NULL
+                           ORDER BY so.created_at DESC LIMIT 1
+                       ), SUM(COALESCE((
+                           SELECT so.override_value FROM score_override so
+                           WHERE so.assignment_id = %s AND so.side = cs.side
+                             AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
+                           ORDER BY so.created_at DESC LIMIT 1
+                       ), cs.weighted_score))) AS component,
                        array_agg(DISTINCT flag) FILTER (WHERE flag IS NOT NULL) AS flags
-                FROM computed_score cs
+                FROM base cs
                 LEFT JOIN group_entity g ON cs.side = 'GROUP' AND g.id = cs.item_id
                 LEFT JOIN app_user u ON cs.side = 'INDIVIDUAL' AND u.id = cs.item_id
                 LEFT JOIN LATERAL unnest(cs.flags) AS flag ON true
-                WHERE cs.assignment_id = %s AND cs.is_final = %s
                 GROUP BY cs.item_id, cs.side, g.name, u.display_name, u.email_normalized
                 ORDER BY cs.side, item_label
                 """,
-                (assignment_id, is_final),
+                (assignment_id, is_final, is_final, assignment_id, assignment_id, assignment_id),
             )
             return [
                 ComputedScoreRow(

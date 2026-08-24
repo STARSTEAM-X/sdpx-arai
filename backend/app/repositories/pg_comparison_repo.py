@@ -162,16 +162,33 @@ class PgComparisonRepository:
 
     # --- idempotency (US-09, FR-API-02) ---
 
-    def get_idempotent_response(self, key: str) -> dict | None:
+    def lock_idempotency_scope(
+        self, assignment_id: str, side: Side, evaluator_email: str, key: str
+    ) -> None:
+        """serialize คำขอ scope เดียวกัน ป้องกัน revision ซ้ำเมื่อ request มาพร้อมกัน."""
+        scope = f"{assignment_id}:{side}:{evaluator_email}:{key}"
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (scope,))
+
+    def get_idempotent_response(
+        self, assignment_id: str, side: Side, evaluator_email: str, key: str
+    ) -> dict | None:
         with self._conn.cursor() as cur:
             cur.execute(
-                "SELECT response_json FROM submission_idempotency WHERE idempotency_key = %s",
-                (key,),
+                """
+                SELECT s.response_json FROM submission_idempotency_scope s
+                JOIN app_user u ON u.id = s.evaluator_user_id
+                WHERE s.assignment_id = %s AND s.side = %s
+                  AND u.email_normalized = %s AND s.idempotency_key = %s
+                """,
+                (assignment_id, str(side), evaluator_email, key),
             )
             row = cur.fetchone()
         return row["response_json"] if row else None
 
-    def store_idempotent_response(self, key: str, response: dict) -> None:
+    def store_idempotent_response(
+        self, assignment_id: str, side: Side, evaluator_email: str, key: str, response: dict
+    ) -> None:
         """`DO NOTHING` เผื่อสอง request แข่งกันมาถึงพร้อมกันด้วย key เดียวกัน
 
         ตัวที่แพ้ race จะไม่ overwrite response ของตัวที่ชนะ — ทั้งคู่ต้องได้คำตอบเดียวกัน
@@ -179,9 +196,11 @@ class PgComparisonRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO submission_idempotency (idempotency_key, response_json)
-                VALUES (%s, %s)
-                ON CONFLICT (idempotency_key) DO NOTHING
+                INSERT INTO submission_idempotency_scope
+                    (assignment_id, side, evaluator_user_id, idempotency_key, response_json)
+                SELECT %s, %s, u.id, %s, %s
+                FROM app_user u WHERE u.email_normalized = %s
+                ON CONFLICT (assignment_id, side, evaluator_user_id, idempotency_key) DO NOTHING
                 """,
-                (key, json.dumps(response)),
+                (assignment_id, str(side), key, json.dumps(response), evaluator_email),
             )

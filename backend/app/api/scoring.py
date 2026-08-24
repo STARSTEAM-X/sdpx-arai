@@ -26,16 +26,12 @@ from app.domain.finalize_service import (
     assert_reopenable,
 )
 from app.domain.pairing import Side
-from app.domain.scoring_service import (
-    LOW_CONFIDENCE,
-    compute_final_personal_score,
-    compute_item_component,
-    compute_participation,
-)
+from app.domain.scoring_service import compute_final_personal_score, compute_participation
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_scoring_repo import ComparisonExportRow, PgScoringRepository
+from app.scoring_orchestrator import run_recompute
 
 router = APIRouter(prefix="/api/assignments", tags=["scoring"])
 
@@ -55,39 +51,6 @@ def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignmen
     return assignment
 
 
-def _run_recompute(conn, assignment: Assignment, *, is_final: bool, now: datetime) -> bool:
-    """คำนวณทุก item ทุกฝั่งแล้วบันทึก คืนว่ามี LOW_CONFIDENCE item หลงเหลือไหม (S8)"""
-    scoring_repo = PgScoringRepository(conn)
-    has_low_confidence = False
-
-    sides = [Side.GROUP]
-    if assignment.has_individual_side:
-        sides.append(Side.INDIVIDUAL)
-
-    for side in sides:
-        comparisons = scoring_repo.submitted_comparisons(assignment.id, side)
-        criteria = scoring_repo.criteria_for(assignment.id, side)
-        items = scoring_repo.items_for_side(assignment.classroom_id, side)
-        max_score = assignment.group_max_score if side is Side.GROUP else assignment.individual_max_score
-
-        components = [
-            compute_item_component(
-                comparisons, item_id, side, criteria,
-                max_score_side=max_score,
-                floor=assignment.score_floor,
-                ceiling=assignment.score_ceiling,
-                instructor_weight=assignment.instructor_weight,
-                min_comparisons=assignment.min_comparisons,
-            )
-            for item_id in items
-        ]
-        scoring_repo.save_computed_scores(assignment.id, components, is_final=is_final, now=now)
-        if any(LOW_CONFIDENCE in c.flags for c in components):
-            has_low_confidence = True
-
-    return has_low_confidence
-
-
 class RecomputeOut(BaseModel):
     hasLowConfidenceItems: bool
     computedAt: datetime
@@ -101,7 +64,7 @@ def recompute_scores(assignment_id: str, user_email: CurrentUser) -> RecomputeOu
     with transaction() as conn:
         assignment = _load_for_instructor(conn, assignment_id, user_email)
         now = datetime.now(UTC)
-        has_low_confidence = _run_recompute(conn, assignment, is_final=False, now=now)
+        has_low_confidence = run_recompute(conn, assignment, is_final=False, now=now)
 
     return RecomputeOut(hasLowConfidenceItems=has_low_confidence, computedAt=now)
 
@@ -122,9 +85,8 @@ def finalize_assignment(
 ) -> FinalizeOut:
     """ตัดสินและประกาศคะแนน (US-13) — เฉพาะ OWNER (`FINALIZE_SCORES`), ต้องเลย deadline แล้ว
 
-    คำนวณด้วย `is_final=True` ทับ interim เดิม แล้ว snapshot ไว้เป็นคะแนนที่เชื่อถือได้
-    ตรวจย้อนหลังได้แม้สูตรจะเปลี่ยนไปแล้ว (FR-SCORE-09) เพราะ `computed_score` เก็บ
-    `formula_version` และค่าที่คำนวณได้ ณ ตอนนั้นไว้ตรง ๆ ไม่ใช่สูตรที่คำนวณสด
+    คำนวณ final เป็น batch ใหม่แบบ append-only แล้ว snapshot ทั้ง input/output ไว้
+    ตรวจย้อนหลังได้แม้สูตรหรือข้อมูลจะเปลี่ยนไปแล้ว (FR-SCORE-09, DR-03)
     """
     with transaction() as conn:
         repo = PgAssignmentRepository(conn)
@@ -141,10 +103,12 @@ def finalize_assignment(
         now = datetime.now(UTC)
         assert_finalizable(now=now, deadline=assignment.group_deadline_utc, status=str(assignment.status))
 
-        has_low_confidence = _run_recompute(conn, assignment, is_final=True, now=now)
+        has_low_confidence = run_recompute(conn, assignment, is_final=True, now=now)
         assert_before_finalize(
             has_low_confidence_items=has_low_confidence, confirmed=body.confirmLowConfidence
         )
+
+        PgScoringRepository(conn).create_final_snapshot(assignment_id, computed_at=now)
 
         repo.mark_finalized(assignment_id, at=now)
 
@@ -352,9 +316,12 @@ def create_score_override(
             assignment_id, body.side, body.itemId, body.criterionId
         )
         if original is None:
-            original = scoring_repo.component_for_item(
-                assignment_id, body.side, body.itemId, is_final=True
+            is_final = assignment.status == AssignmentStatus.FINALIZED
+            original = scoring_repo.computed_value_for_target(
+                assignment_id, body.side, body.itemId, body.criterionId, is_final=is_final
             )
+        if original is None:
+            raise ValidationError("ไม่พบคะแนนของ item หรือเกณฑ์นี้", field="itemId")
 
         now = datetime.now(UTC)
         override_id = scoring_repo.create_override(
@@ -458,12 +425,9 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
 
         group_component = Decimal(0)
         if group_id:
-            group_component = scoring_repo.component_for_item(
+            group_component = scoring_repo.effective_component_for_item(
                 assignment_id, Side.GROUP, group_id, is_final=True
             )
-            override = scoring_repo.latest_override_value(assignment_id, Side.GROUP, group_id, None)
-            if override is not None:
-                group_component = override
 
         individual_component: Decimal | None = None
         individual_hidden = False
@@ -483,14 +447,9 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
             if evaluator_count < assignment.min_comparisons:
                 individual_hidden = True
             else:
-                individual_component = scoring_repo.component_for_item(
+                individual_component = scoring_repo.effective_component_for_item(
                     assignment_id, Side.INDIVIDUAL, my_user_id, is_final=True
                 )
-                override = scoring_repo.latest_override_value(
-                    assignment_id, Side.INDIVIDUAL, my_user_id, None
-                )
-                if override is not None:
-                    individual_component = override
         elif not assignment.has_individual_side:
             individual_component = Decimal(0)
 

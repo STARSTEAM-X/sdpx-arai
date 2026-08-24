@@ -32,6 +32,7 @@ class SubmittedComparison:
     ก่อนจะมาถึงฟังก์ชันในไฟล์นี้ (ตัวไฟล์นี้เองไม่ตรวจสถานะซ้ำ เพื่อไม่ให้ต้องรู้จัก status enum)
     """
 
+    criterion_id: str
     item_a_id: str
     item_b_id: str
     display_left_item_id: str
@@ -101,8 +102,9 @@ def compute_criterion_result(
     instructor_weight: Decimal,
     min_comparisons: int,
 ) -> CriterionResult:
-    relevant = [c for c in comparisons if item_id in (c.item_a_id, c.item_b_id)]
-    q = compute_quality_index(comparisons, item_id, instructor_weight=instructor_weight)
+    criterion_comparisons = [c for c in comparisons if c.criterion_id == criterion.id]
+    relevant = [c for c in criterion_comparisons if item_id in (c.item_a_id, c.item_b_id)]
+    q = compute_quality_index(criterion_comparisons, item_id, instructor_weight=instructor_weight)
 
     flags: tuple[str, ...] = ()
     if len(relevant) < min_comparisons:

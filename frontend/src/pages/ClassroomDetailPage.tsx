@@ -153,8 +153,7 @@ export default function ClassroomDetailPage() {
       return
     }
     try {
-      // อ่าน role ก่อนโหลดข้อมูลส่วนจัดการเสมอ นักศึกษาไม่จำเป็นต้องรับรายชื่อทั้งห้อง
-      // และการไม่ยิง roster ตั้งแต่ต้นช่วยให้ขอบเขตข้อมูลตรงกับหน้าที่ใน PRD ด้วย
+      // สมาชิกทุก role มี VIEW_ROSTER ฝั่ง server; สิทธิ์ STUDENT เป็นแบบอ่านอย่างเดียว
       const profile = await getMe()
       const membership = profile.classrooms.find((c) => c.classroomId === classroomId)
       if (!membership || !isClassroomRole(membership.role)) {
@@ -166,12 +165,8 @@ export default function ClassroomDetailPage() {
 
       setMyRole(membership.role)
       setClassroomName(membership.classroomName)
-      if (CAN_MANAGE_ROSTER.includes(membership.role)) {
-        const roster = await getRoster(classroomId)
-        setItems(roster.items)
-      } else {
-        setItems([])
-      }
+      const roster = await getRoster(classroomId)
+      setItems(roster.items)
       setError(null)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -402,6 +397,17 @@ export default function ClassroomDetailPage() {
               </section>
             )}
 
+            {myRole === 'STUDENT' && (
+              <section aria-label="รายชื่อสมาชิกในห้อง" className="scroll-mt-32">
+                <RosterTable
+                  items={items}
+                  loaded={loaded}
+                  canManageMembers={false}
+                  onRemove={handleRemove}
+                />
+              </section>
+            )}
+
             {/* ตัดสินและประกาศคะแนน — เฉพาะเจ้าของห้อง (US-13) */}
             {canFinalizeScores && (
               <section id="scores" className="scroll-mt-32">
@@ -425,7 +431,7 @@ export default function ClassroomDetailPage() {
         {myRole === 'STUDENT' && loaded && (
           <p className="mt-6 flex items-center justify-center gap-2 text-center text-sm text-muted">
             <IconShield aria-hidden="true" className="size-4" />
-            คุณจะเห็นเฉพาะงานและคะแนนของตัวเอง ไม่เห็นรายชื่อหรือคำตอบของผู้อื่น
+            รายชื่อเป็นข้อมูลอ่านอย่างเดียว คุณแก้ไขสมาชิกหรือดูคำตอบของผู้อื่นไม่ได้
           </p>
         )}
       </main>

@@ -23,9 +23,12 @@ from app.domain.scoring_service import (
 )
 
 
-def cmp(a: str, b: str, left: str, choice: int, *, instructor: bool = False) -> SubmittedComparison:
+def cmp(
+    a: str, b: str, left: str, choice: int, *, instructor: bool = False, criterion: str = "c1"
+) -> SubmittedComparison:
     return SubmittedComparison(
-        item_a_id=a, item_b_id=b, display_left_item_id=left, choice=choice, is_instructor=instructor
+        criterion_id=criterion, item_a_id=a, item_b_id=b, display_left_item_id=left,
+        choice=choice, is_instructor=instructor
     )
 
 
@@ -84,6 +87,28 @@ class TestComputeScoreRatio:
 
 
 class TestComputeItemComponent:
+    def test_แต่ละเกณฑ์ใช้เฉพาะ_comparison_ของตัวเอง(self):
+        comparisons = [
+            cmp("g1", "g2", "g1", 1, criterion="c1"),
+            cmp("g1", "g2", "g1", 6, criterion="c2"),
+        ]
+        criteria = [
+            CriterionConfig(id="c1", weight_pct=Decimal(50)),
+            CriterionConfig(id="c2", weight_pct=Decimal(50)),
+        ]
+
+        result = compute_item_component(
+            comparisons, "g1", Side.GROUP, criteria,
+            max_score_side=Decimal(10), floor=Decimal("0.6"), ceiling=Decimal("1.0"),
+            instructor_weight=Decimal(1), min_comparisons=1,
+        )
+
+        assert result.criteria[0].quality_index == Decimal("1.0")
+        assert result.criteria[1].quality_index == Decimal("0.0")
+        assert result.criteria[0].comparison_count == 1
+        assert result.criteria[1].comparison_count == 1
+        assert result.component == Decimal("8.0")
+
     def test_AC_S8_comparison_น้อยกว่า_min_comparisons_ติด_flag_LOW_CONFIDENCE(self):
         comparisons = [cmp("g1", "g2", "g1", 1), cmp("g1", "g3", "g1", 1)]  # 2 ตัว < min 3
         criteria = [CriterionConfig(id="c1", weight_pct=Decimal(100))]

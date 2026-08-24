@@ -147,14 +147,15 @@
 >    `items.filter(i => i.choice === null).length` แทน — เจอจาก e2e ที่ตั้งใจทดสอบ "ตอบครบ
 >    แล้วไม่ควรมี dialog" ไม่ใช่จากการอ่านโค้ด
 >
-> 2. **`submission_idempotency` ไม่มี FK ไปทางไหนเลย** — `POST /api/test/cleanup` เดิม
+> 2. **ตาราง idempotency รุ่นแรกไม่มี scope/FK** — `POST /api/test/cleanup` เดิม
 >    `TRUNCATE classroom_member, classroom, app_user ... CASCADE` ซึ่ง cascade ไปถึง
 >    `assignment`, `pair_assignment`, `comparison` ได้เพราะมี FK อ้างกลับไปที่ `app_user`
 >    แต่ `submission_idempotency` เก็บแค่ `idempotency_key` ดิบ ๆ ไม่มี FK อ้างใครเลย —
 >    key ค้างข้าม test run ทำให้ test ที่สองที่ใช้ literal key ซ้ำ (เช่น `"submit-happy-1"`)
 >    ได้ response แคชจาก run ก่อนหน้าที่ assignment/comparison ไม่มีอยู่แล้ว เห็นเป็น
 >    `submittedCount` ที่ตอบสำเร็จ แต่ `my-evaluations` ตามไปดูจริงกลับว่าง — เพิ่ม
->    `submission_idempotency` เข้า TRUNCATE list ตรง ๆ ใน `test_support.py` แก้แล้ว
+>    รุ่นปัจจุบันใช้ `submission_idempotency_scope` ผูก assignment, side และ evaluator ด้วย FK
+>    พร้อม advisory transaction lock กัน request พร้อมกัน; ตารางเดิมคงไว้เพื่อ migration compatibility
 >    (ดูรายละเอียดใน `docs/backlog.md` ที่ US-09)
 
 ### 11. `scoring_service` — US-16 (Sprint 3)
@@ -180,12 +181,10 @@ pure function ล้วน ตาม AR-01 — ไม่รู้จัก SQL �
 > ถ่วงน้ำหนักเกณฑ์, participation) — golden test จึงเริ่มจากค่า q ที่ PRD ให้มาตรง ๆ ส่วนความ
 > ถูกต้องของค่าเฉลี่ยถ่วงน้ำหนักที่ได้ q มา ถูกทดสอบแยกด้วยตัวเลขกลม ๆ ใน `TestComputeQualityIndex`
 
-> **S7 — แก้ไขแล้วเมื่อทำ US-13:** ตาราง `computed_score` (`backend/migrations/007_scoring.sql`)
-> มี UNIQUE `(assignment_id, criterion_id, item_id, is_final)` และ `save_computed_scores`
-> เขียนทับได้เฉพาะแถวที่ตรง key เดิม — โค้ดทั้งระบบไม่มี path ไหนเรียกด้วย `is_final=True`
-> นอกจาก `:finalize` (ดูรายละเอียดใน `docs/backlog.md` หัวข้อ Sprint 3) ตรวจได้จากโค้ดตรง ๆ
-> เพราะไม่มี endpoint ให้แก้ `is_final=true` ตรง ๆ เลยตั้งแต่ออกแบบ ไม่ใช่ถูกบล็อกด้วย guard
-> ที่ทดสอบแยกได้
+> **S7 — แก้ไขแล้วเมื่อทำ US-13:** final score ถูกเขียนเป็น append-only batch และมี trigger
+> ระดับ database ปฏิเสธ UPDATE/DELETE ของ `computed_score.is_final=true` โดยตรง
+> (`008_immutable_score_snapshots.sql`, `010_protect_final_scores.sql`) พร้อม integration test
+> ใน `test_scoring_repo.py`; การแก้คะแนนที่มีผลต้องผ่าน `score_override` พร้อมเหตุผลเท่านั้น
 
 ### 12. `finalize_service` — US-13 (Sprint 3)
 

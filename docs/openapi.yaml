@@ -732,8 +732,8 @@ paths:
       description: |
         อ้าง US-13 — เฉพาะ OWNER (capability `FINALIZE_SCORES`) เรียกได้ ต้องเลย
         `groupDeadlineUtc` ไปแล้วและ assignment อยู่ในสถานะ `PUBLISHED`/`OPEN`/`CLOSED`
-        คำนวณด้วย `is_final=true` ทับ interim เดิม แล้ว snapshot ไว้เป็นคะแนนที่เชื่อถือได้
-        (`computed_score` เก็บค่าที่คำนวณได้ ณ ตอนนั้นตรง ๆ — ตรวจย้อนหลังได้แม้สูตรจะเปลี่ยนไปแล้ว)
+        คำนวณ `is_final=true` เป็น append-only batch ใหม่ และเก็บ `score_snapshot` ที่มี
+        input/output ครบชุด — ตรวจย้อนหลังได้แม้ reopen/finalize ใหม่หรือสูตรเปลี่ยนแล้ว
 
         ถ้ามี item ที่ผู้ประเมินยังไม่ถึงเกณฑ์ขั้นต่ำ (`LOW_CONFIDENCE`) endpoint นี้จะปฏิเสธ
         ด้วย 422 จนกว่าจะส่ง `confirmLowConfidence: true` มายืนยัน — ระบบไม่ finalize ให้อัตโนมัติ

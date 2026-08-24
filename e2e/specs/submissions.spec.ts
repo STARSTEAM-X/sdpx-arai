@@ -153,6 +153,47 @@ test.describe('US-09 ส่งคำตอบทั้งชุด', () => {
     expect(third.submittedAt).toBe(first.submittedAt)
   })
 
+  test('FR-API-02: key เดียวกันของคนละผู้ใช้ไม่ชนกัน', async ({ api, instructorToken, classroomId }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    const token1 = await issueToken(api, 'stu1@kmitl.ac.th')
+    const token2 = await issueToken(api, 'stu2@kmitl.ac.th')
+    const pairs1 = await myPairs(api, token1, assignmentId)
+    const pairs2 = await myPairs(api, token2, assignmentId)
+    await api.put(`/api/comparisons/${pairs1[0].pairAssignmentId}`, { ...auth(token1), data: { choice: 1 } })
+    for (const pair of pairs2) {
+      await api.put(`/api/comparisons/${pair.pairAssignmentId}`, { ...auth(token2), data: { choice: 2 } })
+    }
+
+    const submit = (token: string) => api.post(`/api/assignments/${assignmentId}/submissions`, {
+      ...auth(token),
+      headers: { ...auth(token).headers, 'Idempotency-Key': 'shared-client-key' },
+      data: { side: 'GROUP' },
+    })
+    expect((await (await submit(token1)).json()).submittedCount).toBe(1)
+    expect((await (await submit(token2)).json()).submittedCount).toBe(2)
+  })
+
+  test('FR-API-02: request scope เดียวกันที่มาพร้อมกันได้ response เดียวกัน', async ({
+    api, instructorToken, classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    const token = await issueToken(api, 'stu1@kmitl.ac.th')
+    const pairs = await myPairs(api, token, assignmentId)
+    await api.put(`/api/comparisons/${pairs[0].pairAssignmentId}`, { ...auth(token), data: { choice: 1 } })
+    const submit = () => api.post(`/api/assignments/${assignmentId}/submissions`, {
+      ...auth(token),
+      headers: { ...auth(token).headers, 'Idempotency-Key': 'concurrent-key' },
+      data: { side: 'GROUP' },
+    })
+
+    const [a, b] = await Promise.all([submit(), submit()])
+    expect(a.status()).toBe(200)
+    expect(b.status()).toBe(200)
+    expect(await b.json()).toEqual(await a.json())
+  })
+
   test('edge case: ขาด Idempotency-Key header ถูกปฏิเสธด้วย 422', async ({
     api,
     instructorToken,

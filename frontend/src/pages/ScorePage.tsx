@@ -200,6 +200,12 @@ export default function ScorePage() {
                       <div className="h-full rounded-full bg-ok-700" style={{ width: `${participationPercent}%` }} />
                     </div>
                     <p className="mt-1.5 text-xs text-muted">สัดส่วนคู่ที่ตอบเทียบกับที่ได้รับมอบหมายทั้งหมด</p>
+                    <p className="mt-1 text-xs text-muted">
+                      ตัวคูณการมีส่วนร่วม (M):{' '}
+                      <span data-testid="participation-multiplier" className="font-mono font-semibold text-ink">
+                        {score.participationMultiplier}
+                      </span>
+                    </p>
                   </div>
                 </div>
               </div>
