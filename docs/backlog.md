@@ -433,7 +433,7 @@ participation multiplier แยกจาก `score_ratio` อยู่แล้�
 | US-11 กันเข้าถึงข้ามห้องเรียน | [#11](https://github.com/STARSTEAM-X/sdpx-arai2/issues/11) | **ไม่มี endpoint ของตัวเอง** — ดูหมายเหตุ |
 | US-12 จัดการผู้ร่วมสอนและ TA | [#12](https://github.com/STARSTEAM-X/sdpx-arai2/issues/12) | `POST /api/classrooms/{id}/members` · `DELETE /api/classrooms/{id}/members/{memberId}` — ยังไม่มีใน `openapi.yaml` |
 | US-13 finalize คะแนน | [#13](https://github.com/STARSTEAM-X/sdpx-arai2/issues/13) | `POST /api/assignments/{id}:finalize` · `POST /api/assignments/{id}:reopen` · `POST /api/assignments/{id}/score-overrides` — ยังไม่มีใน `openapi.yaml` |
-| US-14 audit log | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) | `GET /api/classrooms/{id}/audit-log` — ส่วนการ**เขียน** audit ไม่มี endpoint ของตัวเอง เหมือน US-11 |
+| US-14 audit log | [#14](https://github.com/STARSTEAM-X/sdpx-arai2/issues/14) | `GET /api/classrooms/{id}/audit` — ส่วนการ**เขียน** audit ไม่มี endpoint ของตัวเอง เหมือน US-11 |
 | US-15 ปิดทางรู้ว่าใครประเมินตน | [#15](https://github.com/STARSTEAM-X/sdpx-arai2/issues/15) | **ไม่มี endpoint ของตัวเอง** — เป็นข้อบังคับของทุก endpoint ที่คืนคะแนนและทุก export |
 | US-16 คำนวณคะแนน | [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) | `POST /api/assignments/{id}:recompute` — ตัว engine ถูกเรียกโดย `my-score`, รายงานฝั่งอาจารย์ และ `:finalize` |
 
