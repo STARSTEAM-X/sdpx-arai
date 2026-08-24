@@ -645,8 +645,14 @@ paths:
       tags: [evaluation]
       summary: ส่งคำตอบทั้ง side
       description: |
-        อ้าง US-09 — เปลี่ยนทุก comparison ของ side นั้นเป็น `SUBMITTED`
-        ต้องส่ง header `Idempotency-Key` เพื่อกันการกดซ้ำจากหลายแท็บ (FR-API-02)
+        อ้าง US-09 — เปลี่ยนทุก comparison ของ side นั้นที่**เคยตอบไว้แล้ว**เป็น `SUBMITTED`
+        ต้องส่ง header `Idempotency-Key` เพื่อกันการกดซ้ำจากหลายแท็บ (FR-API-02) —
+        เรียกซ้ำด้วย key เดิมได้ response เดิมทุกครั้ง (`submittedCount`/`submittedAt` ไม่ขยับ)
+
+        **ตอบไม่ครบไม่ใช่ error** — เคยเขียนไว้ว่า 422 แต่ขัดกับ FR-EVAL-05 ที่บังคับให้ปุ่มส่ง
+        เปิดใช้ได้ตลอดแม้ตอบไม่ครบ (ดูบันทึกการตัดสินใจใน `docs/backlog.md` ที่ US-09)
+        endpoint นี้จึง submit เท่าที่มีเสมอ คู่ที่ไม่เคยตอบเลยไม่ถูกแตะ ไม่ใช่ปฏิเสธทั้งคำขอ
+        ฝั่งหน้าเว็บเป็นคนแสดง "ยังเหลือ N คู่ ยืนยันจะส่งไหม" ก่อนเรียก endpoint นี้เอง
       operationId: submitEvaluations
       parameters:
         - $ref: '#/components/parameters/AssignmentId'
@@ -670,15 +676,13 @@ paths:
                   $ref: '#/components/schemas/Side'
       responses:
         '200':
-          description: ส่งสำเร็จ
+          description: ส่งสำเร็จ (นับเฉพาะคู่ที่เคยตอบไว้ — อาจน้อยกว่าจำนวนคู่ทั้งหมด)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubmissionResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -688,11 +692,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '422':
-          description: 'ยังประเมินไม่ครบ (`code: INCOMPLETE_EVALUATION`)'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
+          $ref: '#/components/responses/ValidationFailed'
 
   /api/assignments/{assignmentId}/my-score:
     get:

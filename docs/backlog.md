@@ -602,18 +602,44 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-### สถานะ ณ 2026-08-24 — US-07, US-08 เสร็จ (US-09 ยังไม่เริ่ม)
+### สถานะ ณ 2026-08-24 — US-07, US-08, US-09 เสร็จครบ
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 | **4/4** | unit `test_evaluation_service.py` (8 ตัว) · e2e `evaluations.spec.ts` (6 ตัว, ผ่าน `--repeat-each=3`) |
 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 | **5/5** | unit `test_comparison_service.py` (15 ตัว) · e2e `comparisons.spec.ts` (9 ตัว รวม autosave 2 วินาทีจริงผ่าน web-first assertion ไม่ใช้ `waitForTimeout`, ผ่าน `--repeat-each=3`) |
+| [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 | **5/5** | e2e `submissions.spec.ts` (8 ตัว รวม idempotency-key จริงและ `window.confirm` dialog, ผ่าน `--repeat-each=3`) |
 
 **US-08 บันทึกไว้เสมอเป็น `DRAFT`** — `PUT /comparisons/{id}` เขียนทับสถานะเป็น `DRAFT` ทุกครั้ง
 แม้แถวเดิมจะเคยเป็น `SUBMITTED` มาก่อนก็ตาม ตรงกับที่ `docs/openapi.yaml` เขียนไว้ว่า
 "บันทึกเป็นสถานะ DRAFT จนกว่าจะเรียก submissions" — หมายความว่าถ้านักศึกษาแก้คำตอบหลัง
-submit ไปแล้ว (ก่อน deadline) ต้องกด submit ใหม่อีกครั้งถึงจะนับเป็น `SUBMITTED` — ยังไม่มี
-endpoint submit จริง (US-09) จึงยังพิสูจน์ path นี้ทั้งเส้นไม่ได้ในตอนนี้
+submit ไปแล้ว (ก่อน deadline) ต้องกด submit ใหม่อีกครั้งถึงจะนับเป็น `SUBMITTED` — US-09
+พิสูจน์ path นี้ครบทั้งเส้นแล้ว (ดูด้านล่าง)
+
+**US-09 — สิ่งที่ต้องแก้จริงตอนต่อ ไม่ใช่แค่ implement ตามแผน**
+
+ของเดิมใน `docs/openapi.yaml` (ร่างจาก WS-02) เขียนว่าตอบไม่ครบแล้ว submit ต้องได้ `422
+INCOMPLETE_EVALUATION` — ซึ่ง**ขัดกับ AC ของ US-09 เอง** ที่ระบุชัดว่า "ปุ่มส่งเปิดใช้ได้ตลอด
+ไม่ตอบ 422" (เหตุผลเดียวกับที่แก้ AC ข้อ 2 ของ US-09 ไปแล้วก่อนหน้านี้ — ดูบันทึกการตัดสินใจ
+ที่ตัว story) แก้ spec ให้ตรงกับ AC: submit เท่าที่ตอบไว้จริงเสมอ ไม่ปฏิเสธทั้งคำขอ และลบ
+`403 Forbidden` ที่ร่างไว้ผิด (endpoint นี้เปิดให้สมาชิกทุก role ที่ประเมิน ไม่ใช่แค่ผู้สอน
+จึงไม่มีทาง 403 ได้เลย มีแต่ 404 สำหรับคนนอกห้อง)
+
+**บั๊กจริง 2 จุดที่เจอตอนทดสอบ ไม่ใช่ตอนออกแบบ**
+
+1. **นับ "ยังไม่ตอบ" ผิดตัวแปร** — หน้าจอเดิมใช้ `totalCount − completedCount` เพื่อโชว์
+   dialog ยืนยันก่อนส่ง แต่ `completedCount` นับเฉพาะที่ `SUBMITTED` แล้ว คนที่ตอบครบทุกคู่
+   (มี `choice`) แต่ยังไม่เคยกด submit มาก่อนเลย จะเห็น dialog เตือนผิดว่า "ยังไม่ตอบ 2 คู่"
+   ทั้งที่ตอบครบแล้ว — เจอจาก e2e ที่ตั้งใจทดสอบ "ตอบครบแล้วไม่ควรมี dialog" แก้โดยนับจาก
+   `choice === null` แทน
+2. **`submission_idempotency` ไม่มี FK เลย** — `POST /api/test/cleanup` เดิม `TRUNCATE ...
+   CASCADE` ไปถึง `comparison`/`pair_assignment`/`assignment` ได้เพราะมี FK อ้าง `app_user`
+   แต่ตารางนี้เก็บแค่ `idempotency_key` ดิบไม่ผูกกับใครเลย จึงไม่ถูก cascade — key ค้างข้าม
+   test run ทำให้ test รอบสองที่ใช้ literal key ซ้ำได้ response แคชจากรอบก่อนที่ข้อมูลจริง
+   ไม่มีอยู่แล้ว (`submittedCount` ตอบสำเร็จ แต่ `my-evaluations` ตามไปดูกลับว่าง) เพิ่ม
+   `submission_idempotency` เข้า TRUNCATE list ตรง ๆ แก้แล้ว — เจอปัญหานี้จริงในเชิงการใช้งาน
+   ด้วย ไม่ใช่แค่ปัญหาของ test: ถ้าไม่จำกัดอายุ key ไว้ ตารางนี้จะโตไม่มีที่สิ้นสุดใน production
+   (ยังไม่ได้ทำ TTL/cleanup job — บันทึกไว้เป็น tech-debt ที่ต้องกลับมาทำก่อน M4)
 
 **บั๊กที่เจอจากการทดสอบ manual ผ่าน browser จริง ไม่ใช่จาก unit test**
 

@@ -60,7 +60,14 @@ def seed(body: SeedRequest | None = None) -> dict:
     users = body.users if body and body.users else [SeedUser(email="ajarn@uni.ac.th")]
 
     with transaction() as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE classroom_member, classroom, app_user RESTART IDENTITY CASCADE")
+        # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
+        # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
+        # ถ้าลืม test ที่ใช้ idempotency-key ซ้ำข้าม test จะได้ response ค้างจากรอบก่อน
+        # ทั้งที่ assignment/comparison ของรอบนี้ถูกล้างไปแล้ว
+        cur.execute(
+            "TRUNCATE classroom_member, classroom, app_user, submission_idempotency "
+            "RESTART IDENTITY CASCADE"
+        )
         for u in users:
             cur.execute(
                 """
@@ -77,7 +84,14 @@ def seed(body: SeedRequest | None = None) -> dict:
 def cleanup() -> dict:
     _guard()
     with transaction() as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE classroom_member, classroom, app_user RESTART IDENTITY CASCADE")
+        # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
+        # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
+        # ถ้าลืม test ที่ใช้ idempotency-key ซ้ำข้าม test จะได้ response ค้างจากรอบก่อน
+        # ทั้งที่ assignment/comparison ของรอบนี้ถูกล้างไปแล้ว
+        cur.execute(
+            "TRUNCATE classroom_member, classroom, app_user, submission_idempotency "
+            "RESTART IDENTITY CASCADE"
+        )
     return {"cleaned": True}
 
 

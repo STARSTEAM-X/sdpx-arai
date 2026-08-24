@@ -356,6 +356,34 @@ export function saveComparison(
   )
 }
 
+// --- ส่งคำตอบทั้งชุด (US-09) ---
+
+export type SubmissionResult = {
+  side: CriterionSide
+  submittedCount: number
+  submittedAt: string
+}
+
+/** ส่งเท่าที่ตอบไว้จริง — server ไม่ปฏิเสธแม้ตอบไม่ครบ (FR-EVAL-05)
+ *
+ *  สุ่ม Idempotency-Key ใหม่ทุกครั้งที่ "ผู้ใช้ตั้งใจกดส่ง" หนึ่งครั้ง — ถ้ากดซ้ำเพราะ
+ *  เครือข่ายค้าง ต้อง reuse key เดิมของการกดครั้งนั้น ไม่ใช่สุ่มใหม่ทุก retry (FR-API-02)
+ */
+export function submitEvaluations(
+  assignmentId: string,
+  side: CriterionSide,
+  idempotencyKey: string,
+): Promise<SubmissionResult> {
+  return apiFetch<SubmissionResult>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/submissions`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ side }),
+    },
+  )
+}
+
 // --- สมาชิกฝั่งผู้สอน (US-12) ---
 
 export type InstructorRole = 'CO_TEACHER' | 'TA'

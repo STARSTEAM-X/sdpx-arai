@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { ComparisonRow } from '../components/ComparisonRow'
-import { Banner, Card, CardHead, FOCUS } from '../components/Ui'
+import { Banner, Card, CardHead, FOCUS, btn } from '../components/Ui'
 import {
   IconArrowRight,
   IconChevronLeft,
   IconCircleDashed,
   IconClock,
+  IconLock,
   LogoMark,
 } from '../components/icons'
 import {
@@ -17,6 +18,7 @@ import {
   type MyEvaluations,
   getMyEvaluations,
   listClassrooms,
+  submitEvaluations,
 } from '../lib/api'
 import { formatDeadline } from '../lib/datetime'
 
@@ -51,6 +53,8 @@ export default function EvaluatePage() {
   const [timezone, setTimezone] = useState('UTC')
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitResult, setSubmitResult] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -77,6 +81,11 @@ export default function EvaluatePage() {
     void refresh()
   }, [refresh])
 
+  // สลับ side แล้วล้างผลของการส่งครั้งก่อน — ข้อความ "ส่งสำเร็จ" ของฝั่งเดิมไม่ควรค้างข้ามฝั่ง
+  useEffect(() => {
+    setSubmitResult(null)
+  }, [side])
+
   const current = data[side]
   const sections = useMemo(() => groupByCriterion(current?.items ?? []), [current])
 
@@ -84,6 +93,38 @@ export default function EvaluatePage() {
     current && current.totalCount > 0
       ? Math.round((current.completedCount / current.totalCount) * 100)
       : 0
+
+  // FR-EVAL-08 — เลย deadline แล้วต้องปิดการแก้ไข ไม่ใช่แค่ปิดปุ่มส่ง
+  const deadlinePassed = Boolean(current?.deadlineUtc && new Date(current.deadlineUtc) <= new Date())
+
+  async function handleSubmit() {
+    if (!current) return
+
+    // "ยังไม่ตอบ" หมายถึงยังไม่เคยเลือกคำตอบเลย (choice === null) ไม่ใช่ยังไม่เคย submit
+    // ถ้าใช้ completedCount (นับเฉพาะ SUBMITTED) คนที่ตอบครบแต่ยังไม่เคยกดส่งมาก่อน
+    // จะเห็น dialog เตือนผิด ๆ ว่า "ยังไม่ตอบ" ทั้งที่ตอบไว้ครบแล้วในตอน submit ครั้งแรก
+    const unanswered = current.items.filter((i) => i.choice === null).length
+    if (unanswered > 0) {
+      // AC: ตอบไม่ครบต้องแสดงจำนวนที่เหลือให้ยืนยันก่อน แต่ยัง submit ได้ตามปกติ (ไม่ใช่ปุ่มถูกปิด)
+      const ok = window.confirm(
+        `ยังเหลือ ${unanswered} คู่ที่ยังไม่ได้ตอบ — ต้องการส่งเท่าที่ตอบไว้ตอนนี้เลยไหม?`,
+      )
+      if (!ok) return
+    }
+
+    setSubmitting(true)
+    setError(null)
+    try {
+      const key = crypto.randomUUID()
+      const result = await submitEvaluations(assignmentId, side, key)
+      setSubmitResult(`ส่งแล้ว ${result.submittedCount} คู่`)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'ส่งคำตอบไม่สำเร็จ')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
@@ -152,6 +193,15 @@ export default function EvaluatePage() {
               <Banner tone="warn">{current.message ?? 'ยังไม่มีคู่ให้ประเมินในฝั่งนี้'}</Banner>
             ) : (
               <>
+                {deadlinePassed && (
+                  <Banner tone="warn">
+                    <span className="flex items-center gap-1.5">
+                      <IconLock className="size-4 shrink-0" />
+                      เลยกำหนดส่งแล้ว — ดูคำตอบได้อย่างเดียว แก้ไขหรือส่งเพิ่มไม่ได้
+                    </span>
+                  </Banner>
+                )}
+
                 <Card>
                   <div className="flex flex-wrap items-center justify-between gap-3 p-6 max-sm:p-4">
                     <div>
@@ -194,6 +244,22 @@ export default function EvaluatePage() {
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
+
+                    {!deadlinePassed && (
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void handleSubmit()}
+                          disabled={submitting}
+                          className={btn('primary', 'md')}
+                        >
+                          {submitting ? 'กำลังส่ง…' : 'ส่งคำตอบ'}
+                        </button>
+                        {submitResult && (
+                          <span className="text-sm text-ok-700">{submitResult}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
 
@@ -207,7 +273,11 @@ export default function EvaluatePage() {
                     />
                     <ul className="flex flex-col gap-3 p-6 max-sm:p-4">
                       {section.items.map((item) => (
-                        <ComparisonRow key={item.pairAssignmentId} item={item} />
+                        <ComparisonRow
+                          key={item.pairAssignmentId}
+                          item={item}
+                          readOnly={deadlinePassed}
+                        />
                       ))}
                     </ul>
                   </Card>

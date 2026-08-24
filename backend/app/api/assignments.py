@@ -1,4 +1,4 @@
-"""endpoint ของงานประเมิน — US-04, US-05, US-06
+"""endpoint ของงานประเมิน — US-04, US-05, US-06, US-07, US-09
 
 route ที่นี่บาง: อ่าน input, ตรวจสิทธิ์, เปิด transaction, แปลงผลเป็น JSON
 กฎว่า publish ได้เมื่อไรอยู่ใน assignment_service · การจัดคู่อยู่ใน pairing
@@ -10,7 +10,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Header, Request, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
@@ -25,6 +25,7 @@ from app.domain.assignment_service import (
     assert_publishable,
     validate_new_assignment,
 )
+from app.domain.comparison_service import assert_before_deadline
 from app.domain.errors import NotFoundError, ValidationError
 from app.domain.evaluation_service import build_my_evaluations
 from app.domain.pairing import (
@@ -37,6 +38,7 @@ from app.domain.pairing import (
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
+from app.repositories.pg_comparison_repo import PgComparisonRepository
 
 router = APIRouter(prefix="/api/assignments", tags=["assignments"])
 
@@ -456,3 +458,59 @@ def get_my_evaluations(
             for i in result.items
         ],
     )
+
+
+class SubmissionIn(BaseModel):
+    side: Side
+
+
+class SubmissionResultOut(BaseModel):
+    side: str
+    submittedCount: int
+    submittedAt: datetime
+
+
+@router.post("/{assignment_id}/submissions", response_model=SubmissionResultOut)
+def submit_evaluations(
+    assignment_id: str,
+    body: SubmissionIn,
+    user_email: CurrentUser,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+) -> SubmissionResultOut:
+    """ส่งคำตอบทั้งชุดของฝั่งหนึ่ง (US-09)
+
+    ส่งเท่าที่ตอบไว้จริง — คู่ที่ยังไม่เคยตอบเลยไม่ถูกแตะ (AC: ตอบไม่ครบก็ submit ได้ตามปกติ
+    ไม่ใช่ 422) หน้าจอเป็นคนแสดง "ยังเหลือ N คู่ ยืนยันจะส่งไหม" ก่อนเรียก endpoint นี้เอง
+    เพราะ client มีตัวเลข completed/total จาก my-evaluations อยู่แล้ว
+
+    ตรวจ idempotency-key **ก่อน** ตรวจ deadline โดยตั้งใจ — คำขอที่เคยสำเร็จไปแล้วต้องได้
+    ผลลัพธ์เดิมเสมอ แม้จะเรียกซ้ำหลัง deadline ผ่านไปแล้วก็ตาม (FR-API-02)
+    """
+    with transaction() as conn:
+        comparison_repo = PgComparisonRepository(conn)
+
+        cached = comparison_repo.get_idempotent_response(idempotency_key)
+        if cached is not None:
+            return SubmissionResultOut(**cached)
+
+        assignment = _load_for_member(conn, assignment_id, user_email)
+
+        deadline = (
+            assignment.group_deadline_utc
+            if body.side is Side.GROUP
+            else assignment.individual_deadline_utc
+        )
+        if deadline is not None:
+            assert_before_deadline(now=datetime.now(UTC), deadline=deadline)
+
+        now = datetime.now(UTC)
+        count = comparison_repo.submit_all(
+            assignment_id=assignment_id, side=body.side, evaluator_email=user_email, now=now
+        )
+
+        result = SubmissionResultOut(side=str(body.side), submittedCount=count, submittedAt=now)
+        comparison_repo.store_idempotent_response(
+            idempotency_key, {"side": result.side, "submittedCount": result.submittedCount, "submittedAt": now.isoformat()}
+        )
+
+    return result

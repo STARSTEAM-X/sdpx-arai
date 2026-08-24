@@ -5,6 +5,7 @@
 แต่คำตอบเปลี่ยนได้ตลอดจนถึง deadline)
 """
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -108,3 +109,79 @@ class PgComparisonRepository:
             status=row["status"],
             saved_at=row["saved_at"],
         )
+
+    # --- ส่งทั้งชุด (US-09) ---
+
+    def submit_all(
+        self, *, assignment_id: str, side: Side, evaluator_email: str, now: datetime
+    ) -> int:
+        """flip ทุกคู่ที่เคยตอบไว้ (มีแถว comparison อยู่แล้ว) ให้เป็น SUBMITTED
+
+        คู่ที่ไม่เคยตอบเลยไม่มีแถวอยู่ตั้งแต่แรก จึงไม่ถูกแตะ — ตรงกับ AC ที่บอกว่า
+        "ตอบไม่ครบก็ยัง submit ได้ตามปกติ" คือ submit เท่าที่มี ไม่ใช่ submit ทุกคู่แบบบังคับ
+
+        เขียน revision ทุกครั้งที่ submit แม้ choice จะไม่เปลี่ยนจากรอบก่อน เพราะ FR-EVAL-06
+        นับที่ "จำนวนครั้งที่กด submit" ไม่ใช่ "จำนวนครั้งที่คำตอบเปลี่ยน"
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id, c.choice
+                FROM comparison c
+                JOIN pair_assignment p ON p.id = c.pair_assignment_id
+                JOIN app_user e ON e.id = c.evaluator_user_id
+                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
+                """,
+                (assignment_id, str(side), evaluator_email),
+            )
+            rows = cur.fetchall()
+
+            for r in rows:
+                cur.execute(
+                    "UPDATE comparison SET status = 'SUBMITTED', submitted_at = %s WHERE id = %s",
+                    (now, r["id"]),
+                )
+                cur.execute(
+                    """
+                    SELECT COALESCE(MAX(revision_no), 0) + 1 AS next
+                    FROM comparison_revision WHERE comparison_id = %s
+                    """,
+                    (r["id"],),
+                )
+                next_no = cur.fetchone()["next"]
+                cur.execute(
+                    """
+                    INSERT INTO comparison_revision
+                        (id, comparison_id, choice, status, revision_no, submitted_at)
+                    VALUES (%s, %s, %s, 'SUBMITTED', %s, %s)
+                    """,
+                    (str(uuid.uuid4()), r["id"], r["choice"], next_no, now),
+                )
+
+        return len(rows)
+
+    # --- idempotency (US-09, FR-API-02) ---
+
+    def get_idempotent_response(self, key: str) -> dict | None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT response_json FROM submission_idempotency WHERE idempotency_key = %s",
+                (key,),
+            )
+            row = cur.fetchone()
+        return row["response_json"] if row else None
+
+    def store_idempotent_response(self, key: str, response: dict) -> None:
+        """`DO NOTHING` เผื่อสอง request แข่งกันมาถึงพร้อมกันด้วย key เดียวกัน
+
+        ตัวที่แพ้ race จะไม่ overwrite response ของตัวที่ชนะ — ทั้งคู่ต้องได้คำตอบเดียวกัน
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO submission_idempotency (idempotency_key, response_json)
+                VALUES (%s, %s)
+                ON CONFLICT (idempotency_key) DO NOTHING
+                """,
+                (key, json.dumps(response)),
+            )

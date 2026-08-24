@@ -130,6 +130,33 @@
 > test เพราะเป็นเรื่อง UI state ล้วน ๆ ไม่มี business rule ให้ทดสอบแยก — บทเรียนคือ
 > unit test คุ้มครอง backend ได้ แต่ UX bug แบบนี้ต้องเห็นด้วยตาจากการรันจริงเท่านั้น
 
+### 10. `submission_service` — US-09 (Sprint 3)
+
+ไม่มีไฟล์ domain แยกต่างหาก — กฎเดียวที่ endpoint นี้ต้องการ (deadline) ใช้
+`comparison_service.assert_before_deadline` ตัวเดิมกับ US-08 ตรง ๆ ไม่มีอะไรใหม่ให้ทดสอบซ้ำ
+ส่วนที่ทดสอบจริงคือ SQL (`PgComparisonRepository.submit_all`/`get_idempotent_response`) ซึ่ง
+ไม่มี fake ให้ยืนยันด้วย unit test ได้ — พิสูจน์ผ่าน e2e `submissions.spec.ts` (8 ตัว) ทั้งหมด
+
+> **บั๊กจริง 2 จุดที่เจอตอนต่อ US-09 ไม่ใช่ตอนออกแบบ:**
+>
+> 1. **Frontend ใช้ตัวนับผิดตัว** — `EvaluatePage.tsx` เดิมคำนวณ "ยังไม่ตอบกี่คู่" (ที่ใช้โชว์
+>    dialog ยืนยันก่อน submit) จาก `totalCount - completedCount` ซึ่ง `completedCount` นับเฉพาะ
+>    ที่ `SUBMITTED` แล้วเท่านั้น — คนที่ตอบครบทุกคู่ (มี `choice` แล้ว) แต่ยังไม่เคยกด submit
+>    มาก่อนเลย จะเห็น dialog เตือนผิด ๆ ว่า "ยังไม่ตอบ 2 คู่" ทั้งที่ตอบไว้ครบแล้ว เพราะ
+>    `completedCount` ยังเป็น 0 อยู่ตลอดจนกว่าจะ submit ครั้งแรก แก้โดยนับจาก
+>    `items.filter(i => i.choice === null).length` แทน — เจอจาก e2e ที่ตั้งใจทดสอบ "ตอบครบ
+>    แล้วไม่ควรมี dialog" ไม่ใช่จากการอ่านโค้ด
+>
+> 2. **`submission_idempotency` ไม่มี FK ไปทางไหนเลย** — `POST /api/test/cleanup` เดิม
+>    `TRUNCATE classroom_member, classroom, app_user ... CASCADE` ซึ่ง cascade ไปถึง
+>    `assignment`, `pair_assignment`, `comparison` ได้เพราะมี FK อ้างกลับไปที่ `app_user`
+>    แต่ `submission_idempotency` เก็บแค่ `idempotency_key` ดิบ ๆ ไม่มี FK อ้างใครเลย —
+>    key ค้างข้าม test run ทำให้ test ที่สองที่ใช้ literal key ซ้ำ (เช่น `"submit-happy-1"`)
+>    ได้ response แคชจาก run ก่อนหน้าที่ assignment/comparison ไม่มีอยู่แล้ว เห็นเป็น
+>    `submittedCount` ที่ตอบสำเร็จ แต่ `my-evaluations` ตามไปดูจริงกลับว่าง — เพิ่ม
+>    `submission_idempotency` เข้า TRUNCATE list ตรง ๆ ใน `test_support.py` แก้แล้ว
+>    (ดูรายละเอียดใน `docs/backlog.md` ที่ US-09)
+
 ---
 
 ## Integration Test — ชั้นที่ unit test มองไม่เห็น

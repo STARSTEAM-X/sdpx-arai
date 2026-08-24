@@ -16,7 +16,14 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
  *  ไม่เปลี่ยน `completed` ของ item (นั่นต้องรอ submit ใน US-09) — parent จึงไม่มีอะไร
  *  ต้องรู้เพิ่มจากการกดแต่ละครั้ง
  */
-export function ComparisonRow({ item }: { item: EvaluationItem }) {
+export function ComparisonRow({
+  item,
+  readOnly = false,
+}: {
+  item: EvaluationItem
+  /** FR-EVAL-08 — เลย deadline แล้วต้องแสดงคำตอบแบบ read-only ห้ามแก้ต่อ */
+  readOnly?: boolean
+}) {
   const [choice, setChoice] = useState<number | null>(item.choice)
   const [state, setState] = useState<SaveState>(item.choice ? 'saved' : 'idle')
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -77,7 +84,8 @@ export function ComparisonRow({ item }: { item: EvaluationItem }) {
             role="radio"
             aria-checked={choice === c.id}
             onClick={() => handleSelect(c.id)}
-            className={`min-h-11 rounded-lg border px-2 text-[12.5px] font-medium transition-colors ${FOCUS} ${
+            disabled={readOnly}
+            className={`min-h-11 rounded-lg border px-2 text-[12.5px] font-medium transition-colors ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
               choice === c.id
                 ? 'border-accent-line bg-accent-soft text-accent-ink'
                 : 'border-edge-strong bg-white text-ink-2 hover:bg-sand'
