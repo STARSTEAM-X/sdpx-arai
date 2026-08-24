@@ -14,7 +14,7 @@ type LocalParts = {
 
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
-const MINUTES = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
 const QUICK_TIMES = ['09:00', '12:00', '16:30', '23:55']
 
 function pad(value: number): string {
@@ -191,33 +191,33 @@ export function DeadlinePicker({
           id={`${id}-popover`}
           role="dialog"
           aria-label="เลือกวันและเวลากำหนดส่ง"
-          className="absolute right-0 z-50 mt-2 w-[min(42rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-edge bg-white shadow-[0_18px_50px_rgba(23,32,51,0.18)] max-sm:left-1/2 max-sm:right-auto max-sm:-translate-x-1/2"
+          className="absolute right-0 z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-edge bg-white shadow-[0_18px_50px_rgba(23,32,51,0.18)] max-sm:left-1/2 max-sm:right-auto max-sm:-translate-x-1/2"
         >
-          <div className="flex items-start gap-3 border-b border-edge px-4 py-3.5">
+          <div className="flex items-start gap-3 border-b border-edge px-3.5 py-3">
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm font-semibold">เลือกวันและเวลาส่ง</p>
               <p className="mt-0.5 text-xs text-muted">ปี พ.ศ. · เวลา 24 ชั่วโมง · {timezoneLabel(timezone)}</p>
             </div>
-            <button type="button" aria-label="ปิด" onClick={() => setOpen(false)} className={`grid size-10 place-items-center rounded-xl hover:bg-sand ${FOCUS}`}>
+            <button type="button" aria-label="ปิด" onClick={() => setOpen(false)} className={`grid size-9 place-items-center rounded-lg hover:bg-sand ${FOCUS}`}>
               <IconClose className="size-4" />
             </button>
           </div>
 
-          <div className="grid sm:grid-cols-[1.25fr_0.85fr]">
-            <section aria-label="เลือกวันที่" className="p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="grid sm:grid-cols-[1.15fr_0.85fr]">
+            <section aria-label="เลือกวันที่" className="p-3.5">
+              <div className="mb-2.5 flex items-center justify-between gap-3">
                 <span className="font-display text-sm font-semibold">{formatThaiMonth(cursor.year, cursor.month)}</span>
                 <div className="flex gap-1">
-                  <button type="button" disabled={cursorIsCurrentMonth} aria-label="เดือนก่อนหน้า" onClick={() => moveMonth(-1)} className={`grid size-10 place-items-center rounded-xl hover:bg-sand disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS}`}>
+                  <button type="button" disabled={cursorIsCurrentMonth} aria-label="เดือนก่อนหน้า" onClick={() => moveMonth(-1)} className={`grid size-9 place-items-center rounded-lg hover:bg-sand disabled:cursor-not-allowed disabled:opacity-35 ${FOCUS}`}>
                     <IconChevronLeft className="size-4" />
                   </button>
-                  <button type="button" aria-label="เดือนถัดไป" onClick={() => moveMonth(1)} className={`grid size-10 place-items-center rounded-xl hover:bg-sand ${FOCUS}`}>
+                  <button type="button" aria-label="เดือนถัดไป" onClick={() => moveMonth(1)} className={`grid size-9 place-items-center rounded-lg hover:bg-sand ${FOCUS}`}>
                     <IconChevronLeft className="size-4 rotate-180" />
                   </button>
                 </div>
               </div>
 
-              <div className="mb-3 flex gap-2">
+              <div className="mb-2.5 flex gap-2">
                 <button type="button" onClick={() => selectDate(today)} className={btn('ghost', 'sm')}>วันนี้</button>
                 <button type="button" onClick={() => selectDate(tomorrow)} className={btn('ghost', 'sm')}>พรุ่งนี้</button>
               </div>
@@ -242,7 +242,7 @@ export function DeadlinePicker({
                       aria-pressed={selected}
                       aria-label={`${day} ${formatThaiMonth(cursor.year, cursor.month)}`}
                       onClick={() => selectDate(date)}
-                      className={`relative aspect-square min-h-10 rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:text-edge-strong ${FOCUS} ${
+                      className={`relative aspect-square min-h-9 rounded-lg text-[13.5px] transition-colors disabled:cursor-not-allowed disabled:text-edge-strong ${FOCUS} ${
                         selected
                           ? 'bg-cta font-semibold text-white hover:bg-cta-hover'
                           : 'hover:bg-accent-soft hover:text-accent-ink'
@@ -256,8 +256,8 @@ export function DeadlinePicker({
               </div>
             </section>
 
-            <section aria-label="เลือกเวลาแบบ 24 ชั่วโมง" className="border-edge bg-sand/55 p-4 sm:border-l">
-              <div className="mb-3 flex items-baseline justify-between gap-3">
+            <section aria-label="เลือกเวลาแบบ 24 ชั่วโมง" className="border-edge bg-sand/55 p-3.5 sm:border-l">
+              <div className="mb-2.5 flex items-baseline justify-between gap-3">
                 <span className="font-display text-sm font-semibold">เวลา</span>
                 <span className="text-xs text-muted">รูปแบบ 24 ชั่วโมง</span>
               </div>
@@ -277,27 +277,27 @@ export function DeadlinePicker({
                 </label>
               </div>
 
-              <p className="mb-2 mt-4 text-xs text-muted">เวลาที่ใช้บ่อย</p>
+              <p className="mb-2 mt-3.5 text-xs text-muted">เวลาที่ใช้บ่อย</p>
               <div className="flex flex-wrap gap-2">
                 {QUICK_TIMES.map((time) => {
                   const [hour, minute] = time.split(':')
                   const selected = pending.hour === hour && pending.minute === minute
                   return (
-                    <button key={time} type="button" aria-pressed={selected} onClick={() => setPending((current) => ({ ...current, hour, minute }))} className={`min-h-10 rounded-xl border px-3 font-mono text-xs ${FOCUS} ${selected ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-edge-strong bg-white hover:bg-sand'}`}>
+                    <button key={time} type="button" aria-pressed={selected} onClick={() => setPending((current) => ({ ...current, hour, minute }))} className={`min-h-9 rounded-lg border px-2.5 font-mono text-xs ${FOCUS} ${selected ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-edge-strong bg-white hover:bg-sand'}`}>
                       {time}
                     </button>
                   )
                 })}
               </div>
 
-              <div className={`mt-4 rounded-xl border px-3 py-2.5 text-xs ${pendingIsPast ? 'border-err-line bg-err-soft text-err' : 'border-ok-line bg-ok-50 text-ok-700'}`} aria-live="polite">
+              <div className={`mt-3.5 rounded-xl border px-3 py-2 text-xs ${pendingIsPast ? 'border-err-line bg-err-soft text-err' : 'border-ok-line bg-ok-50 text-ok-700'}`} aria-live="polite">
                 <b className="block font-display font-semibold">กำหนดส่ง {formatThaiDate(pending)} เวลา {pending.hour}:{pending.minute} น.</b>
                 <span>{pendingIsPast ? 'เวลานี้ผ่านไปแล้ว กรุณาเลือกเวลาใหม่' : timezoneLabel(timezone)}</span>
               </div>
             </section>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-edge px-4 py-3 max-sm:grid max-sm:grid-cols-2">
+          <div className="flex justify-end gap-2 border-t border-edge px-3.5 py-2.5 max-sm:grid max-sm:grid-cols-2">
             <button type="button" onClick={() => setOpen(false)} className={btn('ghost', 'sm')}>ยกเลิก</button>
             <button type="button" disabled={pendingIsPast} onClick={() => { onChange(pendingValue); setOpen(false) }} className={btn('primary', 'sm')}>ยืนยันกำหนดส่ง</button>
           </div>
