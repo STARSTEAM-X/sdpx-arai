@@ -58,13 +58,42 @@ export function ComparisonRow({
     }, AUTOSAVE_DELAY_MS)
   }
 
+  const leftChoices = COMPARISON_SCALE.filter((option) => option.winner === 'left')
+  const rightChoices = COMPARISON_SCALE.filter((option) => option.winner === 'right')
+
+  function choiceButton(c: (typeof COMPARISON_SCALE)[number]) {
+    const selected = choice === c.id
+
+    return (
+      <button
+        key={c.id}
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        onClick={() => handleSelect(c.id)}
+        disabled={readOnly}
+        className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm font-medium transition-colors ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
+          selected ? 'bg-accent-soft text-accent-ink' : 'text-ink-2 hover:bg-sand'
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+            selected
+              ? 'border-brand-600 bg-white'
+              : 'border-edge-strong bg-white group-hover:border-muted'
+          }`}
+        >
+          {selected && <span className="size-2.5 rounded-full bg-brand-600" />}
+        </span>
+        <span>{c.label}</span>
+      </button>
+    )
+  }
+
   return (
     <li className="rounded-xl border border-edge p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-display font-medium">
-          {item.leftLabel} <span className="font-normal text-muted">เทียบกับ</span>{' '}
-          {item.rightLabel}
-        </p>
+      <div className="flex items-center justify-end">
         {item.completed && (
           <Pill tone="ok" icon={<IconCheck className="size-3" />}>
             ส่งแล้ว
@@ -75,25 +104,29 @@ export function ComparisonRow({
       <div
         role="radiogroup"
         aria-label={`เปรียบเทียบ ${item.leftLabel} กับ ${item.rightLabel}`}
-        className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
+        className={`${item.completed ? 'mt-3' : ''} grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 sm:gap-5`}
       >
-        {COMPARISON_SCALE.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            role="radio"
-            aria-checked={choice === c.id}
-            onClick={() => handleSelect(c.id)}
-            disabled={readOnly}
-            className={`min-h-11 rounded-lg border px-2 text-[12.5px] font-medium transition-colors ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
-              choice === c.id
-                ? 'border-accent-line bg-accent-soft text-accent-ink'
-                : 'border-edge-strong bg-white text-ink-2 hover:bg-sand'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+        <div className="min-w-0">
+          <div className="grid min-h-28 place-items-center rounded-xl border border-accent-line bg-brand-50 px-3 py-5 text-center">
+            <p className="font-display text-base font-semibold text-accent-ink wrap-break-word">
+              {item.leftLabel}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-col gap-1">{leftChoices.map(choiceButton)}</div>
+        </div>
+
+        <span className="mt-12 font-display text-sm font-semibold text-muted" aria-hidden="true">
+          VS
+        </span>
+
+        <div className="min-w-0">
+          <div className="grid min-h-28 place-items-center rounded-xl border border-ok-line bg-ok-50 px-3 py-5 text-center">
+            <p className="font-display text-base font-semibold text-ok-700 wrap-break-word">
+              {item.rightLabel}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-col gap-1">{rightChoices.map(choiceButton)}</div>
+        </div>
       </div>
 
       <p className="mt-2 flex min-h-[18px] items-center gap-1.5 text-[12.5px]" aria-live="polite">
