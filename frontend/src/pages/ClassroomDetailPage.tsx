@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { AssignmentPanel } from '../components/AssignmentPanel'
@@ -9,8 +9,18 @@ import { RosterImportCard } from '../components/RosterImportCard'
 import { RosterTable } from '../components/RosterTable'
 import { SetupStepper, type StepState } from '../components/SetupStepper'
 import { SetupSummary } from '../components/SetupSummary'
-import { Banner, Pill } from '../components/Ui'
-import { IconChevronLeft, LogoMark } from '../components/icons'
+import { Banner, Card, Pill } from '../components/Ui'
+import {
+  IconChevronLeft,
+  IconClipboardCheck,
+  IconInstructor,
+  IconLock,
+  IconRoster,
+  IconShield,
+  IconStudent,
+  IconTa,
+  LogoMark,
+} from '../components/icons'
 import {
   ApiError,
   type RosterEntry,
@@ -24,16 +34,116 @@ import { clearToken, isSignedIn } from '../lib/session'
 // ต้องตรงกับ role matrix ฝั่ง server ใน backend/app/domain/access.py
 // หน้าจอที่ซ่อนปุ่มไม่ใช่การกันสิทธิ์ — server กันอยู่แล้ว — แต่ถ้าสองฝั่งไม่ตรงกัน
 // TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ ซึ่งดูเหมือนระบบพังมากกว่าดูเหมือนกฎ
-const CAN_MANAGE_ROSTER = ['OWNER', 'CO_TEACHER', 'TA']
-const CAN_MANAGE_ASSIGNMENT = ['OWNER', 'CO_TEACHER']
-const CAN_MANAGE_MEMBERS = ['OWNER']
-const INSTRUCTOR_ROLES = ['OWNER', 'CO_TEACHER', 'TA']
+type ClassroomRole = RosterEntry['role']
+
+const CAN_MANAGE_ROSTER: ClassroomRole[] = ['OWNER', 'CO_TEACHER', 'TA']
+const CAN_MANAGE_ASSIGNMENT: ClassroomRole[] = ['OWNER', 'CO_TEACHER']
+const CAN_MANAGE_MEMBERS: ClassroomRole[] = ['OWNER']
+const INSTRUCTOR_ROLES: ClassroomRole[] = ['OWNER', 'CO_TEACHER', 'TA']
+
+const ROLE_COPY: Record<
+  ClassroomRole,
+  { label: string; title: string; description: string; icon: ReactNode }
+> = {
+  OWNER: {
+    label: 'เจ้าของห้อง',
+    title: 'จัดการสมาชิกและงานประเมิน',
+    description: 'ดูภาพรวม ตั้งค่าห้องเรียน และควบคุมการประกาศผลจากที่เดียว',
+    icon: <IconInstructor className="size-5" />,
+  },
+  CO_TEACHER: {
+    label: 'ผู้สอนร่วม',
+    title: 'ดูแลงานประเมิน',
+    description: 'จัดการรายชื่อและงานประเมินร่วมกับเจ้าของห้องเรียน',
+    icon: <IconInstructor className="size-5" />,
+  },
+  TA: {
+    label: 'ผู้ช่วยสอน',
+    title: 'ดูแลรายชื่อนักศึกษา',
+    description: 'นำเข้า ตรวจสอบ และจัดระเบียบรายชื่อสำหรับห้องเรียนนี้',
+    icon: <IconTa className="size-5" />,
+  },
+  STUDENT: {
+    label: 'นักศึกษา',
+    title: 'งานประเมินของฉัน',
+    description: 'ติดตามงานที่ได้รับมอบหมาย ประเมินให้ครบ และดูคะแนนเมื่อประกาศผล',
+    icon: <IconStudent className="size-5" />,
+  },
+}
+
+function isClassroomRole(value: string | undefined): value is ClassroomRole {
+  return value !== undefined && ['OWNER', 'CO_TEACHER', 'TA', 'STUDENT'].includes(value)
+}
+
+function SummaryTile({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: ReactNode
+  label: string
+  value: ReactNode
+  hint: string
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-edge bg-white p-4">
+      <span
+        aria-hidden="true"
+        className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-ink-2"
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted">{label}</p>
+        <p className="mt-0.5 font-display text-lg font-bold leading-tight">{value}</p>
+        <p className="mt-1 text-xs text-muted">{hint}</p>
+      </div>
+    </div>
+  )
+}
+
+function StudentWelcome({ classroomName }: { classroomName: string }) {
+  return (
+    <Card className="overflow-hidden" data-testid="student-dashboard">
+      <div className="relative overflow-hidden bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_48%,#eef9f3_100%)] px-6 py-7 max-sm:px-4">
+        <div aria-hidden="true" className="absolute -right-8 -top-12 size-40 rounded-full bg-accent-soft/70" />
+        <div className="relative max-w-2xl">
+          <Pill tone="brand" icon={<IconStudent className="size-3.5" />}>
+            พื้นที่นักศึกษา
+          </Pill>
+          <h2 className="mt-4 font-display text-2xl font-bold">พร้อมเริ่มประเมินแล้ว</h2>
+          <p className="mt-2 text-sm leading-6 text-ink-2">
+            เลือกงานของ {classroomName} ด้านล่าง ระบบจะบันทึกคำตอบอัตโนมัติและแสดงความคืบหน้าในหน้าประเมิน
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 border-t border-edge bg-white p-5 sm:grid-cols-2 max-sm:p-4">
+        <div className="flex gap-3 rounded-xl bg-sand p-4">
+          <IconClipboardCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent-ink" />
+          <div>
+            <p className="font-display text-sm font-semibold">ประเมินทีละคู่</p>
+            <p className="mt-1 text-xs leading-5 text-muted">ตอบได้ 6 ระดับและกลับมาทำต่อก่อนหมดเวลาได้</p>
+          </div>
+        </div>
+        <div className="flex gap-3 rounded-xl bg-sand p-4">
+          <IconLock aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ok-700" />
+          <div>
+            <p className="font-display text-sm font-semibold">รักษาความเป็นส่วนตัว</p>
+            <p className="mt-1 text-xs leading-5 text-muted">ไม่เปิดเผยว่าใครให้คำตอบ และซ่อนคะแนนรายบุคคลเมื่อข้อมูลยังไม่พอ</p>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
 
 export default function ClassroomDetailPage() {
   const { classroomId = '' } = useParams()
 
   const [items, setItems] = useState<RosterEntry[]>([])
-  const [myRole, setMyRole] = useState<string | null>(null)
+  const [myRole, setMyRole] = useState<ClassroomRole | null>(null)
+  const [classroomName, setClassroomName] = useState('ห้องเรียนนี้')
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState<AssignmentDraft>(DEFAULT_DRAFT)
@@ -44,11 +154,25 @@ export default function ClassroomDetailPage() {
       return
     }
     try {
-      // ยิงคู่กันเพราะ /me เป็นตัวเดียวที่บอกได้ว่า *เรา* มี role อะไรในห้องนี้
-      // การเดา role จากรายชื่อที่ได้มาไม่ได้ เพราะรายชื่อไม่ได้บอกว่าแถวไหนคือเรา
-      const [profile, roster] = await Promise.all([getMe(), getRoster(classroomId)])
-      setItems(roster.items)
-      setMyRole(profile.classrooms.find((c) => c.classroomId === classroomId)?.role ?? null)
+      // อ่าน role ก่อนโหลดข้อมูลส่วนจัดการเสมอ นักศึกษาไม่จำเป็นต้องรับรายชื่อทั้งห้อง
+      // และการไม่ยิง roster ตั้งแต่ต้นช่วยให้ขอบเขตข้อมูลตรงกับหน้าที่ใน PRD ด้วย
+      const profile = await getMe()
+      const membership = profile.classrooms.find((c) => c.classroomId === classroomId)
+      if (!membership || !isClassroomRole(membership.role)) {
+        setError('ไม่พบห้องเรียน หรือคุณไม่มีสิทธิ์เข้าถึงห้องเรียนนี้')
+        setItems([])
+        setMyRole(null)
+        return
+      }
+
+      setMyRole(membership.role)
+      setClassroomName(membership.classroomName)
+      if (CAN_MANAGE_ROSTER.includes(membership.role)) {
+        const roster = await getRoster(classroomId)
+        setItems(roster.items)
+      } else {
+        setItems([])
+      }
       setError(null)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -79,6 +203,7 @@ export default function ClassroomDetailPage() {
   // แต่ตัดสินคะแนนสุดท้ายไม่ได้ เพราะ reopen/override ย้อนกลับไม่ได้เหมือนงานอื่น
   const canFinalizeScores = myRole === 'OWNER'
   const isInstructor = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
+  const roleCopy = myRole ? ROLE_COPY[myRole] : null
 
   /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
   const stepState = (done: boolean, previousDone: boolean): StepState =>
@@ -138,20 +263,30 @@ export default function ClassroomDetailPage() {
       <main
         className={`mx-auto max-w-300 px-6 pt-8 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-16'}`}
       >
-        <div className="mb-8 flex flex-wrap items-start gap-x-6 gap-y-4">
+        <div className="mb-7 flex flex-wrap items-start gap-x-6 gap-y-4">
           <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+              <span>{classroomName}</span>
+              {roleCopy && (
+                <Pill tone={myRole === 'STUDENT' ? 'brand' : 'neutral'} icon={roleCopy.icon}>
+                  {roleCopy.label}
+                </Pill>
+              )}
+            </div>
             <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
-              จัดการสมาชิกและงานประเมิน
+              {roleCopy?.title ?? 'ห้องเรียน'}
             </h1>
             <p className="mt-1.5 max-w-[62ch] text-muted">
-              เพิ่มสมาชิก กำหนดผู้ร่วมสอน และสร้างงานประเมินสำหรับห้องเรียนนี้
+              {roleCopy?.description ?? 'กำลังโหลดข้อมูลห้องเรียน'}
             </p>
           </div>
 
-          <span className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-edge bg-white px-4 font-display text-sm font-semibold shadow-[0_1px_2px_rgba(23,32,51,0.05)]">
-            <span aria-hidden="true" className="size-2 rounded-full bg-brand-600" />
-            สมาชิก <span className="font-mono tabular">{items.length}</span> คน
-          </span>
+          {isInstructor && (
+            <span className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-edge bg-white px-4 font-display text-sm font-semibold shadow-[0_1px_2px_rgba(23,32,51,0.05)]">
+              <span aria-hidden="true" className="size-2 rounded-full bg-brand-600" />
+              สมาชิก <span className="font-mono tabular">{items.length}</span> คน
+            </span>
+          )}
         </div>
 
         {error && (
@@ -160,10 +295,53 @@ export default function ClassroomDetailPage() {
           </Banner>
         )}
 
-        {isInstructor && <SetupStepper steps={steps} />}
+        {myRole === 'OWNER' && <SetupStepper steps={steps} />}
+
+        {isInstructor && (
+          <section aria-label="ภาพรวมห้องเรียน" className="mb-6 grid gap-3 sm:grid-cols-3">
+            <SummaryTile
+              icon={<IconStudent className="size-5" />}
+              label="นักศึกษา"
+              value={<span className="font-mono tabular">{students.length} คน</span>}
+              hint={students.length > 0 ? 'พร้อมจัดกลุ่มและมอบหมายงาน' : 'รอนำเข้ารายชื่อ'}
+            />
+            <SummaryTile
+              icon={<IconRoster className="size-5" />}
+              label="กลุ่ม"
+              value={<span className="font-mono tabular">{groupCount} กลุ่ม</span>}
+              hint="คำนวณจากรายชื่อล่าสุด"
+            />
+            <SummaryTile
+              icon={<IconInstructor className="size-5" />}
+              label="ทีมผู้สอน"
+              value={<span className="font-mono tabular">{instructors.length} คน</span>}
+              hint={myRole === 'TA' ? 'คุณดูแลรายชื่อในห้องนี้' : 'เจ้าของห้อง ผู้สอนร่วม และ TA'}
+            />
+          </section>
+        )}
+
+        {myRole === 'CO_TEACHER' && (
+          <Banner tone="warn" className="mb-6" data-testid="co-teacher-scope">
+            คุณจัดการรายชื่อและงานประเมินได้ ส่วนการประกาศผลคะแนนขั้นสุดท้ายเป็นหน้าที่ของเจ้าของห้อง
+          </Banner>
+        )}
+
+        {myRole === 'TA' && (
+          <Banner tone="ok" className="mb-6" data-testid="ta-scope">
+            หน้านี้แสดงเฉพาะเครื่องมือดูแลรายชื่อ งานประเมินและคะแนนจะไม่แสดงในสิทธิ์ผู้ช่วยสอน
+          </Banner>
+        )}
+
+        {myRole === 'STUDENT' && (
+          <div className="mb-6">
+            <StudentWelcome classroomName={classroomName} />
+          </div>
+        )}
 
         <div className="grid items-start gap-6 lg:grid-cols-12">
-          <div className="flex min-w-0 flex-col gap-6 lg:col-span-8">
+          <div
+            className={`flex min-w-0 flex-col gap-6 ${canManageAssignment ? 'lg:col-span-8' : 'lg:col-span-12'}`}
+          >
             {canImport && (
               <RosterImportCard
                 classroomId={classroomId}
@@ -172,16 +350,19 @@ export default function ClassroomDetailPage() {
               />
             )}
 
-            <RosterTable
-              items={items}
-              loaded={loaded}
-              canManageMembers={canManageMembers}
-              onRemove={handleRemove}
-            />
+            {isInstructor && (
+              <RosterTable
+                items={items}
+                loaded={loaded}
+                canManageMembers={canManageMembers}
+                onRemove={handleRemove}
+              />
+            )}
 
-            {/* ทุก role ที่เป็นสมาชิกเห็นได้ — นักศึกษาคือผู้ใช้หลักของการ์ดนี้ (US-07)
-                การ์ดซ่อนตัวเองถ้าห้องนี้ยังไม่มีงานประเมินที่เผยแพร่แล้วเลย */}
-            {myRole !== null && <AssignmentsToEvaluateCard classroomId={classroomId} />}
+            {/* TA ดูแล roster เท่านั้น ส่วน role ที่มีหน้าที่ประเมินจะเห็นจุดเข้างานของตน */}
+            {myRole !== null && myRole !== 'TA' && (
+              <AssignmentsToEvaluateCard classroomId={classroomId} />
+            )}
 
             {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
             {canManageMembers && (
@@ -218,10 +399,10 @@ export default function ClassroomDetailPage() {
           )}
         </div>
 
-        {!isInstructor && loaded && items.length > 0 && (
-          <p className="mt-6 flex items-center gap-2 text-sm text-muted">
-            <Pill>นักศึกษา</Pill>
-            คุณดูรายชื่อได้อย่างเดียว การจัดการรายชื่อและงานประเมินเป็นสิทธิ์ของผู้สอน
+        {myRole === 'STUDENT' && loaded && (
+          <p className="mt-6 flex items-center justify-center gap-2 text-center text-sm text-muted">
+            <IconShield aria-hidden="true" className="size-4" />
+            คุณจะเห็นเฉพาะงานและคะแนนของตัวเอง ไม่เห็นรายชื่อหรือคำตอบของผู้อื่น
           </p>
         )}
       </main>
