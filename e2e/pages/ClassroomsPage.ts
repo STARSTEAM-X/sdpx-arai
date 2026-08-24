@@ -22,7 +22,7 @@ export class ClassroomsPage {
     // เรียงตามลำดับที่แนะนำ: getByRole → getByLabel → getByTestId
     this.heading = page.getByRole('heading', { level: 1, name: 'ห้องเรียนของฉัน' })
     this.nameInput = page.getByLabel('ชื่อห้องเรียน')
-    this.timezoneSelect = page.getByLabel('เขตเวลา')
+    this.timezoneSelect = page.getByRole('button', { name: /^เขตเวลา/ })
     this.submitButton = page.getByRole('button', { name: 'สร้างห้องเรียน' })
     // role="alert" ทำให้ screen reader อ่านข้อความผิดพลาดให้เอง — ได้ a11y ติดมาด้วย
     this.errorMessage = page.getByRole('alert')
@@ -38,7 +38,8 @@ export class ClassroomsPage {
   /** กรอกฟอร์มแล้วกดสร้าง — ครอบทั้งชุดเพราะ test แทบทุกตัวทำสามขั้นนี้ติดกัน */
   async createClassroom(name: string, timezone = 'Asia/Bangkok'): Promise<void> {
     await this.nameInput.fill(name)
-    await this.timezoneSelect.selectOption(timezone)
+    await this.timezoneSelect.click()
+    await this.page.getByRole('option', { name: timezone }).click()
     await this.submitButton.click()
   }
 

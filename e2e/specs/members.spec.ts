@@ -413,7 +413,8 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
     await expect(panel).toBeVisible()
 
     await signedInPage.getByLabel('อีเมล').fill('ta.ui@kmitl.ac.th')
-    await signedInPage.getByLabel('บทบาท').selectOption('TA')
+    await signedInPage.getByRole('button', { name: 'บทบาท', exact: true }).click()
+    await signedInPage.getByRole('option', { name: /^ผู้ช่วยสอน/ }).click()
     await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
 
     await expect(signedInPage.getByTestId('member-notice')).toContainText('ta.ui@kmitl.ac.th')
@@ -460,7 +461,8 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
     await signedInPage.goto(`/classrooms/${classroomId}`)
 
     await signedInPage.getByLabel('อีเมล').fill('somchai@uni.ac.th')
-    await signedInPage.getByLabel('บทบาท').selectOption('TA')
+    await signedInPage.getByRole('button', { name: 'บทบาท', exact: true }).click()
+    await signedInPage.getByRole('option', { name: /^ผู้ช่วยสอน/ }).click()
     await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
 
     await expect(signedInPage.getByTestId('member-error')).toContainText('STUDENT')

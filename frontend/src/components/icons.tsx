@@ -262,6 +262,15 @@ export function IconSearch({ className }: IconProps) {
   )
 }
 
+export function IconSortAZ({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M4 6h7M4 12h5M4 18h3" />
+      <path d="M15 5h5l-5 6h5M15 15h5l-5 4h5" />
+    </svg>
+  )
+}
+
 export function IconClose({ className }: IconProps) {
   return (
     <svg className={className} {...base}>

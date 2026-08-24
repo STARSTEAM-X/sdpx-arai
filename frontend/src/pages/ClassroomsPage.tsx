@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { Avatar, Banner, CTRL, Card, Pill, btn } from '../components/Ui'
 import {
@@ -9,8 +10,10 @@ import {
   IconClock,
   IconDots,
   IconGlobe,
+  IconHistory,
   IconLogOut,
   IconSearch,
+  IconSortAZ,
   IconUsers,
   LogoMark,
 } from '../components/icons'
@@ -24,9 +27,46 @@ import {
 } from '../lib/api'
 import { clearToken, isSignedIn } from '../lib/session'
 
-const TIMEZONES = ['Asia/Bangkok', 'Asia/Tokyo', 'UTC']
+const TIMEZONES = ['Asia/Bangkok', 'Asia/Tokyo', 'UTC'] as const
+type Timezone = (typeof TIMEZONES)[number]
 
 type SortOrder = 'recent' | 'name'
+
+const SORT_OPTIONS: DropdownOption<SortOrder>[] = [
+  {
+    value: 'recent',
+    label: 'อัปเดตล่าสุด',
+    description: 'ห้องที่มีความเคลื่อนไหวล่าสุดอยู่ก่อน',
+    icon: <IconHistory className="size-4" />,
+  },
+  {
+    value: 'name',
+    label: 'ชื่อ ก-ฮ',
+    description: 'เรียงชื่อตามลำดับตัวอักษร',
+    icon: <IconSortAZ className="size-4" />,
+  },
+]
+
+const TIMEZONE_OPTIONS: DropdownOption<Timezone>[] = [
+  {
+    value: 'Asia/Bangkok',
+    label: 'Asia/Bangkok',
+    description: 'เวลาไทย · UTC+7',
+    icon: <IconGlobe className="size-4" />,
+  },
+  {
+    value: 'Asia/Tokyo',
+    label: 'Asia/Tokyo',
+    description: 'เวลาญี่ปุ่น · UTC+9',
+    icon: <IconGlobe className="size-4" />,
+  },
+  {
+    value: 'UTC',
+    label: 'UTC',
+    description: 'เวลามาตรฐานสากล · UTC+0',
+    icon: <IconGlobe className="size-4" />,
+  },
+]
 
 /** สถานะห้องเรียนตาม PRD §11 (`ACTIVE|ARCHIVED`) — คนละชุดกับสถานะสมาชิกใน Ui.tsx */
 function ClassroomStatusPill({ status }: { status: string }) {
@@ -39,7 +79,7 @@ export default function ClassroomsPage() {
   const [me, setMe] = useState<Me | null>(null)
   const [items, setItems] = useState<Classroom[]>([])
   const [name, setName] = useState('')
-  const [timezone, setTimezone] = useState(TIMEZONES[0])
+  const [timezone, setTimezone] = useState<Timezone>(TIMEZONES[0])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -202,23 +242,13 @@ export default function ClassroomsPage() {
                     className={`${CTRL} pl-10`}
                   />
                 </div>
-                {/* ห่อด้วย div ที่กำหนดความกว้างแทนการต่อ "w-auto" ท้าย CTRL
-                    เพราะ CTRL มี w-full ฝังอยู่แล้ว — ลำดับ class ของ Tailwind ตัดสินกันที่
-                    stylesheet ไม่ใช่ตัวที่เขียนทีหลัง จึง "w-auto" แพ้ไม่แน่นอน (ดู btn() ใน Ui.tsx) */}
-                <div className="relative shrink-0 sm:w-48">
-                  {/* appearance-none ปิดลูกศรเดิมของ browser เพราะตำแหน่งมันชิดขอบเกินไป
-                      ไม่ตรงกับ padding ที่เหลือ component ในหน้านี้ใช้ — วาดเองแทนให้ระยะเท่ากันทุกช่อง */}
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortOrder)}
-                    aria-label="เรียงลำดับ"
-                    className={`${CTRL} appearance-none pr-10`}
-                  >
-                    <option value="recent">อัปเดตล่าสุด</option>
-                    <option value="name">ชื่อ ก-ฮ</option>
-                  </select>
-                  <IconChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted" />
-                </div>
+                <Dropdown
+                  value={sort}
+                  options={SORT_OPTIONS}
+                  onChange={setSort}
+                  ariaLabel="เรียงลำดับ"
+                  className="shrink-0 sm:w-52"
+                />
               </div>
 
               <div className="mt-5">
@@ -295,28 +325,19 @@ export default function ClassroomsPage() {
 
                   <div>
                     <label
-                      htmlFor="classroom-timezone"
+                      id="classroom-timezone-label"
                       className="mb-1.5 block text-sm font-medium"
                     >
                       เขตเวลา <span className="text-err">*</span>
                     </label>
-                    <div className="relative">
-                      <IconGlobe className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" />
-                      <select
-                        id="classroom-timezone"
-                        name="timezone"
-                        value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
-                        className={`${CTRL} appearance-none pl-10 pr-10`}
-                      >
-                        {TIMEZONES.map((tz) => (
-                          <option key={tz} value={tz}>
-                            {tz}
-                          </option>
-                        ))}
-                      </select>
-                      <IconChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted" />
-                    </div>
+                    <Dropdown
+                      id="classroom-timezone"
+                      name="timezone"
+                      value={timezone}
+                      options={TIMEZONE_OPTIONS}
+                      onChange={setTimezone}
+                      ariaLabelledby="classroom-timezone-label"
+                    />
                     <p className="mt-1.5 text-[12.5px] text-muted">
                       ใช้สำหรับกำหนดวันและเวลาส่งงาน
                     </p>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { Dropdown, type DropdownOption } from './Dropdown'
 import {
   Avatar,
   Banner,
@@ -12,7 +13,7 @@ import {
   StatusPill,
   btn,
 } from './Ui'
-import { IconTeach } from './icons'
+import { IconInstructor, IconTa, IconTeach } from './icons'
 import {
   ApiError,
   type InstructorRole,
@@ -29,6 +30,18 @@ const ROLE_OPTIONS: { value: InstructorRole; label: string; hint: string }[] = [
   },
   { value: 'TA', label: 'ผู้ช่วยสอน', hint: 'ดูแลรายชื่อได้อย่างเดียว สร้างงานประเมินไม่ได้' },
 ]
+
+const ROLE_DROPDOWN_OPTIONS: DropdownOption<InstructorRole>[] = ROLE_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
+  description: option.hint,
+  icon:
+    option.value === 'CO_TEACHER' ? (
+      <IconInstructor className="size-4" />
+    ) : (
+      <IconTa className="size-4" />
+    ),
+}))
 
 /** ตรวจแค่ว่า "มีชื่อ @ โดเมน.สกุล" — ไม่พยายามทำ RFC 5322 ให้ครบ
  *  เพราะ regex ที่ครบจริงยาวเป็นบรรทัดและยังตัดสินไม่ได้อยู่ดีว่ากล่องนั้นมีอยู่จริงไหม
@@ -142,21 +155,16 @@ export function MemberPanel({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="member-role" className="font-display text-sm font-semibold">
+            <label id="member-role-label" className="font-display text-sm font-semibold">
               บทบาท
             </label>
-            <select
+            <Dropdown
               id="member-role"
               value={role}
-              onChange={(e) => setRole(e.target.value as InstructorRole)}
-              className={CTRL}
-            >
-              {ROLE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              options={ROLE_DROPDOWN_OPTIONS}
+              onChange={setRole}
+              ariaLabelledby="member-role-label"
+            />
             <p className="text-[12.5px] text-muted">
               {ROLE_OPTIONS.find((o) => o.value === role)?.hint}
             </p>
