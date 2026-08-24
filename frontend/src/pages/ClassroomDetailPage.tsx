@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
+import { AppNav } from '../components/AppNav'
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { AssignmentScoringCard } from '../components/AssignmentScoringCard'
 import { AssignmentsToEvaluateCard } from '../components/AssignmentsToEvaluateCard'
@@ -11,7 +12,6 @@ import { SetupStepper, type StepState } from '../components/SetupStepper'
 import { SetupSummary } from '../components/SetupSummary'
 import { Banner, Card, Pill } from '../components/Ui'
 import {
-  IconChevronLeft,
   IconClipboardCheck,
   IconInstructor,
   IconLock,
@@ -19,7 +19,6 @@ import {
   IconShield,
   IconStudent,
   IconTa,
-  LogoMark,
 } from '../components/icons'
 import {
   ApiError,
@@ -236,29 +235,7 @@ export default function ClassroomDetailPage() {
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
-      <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
-        <nav
-          data-testid="main-nav"
-          aria-label="เมนูหลัก"
-          className="mx-auto flex h-16 max-w-300 items-center gap-4 px-6 max-sm:px-4"
-        >
-          <Link
-            to="/"
-            className="flex min-h-11 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
-          >
-            <LogoMark className="size-8" />
-            PairEval
-          </Link>
-
-          <Link
-            to="/classrooms"
-            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-sand hover:text-ink"
-          >
-            <IconChevronLeft className="size-4" />
-            ห้องเรียนทั้งหมด
-          </Link>
-        </nav>
-      </header>
+      <AppNav context={classroomName} classroomId={classroomId} />
 
       <main
         className={`mx-auto max-w-300 px-6 pt-8 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-16'}`}
@@ -295,10 +272,50 @@ export default function ClassroomDetailPage() {
           </Banner>
         )}
 
+        {myRole && (
+          <nav
+            aria-label="ส่วนต่าง ๆ ในห้องเรียน"
+            className="sticky top-16 z-30 mb-6 flex gap-1 overflow-x-auto border-b border-edge bg-ground/95 pt-1 backdrop-blur"
+          >
+            {isInstructor && (
+              <a
+                href="#overview"
+                className="min-h-11 shrink-0 border-b-2 border-brand-600 px-4 py-3 text-sm font-semibold text-accent-ink"
+              >
+                ภาพรวม
+              </a>
+            )}
+            {canImport && (
+              <a
+                href="#members"
+                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+              >
+                สมาชิก
+              </a>
+            )}
+            {myRole !== 'TA' && (
+              <a
+                href="#assignments"
+                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+              >
+                งานประเมิน
+              </a>
+            )}
+            {canFinalizeScores && (
+              <a
+                href="#scores"
+                className="min-h-11 shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-ink-2 transition-colors hover:border-edge-strong hover:text-ink"
+              >
+                คะแนน
+              </a>
+            )}
+          </nav>
+        )}
+
         {myRole === 'OWNER' && <SetupStepper steps={steps} />}
 
         {isInstructor && (
-          <section aria-label="ภาพรวมห้องเรียน" className="mb-6 grid gap-3 sm:grid-cols-3">
+          <section id="overview" aria-label="ภาพรวมห้องเรียน" className="mb-6 grid scroll-mt-32 gap-3 sm:grid-cols-3">
             <SummaryTile
               icon={<IconStudent className="size-5" />}
               label="นักศึกษา"
@@ -343,48 +360,54 @@ export default function ClassroomDetailPage() {
             className={`flex min-w-0 flex-col gap-6 ${canManageAssignment ? 'lg:col-span-8' : 'lg:col-span-12'}`}
           >
             {canImport && (
-              <RosterImportCard
-                classroomId={classroomId}
-                onImported={refresh}
-                onError={setError}
-              />
-            )}
+              <section id="members" className="flex scroll-mt-32 flex-col gap-6">
+                <RosterImportCard
+                  classroomId={classroomId}
+                  onImported={refresh}
+                  onError={setError}
+                />
 
-            {isInstructor && (
-              <RosterTable
-                items={items}
-                loaded={loaded}
-                canManageMembers={canManageMembers}
-                onRemove={handleRemove}
-              />
+                <RosterTable
+                  items={items}
+                  loaded={loaded}
+                  canManageMembers={canManageMembers}
+                  onRemove={handleRemove}
+                />
+
+                {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
+                {canManageMembers && (
+                  <MemberPanel
+                    classroomId={classroomId}
+                    instructors={instructors}
+                    onChanged={refresh}
+                  />
+                )}
+              </section>
             )}
 
             {/* TA ดูแล roster เท่านั้น ส่วน role ที่มีหน้าที่ประเมินจะเห็นจุดเข้างานของตน */}
             {myRole !== null && myRole !== 'TA' && (
-              <AssignmentsToEvaluateCard classroomId={classroomId} />
-            )}
+              <section id="assignments" className="flex scroll-mt-32 flex-col gap-6">
+                <AssignmentsToEvaluateCard classroomId={classroomId} />
 
-            {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
-            {canManageMembers && (
-              <MemberPanel
-                classroomId={classroomId}
-                instructors={instructors}
-                onChanged={refresh}
-              />
-            )}
-
-            {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
-            {canManageAssignment && (
-              <AssignmentPanel
-                classroomId={classroomId}
-                draft={draft}
-                onDraftChange={setDraft}
-                studentCount={students.length}
-              />
+                {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
+                {canManageAssignment && (
+                  <AssignmentPanel
+                    classroomId={classroomId}
+                    draft={draft}
+                    onDraftChange={setDraft}
+                    studentCount={students.length}
+                  />
+                )}
+              </section>
             )}
 
             {/* ตัดสินและประกาศคะแนน — เฉพาะเจ้าของห้อง (US-13) */}
-            {canFinalizeScores && <AssignmentScoringCard classroomId={classroomId} />}
+            {canFinalizeScores && (
+              <section id="scores" className="scroll-mt-32">
+                <AssignmentScoringCard classroomId={classroomId} />
+              </section>
+            )}
           </div>
 
           {canManageAssignment && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { AppNav } from '../components/AppNav'
 import { ComparisonRow } from '../components/ComparisonRow'
 import { Banner, Card, CardHead, FOCUS, btn } from '../components/Ui'
 import {
@@ -9,7 +10,6 @@ import {
   IconCircleDashed,
   IconClock,
   IconLock,
-  LogoMark,
 } from '../components/icons'
 import {
   ApiError,
@@ -128,37 +128,30 @@ export default function EvaluatePage() {
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
-      <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
-        <nav
-          data-testid="main-nav"
-          aria-label="เมนูหลัก"
-          className="mx-auto flex h-16 max-w-300 items-center gap-4 px-6 max-sm:px-4"
-        >
-          <Link
-            to="/"
-            className="flex min-h-11 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
-          >
-            <LogoMark className="size-8" />
-            PairEval
-          </Link>
-
-          <Link
-            to={`/classrooms/${classroomId}`}
-            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-sand hover:text-ink"
-          >
-            <IconChevronLeft className="size-4" />
-            กลับไปห้องเรียน
-          </Link>
-        </nav>
-      </header>
+      <AppNav
+        context="งานที่ต้องประเมิน"
+        contextTo={`/classrooms/${classroomId}`}
+        classroomId={classroomId}
+      />
 
       <main className="mx-auto max-w-300 px-6 pt-8 pb-16 max-sm:px-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
-          งานที่ต้องประเมิน
-        </h1>
-        <p className="mt-1.5 max-w-[62ch] text-muted">
-          เปรียบเทียบผลงานทีละคู่ — ทุกคำตอบบันทึกอัตโนมัติ
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
+              งานที่ต้องประเมิน
+            </h1>
+            <p className="mt-1.5 max-w-[62ch] text-muted">
+              เปรียบเทียบผลงานทีละคู่ — ทุกคำตอบบันทึกอัตโนมัติ
+            </p>
+          </div>
+          <Link
+            to={`/classrooms/${classroomId}`}
+            className={`${btn('ghost', 'sm')} shrink-0`}
+          >
+            <IconChevronLeft className="size-4" />
+            กลับหน้าห้องเรียน
+          </Link>
+        </div>
 
         {error && (
           <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">
@@ -169,7 +162,7 @@ export default function EvaluatePage() {
         <div
           role="tablist"
           aria-label="เลือกฝั่งที่ต้องการประเมิน"
-          className="mt-6 inline-flex rounded-xl border border-edge bg-white p-1"
+          className="mt-6 grid max-w-xl grid-cols-2 gap-1 rounded-xl border border-edge bg-white p-1"
         >
           {(['GROUP', 'INDIVIDUAL'] as const).map((s) => (
             <button
@@ -178,11 +171,16 @@ export default function EvaluatePage() {
               role="tab"
               aria-selected={side === s}
               onClick={() => setSide(s)}
-              className={`min-h-9 rounded-lg px-4 text-sm font-semibold transition-colors ${FOCUS} ${
+              className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-colors ${FOCUS} ${
                 side === s ? 'bg-accent-soft text-accent-ink' : 'text-ink-2 hover:bg-sand'
               }`}
             >
               {SIDE_LABEL[s]}
+              {data[s] && (
+                <span className="ml-2 font-mono text-xs tabular opacity-75">
+                  {data[s]?.completedCount}/{data[s]?.totalCount}
+                </span>
+              )}
             </button>
           ))}
         </div>

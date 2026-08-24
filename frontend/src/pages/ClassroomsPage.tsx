@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { AppNav } from '../components/AppNav'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { Avatar, Banner, CTRL, Card, Pill, btn } from '../components/Ui'
 import {
   IconBulb,
-  IconChevronDown,
   IconClock,
-  IconDots,
   IconGlobe,
   IconHistory,
-  IconLogOut,
   IconSearch,
   IconSortAZ,
   IconUsers,
-  LogoMark,
 } from '../components/icons'
 import {
   ApiError,
@@ -85,6 +82,7 @@ export default function ClassroomsPage() {
   const [loaded, setLoaded] = useState(false)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortOrder>('recent')
+  const [showCreate, setShowCreate] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!signedIn) {
@@ -116,13 +114,6 @@ export default function ClassroomsPage() {
   function handleSignedIn() {
     setSignedIn(true)
     setError(null)
-  }
-
-  function handleSignOut() {
-    clearToken()
-    setSignedIn(false)
-    setMe(null)
-    setItems([])
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -159,43 +150,10 @@ export default function ClassroomsPage() {
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
-      <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
-        <nav
-          data-testid="main-nav"
-          aria-label="เมนูหลัก"
-          className="mx-auto flex h-16 max-w-300 items-center gap-4 px-6 max-sm:px-4"
-        >
-          <Link
-            to="/"
-            className="flex min-h-11 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
-          >
-            <LogoMark className="size-8" />
-            PairEval
-          </Link>
-
-          {signedIn && (
-            <div className="ml-auto flex items-center gap-2">
-              <span
-                data-testid="current-user"
-                className="flex min-h-11 items-center gap-2 rounded-lg px-2"
-              >
-                <Avatar name={me?.displayName ?? me?.email ?? '?'} />
-                <span className="text-sm font-medium max-sm:hidden">
-                  {me?.displayName ?? me?.email ?? 'กำลังโหลด…'}
-                </span>
-                <IconChevronDown className="size-4 text-muted" />
-              </span>
-              <button type="button" onClick={handleSignOut} className={btn('ghost', 'sm')}>
-                <IconLogOut className="size-4" />
-                ออกจากระบบ
-              </button>
-            </div>
-          )}
-        </nav>
-      </header>
+      <AppNav context="ห้องเรียนของฉัน" profile={me} />
 
       <main className="mx-auto max-w-300 px-6 pt-8 pb-16 max-sm:px-4">
-        <div className="mb-8 flex flex-wrap items-start gap-x-6 gap-y-4">
+        <div className="mb-7 flex flex-wrap items-start gap-x-6 gap-y-4">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
               ห้องเรียนของฉัน
@@ -205,10 +163,21 @@ export default function ClassroomsPage() {
             </p>
           </div>
 
-          <span className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-accent-line bg-accent-soft px-4 font-display text-sm font-semibold text-accent-ink">
-            <IconUsers className="size-4" />
-            <span className="font-mono tabular">{items.length}</span> ห้องเรียน
-          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-accent-line bg-accent-soft px-4 font-display text-sm font-semibold text-accent-ink">
+              <IconUsers className="size-4" />
+              <span className="font-mono tabular">{items.length}</span> ห้องเรียน
+            </span>
+            {signedIn && (
+              <button
+                type="button"
+                onClick={() => setShowCreate((value) => !value)}
+                className={btn(showCreate ? 'ghost' : 'primary', 'md')}
+              >
+                {showCreate ? 'ซ่อนแบบฟอร์ม' : 'เพิ่มห้องเรียน'}
+              </button>
+            )}
+          </div>
         </div>
 
         {!signedIn && (
@@ -225,8 +194,68 @@ export default function ClassroomsPage() {
           </div>
         )}
 
-        <div className="grid items-start gap-6 lg:grid-cols-12">
-          <Card className="min-w-0 lg:col-span-8">
+        {(showCreate || !signedIn) && (
+          <Card className="mb-5">
+            <form onSubmit={handleSubmit} className="p-5 max-sm:p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-semibold">สร้างห้องเรียนใหม่</h2>
+                  <p className="mt-1 text-[13.5px] text-muted">
+                    ตั้งชื่อและเขตเวลาให้เรียบร้อย แล้วจึงเพิ่มสมาชิกในหน้าห้องเรียน
+                  </p>
+                </div>
+                <p className="flex items-center gap-2 text-xs text-accent-ink">
+                  <IconBulb className="size-4" /> เพิ่มสมาชิกภายหลังได้
+                </p>
+              </div>
+
+              <div className="mt-4 grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_14rem_auto]">
+                <div>
+                  <label htmlFor="classroom-name" className="mb-1.5 block text-sm font-medium">
+                    ชื่อห้องเรียน <span className="text-err">*</span>
+                  </label>
+                  <input
+                    id="classroom-name"
+                    name="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="เช่น Software Engineering 2026"
+                    className={CTRL}
+                  />
+                </div>
+                <div>
+                  <label id="classroom-timezone-label" className="mb-1.5 block text-sm font-medium">
+                    เขตเวลา <span className="text-err">*</span>
+                  </label>
+                  <Dropdown
+                    id="classroom-timezone"
+                    name="timezone"
+                    value={timezone}
+                    options={TIMEZONE_OPTIONS}
+                    onChange={setTimezone}
+                    ariaLabelledby="classroom-timezone-label"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting || !signedIn}
+                  className={btn('primary', 'md', 'md:mb-px')}
+                >
+                  {submitting ? 'กำลังสร้าง…' : 'สร้างห้องเรียน'}
+                </button>
+              </div>
+
+              {error && (
+                <Banner tone="err" data-testid="error-msg" role="alert" className="mt-4">
+                  {error}
+                </Banner>
+              )}
+            </form>
+          </Card>
+        )}
+
+        <div>
+          <Card className="min-w-0">
             <div className="p-6 max-sm:p-4">
               <h2 className="font-display text-lg font-semibold">รายการห้องเรียน</h2>
 
@@ -259,37 +288,33 @@ export default function ClassroomsPage() {
                 ) : visibleItems.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted">ไม่พบห้องเรียนที่ค้นหา</p>
                 ) : (
-                  <ul data-testid="classroom-list" className="flex flex-col gap-3">
+                  <ul data-testid="classroom-list" className="grid gap-3 md:grid-cols-2">
                     {visibleItems.map((c) => (
                       <li key={c.id}>
-                        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-edge bg-white p-4 transition-colors hover:border-edge-strong">
-                          <Avatar name={c.name} />
-
-                          <div className="min-w-0">
-                            <p className="truncate font-display font-semibold">{c.name}</p>
-                            <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
-                              <span>{c.slug}</span>
-                              <span className="inline-flex items-center gap-1">
-                                <IconClock className="size-3.5" />
-                                {c.timezone}
-                              </span>
-                            </p>
+                        <div className="flex h-full flex-col rounded-xl border border-edge bg-white p-4 transition-colors hover:border-edge-strong hover:shadow-[0_4px_16px_rgba(23,32,51,0.06)]">
+                          <div className="flex items-start gap-3">
+                            <Avatar name={c.name} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-display font-semibold">{c.name}</p>
+                              <p className="mt-0.5 truncate text-[13px] text-muted">{c.slug}</p>
+                            </div>
+                            <ClassroomStatusPill status={c.status} />
                           </div>
 
-                          <div className="ml-auto flex shrink-0 items-center gap-2">
-                            <ClassroomStatusPill status={c.status} />
+                          <div className="mt-4 flex items-center gap-1.5 text-[13px] text-muted">
+                            <IconClock className="size-3.5" />
+                            เขตเวลา {c.timezone}
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-between gap-3 border-t border-edge pt-3">
+                            <span className="text-xs text-muted">
+                              {me?.classrooms.find((item) => item.classroomId === c.id)?.role === 'STUDENT'
+                                ? 'นักศึกษา'
+                                : 'ทีมผู้สอน'}
+                            </span>
                             <Link to={`/classrooms/${c.id}`} className={btn('primary', 'sm')}>
-                              จัดการรายชื่อ
+                              เปิดห้องเรียน
                             </Link>
-                            <button
-                              type="button"
-                              disabled
-                              title="ยังไม่เปิดใช้งานเมนูนี้"
-                              aria-label={`ตัวเลือกเพิ่มเติมของห้องเรียน ${c.name} (ยังไม่เปิดใช้งาน)`}
-                              className="grid size-9 shrink-0 place-items-center rounded-lg text-muted disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <IconDots className="size-4" />
-                            </button>
                           </div>
                         </div>
                       </li>
@@ -299,74 +324,6 @@ export default function ClassroomsPage() {
               </div>
             </div>
           </Card>
-
-          <div className="flex flex-col gap-4 lg:col-span-4">
-            <Card>
-              <form onSubmit={handleSubmit} className="p-6 max-sm:p-4">
-                <h2 className="font-display text-lg font-semibold">สร้างห้องเรียนใหม่</h2>
-                <p className="mt-1 text-[13.5px] text-muted">
-                  ตั้งชื่อห้องเรียนและเลือกเขตเวลาที่ใช้กำหนดวันส่งงาน
-                </p>
-
-                <div className="mt-5 flex flex-col gap-4">
-                  <div>
-                    <label htmlFor="classroom-name" className="mb-1.5 block text-sm font-medium">
-                      ชื่อห้องเรียน <span className="text-err">*</span>
-                    </label>
-                    <input
-                      id="classroom-name"
-                      name="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="เช่น Software Engineering 2026"
-                      className={CTRL}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      id="classroom-timezone-label"
-                      className="mb-1.5 block text-sm font-medium"
-                    >
-                      เขตเวลา <span className="text-err">*</span>
-                    </label>
-                    <Dropdown
-                      id="classroom-timezone"
-                      name="timezone"
-                      value={timezone}
-                      options={TIMEZONE_OPTIONS}
-                      onChange={setTimezone}
-                      ariaLabelledby="classroom-timezone-label"
-                    />
-                    <p className="mt-1.5 text-[12.5px] text-muted">
-                      ใช้สำหรับกำหนดวันและเวลาส่งงาน
-                    </p>
-                  </div>
-                </div>
-
-                {error && (
-                  <Banner tone="err" data-testid="error-msg" role="alert" className="mt-4">
-                    {error}
-                  </Banner>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting || !signedIn}
-                  className={btn('primary', 'md', 'mt-5 w-full')}
-                >
-                  {submitting ? 'กำลังสร้าง…' : 'สร้างห้องเรียน'}
-                </button>
-              </form>
-            </Card>
-
-            <div className="flex items-start gap-3 rounded-2xl border border-accent-line bg-accent-soft p-4">
-              <IconBulb className="mt-0.5 size-4.5 shrink-0 text-accent-ink" />
-              <p className="text-[12.5px] leading-relaxed text-accent-ink">
-                คุณสามารถเพิ่มสมาชิกหลังสร้างห้องเรียนได้
-              </p>
-            </div>
-          </div>
         </div>
       </main>
     </div>

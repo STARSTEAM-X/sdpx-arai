@@ -1,17 +1,16 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
+import { AppNav } from '../components/AppNav'
 import { Banner, Card, CardHead, Pill } from '../components/Ui'
 import {
   IconArrowRight,
   IconCheckCircle,
-  IconChevronLeft,
   IconLock,
   IconShield,
   IconStudent,
   IconTransparentScore,
   IconUsers,
-  LogoMark,
 } from '../components/icons'
 import { ApiError, type MyScore, getMyScore } from '../lib/api'
 
@@ -81,28 +80,11 @@ export default function ScorePage() {
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
-      <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
-        <nav
-          aria-label="เมนูหลัก"
-          className="mx-auto flex h-16 max-w-300 items-center gap-4 px-6 max-sm:px-4"
-        >
-          <Link
-            to="/"
-            className="flex min-h-11 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
-          >
-            <LogoMark className="size-8" />
-            PairEval
-          </Link>
-
-          <Link
-            to={`/classrooms/${classroomId}`}
-            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-sand hover:text-ink"
-          >
-            <IconChevronLeft className="size-4" />
-            กลับไปห้องเรียน
-          </Link>
-        </nav>
-      </header>
+      <AppNav
+        context="คะแนนของฉัน"
+        contextTo={`/classrooms/${classroomId}`}
+        classroomId={classroomId}
+      />
 
       <main className="mx-auto max-w-240 px-6 pt-8 pb-16 max-sm:px-4">
         <div className="text-center">

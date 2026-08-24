@@ -16,15 +16,15 @@ export function SiteNav() {
   const signedIn = isSignedIn()
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-edge bg-white/92 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
       <nav
         data-testid="main-nav"
         aria-label="เมนูหลัก"
-        className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3.5"
+        className="mx-auto flex h-16 max-w-300 items-center gap-6 px-6 max-sm:px-4"
       >
-        <a href="/" className="flex shrink-0 items-center gap-2 font-semibold">
-          <LogoMark className="size-7" />
-          <span className="text-lg tracking-tight">PairEval</span>
+        <a href="/" className="flex min-h-11 shrink-0 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight">
+          <LogoMark className="size-8" />
+          <span>PairEval</span>
         </a>
 
         {/* ซ่อนลิงก์บนจอแคบ เพราะปุ่มสองตัวขวามือสำคัญกว่า */}
