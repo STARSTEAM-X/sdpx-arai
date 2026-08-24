@@ -372,6 +372,55 @@ export function IconClipboardCheck({ className }: IconProps) {
   )
 }
 
+export function IconUsers({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <circle cx="8.5" cy="8" r="3.2" />
+      <path d="M2.8 19c0-3 2.5-5 5.7-5s5.7 2 5.7 5" />
+      <circle cx="16.5" cy="8.5" r="2.6" />
+      <path d="M15 11.3c2.6.3 4.2 2.1 4.2 4.4" />
+    </svg>
+  )
+}
+
+export function IconGlobe({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9s1.3-6.5 3.8-9Z" />
+    </svg>
+  )
+}
+
+export function IconBulb({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M9 18h6" />
+      <path d="M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.45.95 1.15.95 1.9V17h5.1v-1.2c0-.75.35-1.45.95-1.9A6 6 0 0 0 12 3Z" />
+    </svg>
+  )
+}
+
+export function IconLogOut({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  )
+}
+
+export function IconChevronDown({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
 /** โลโก้ Google หลายสีสำหรับปุ่ม login — ตัวเดียวในชุดที่ไม่ใช้ currentColor */
 export function IconGoogle({ className }: IconProps) {
   return (
