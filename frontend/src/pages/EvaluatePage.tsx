@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { Banner, Card, CardHead, FOCUS, Pill } from '../components/Ui'
+import { ComparisonRow } from '../components/ComparisonRow'
+import { Banner, Card, CardHead, FOCUS } from '../components/Ui'
 import {
   IconArrowRight,
-  IconCheck,
   IconChevronLeft,
   IconCircleDashed,
   IconClock,
@@ -205,30 +205,9 @@ export default function EvaluatePage() {
                       title={section.criterionName}
                       hint={`${section.items.filter((i) => i.completed).length} / ${section.items.length} คู่`}
                     />
-                    <ul className="flex flex-col gap-2 p-6 max-sm:p-4">
+                    <ul className="flex flex-col gap-3 p-6 max-sm:p-4">
                       {section.items.map((item) => (
-                        <li
-                          key={item.pairAssignmentId}
-                          className="flex flex-wrap items-center gap-3 rounded-xl border border-edge px-4 py-3"
-                        >
-                          <span className="font-display font-medium">{item.leftLabel}</span>
-                          <span className="text-muted">เทียบกับ</span>
-                          <span className="font-display font-medium">{item.rightLabel}</span>
-
-                          {item.completed ? (
-                            <Pill tone="ok" icon={<IconCheck className="size-3" />} className="ml-auto">
-                              ทำแล้ว
-                            </Pill>
-                          ) : (
-                            <Pill
-                              tone="neutral"
-                              icon={<IconCircleDashed className="size-3" />}
-                              className="ml-auto"
-                            >
-                              ยังไม่ทำ
-                            </Pill>
-                          )}
-                        </li>
+                        <ComparisonRow key={item.pairAssignmentId} item={item} />
                       ))}
                     </ul>
                   </Card>

@@ -135,6 +135,7 @@ class EvaluationItemOut(BaseModel):
     rightId: str
     rightLabel: str
     completed: bool
+    choice: int | None
 
 
 class MyEvaluationsOut(BaseModel):
@@ -450,6 +451,7 @@ def get_my_evaluations(
                 rightId=i.right_id,
                 rightLabel=i.right_label,
                 completed=i.completed,
+                choice=i.choice,
             )
             for i in result.items
         ],

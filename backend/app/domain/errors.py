@@ -63,6 +63,18 @@ class ForbiddenError(DomainError):
     code = "FORBIDDEN"
 
 
+class NotYourPairError(ForbiddenError):
+    """เป็นสมาชิกห้องนี้จริง แต่ pair_assignment นี้ไม่ได้มอบหมายให้เขา — US-08"""
+
+    code = "NOT_YOUR_PAIR"
+
+
+class DeadlinePassedError(ConflictError):
+    """เลยกำหนดส่งแล้ว — ใช้ทั้ง autosave (US-08) และ submit (US-09)"""
+
+    code = "DEADLINE_PASSED"
+
+
 class RosterImportError(DomainError):
     """CSV มีแถวที่ผิด — ชั้น API แปลงเป็น 422 พร้อม details รายแถว
 

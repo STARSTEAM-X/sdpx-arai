@@ -1178,6 +1178,7 @@ components:
         - rightId
         - rightLabel
         - completed
+        - choice
       properties:
         pairAssignmentId:
           type: string
@@ -1202,6 +1203,13 @@ components:
         completed:
           type: boolean
           description: มี comparison สถานะ SUBMITTED แล้วหรือยัง
+        choice:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 6
+          description: |
+            ค่าที่เคยเลือกไว้ (DRAFT หรือ SUBMITTED) — null ถ้ายังไม่เคยตอบ
+            ต้องส่งกลับเพื่อให้ปิด browser กลางคันแล้วเปิดใหม่ยังเห็นคำตอบเดิม (FR-EVAL-04)
 
     MyEvaluations:
       type: object

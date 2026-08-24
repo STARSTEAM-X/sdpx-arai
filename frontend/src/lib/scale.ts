@@ -4,13 +4,16 @@
  *  เพราะตัวเลือกกลางทำให้เกิด central tendency bias —
  *  ผู้ประเมินจะเลือกกลางเมื่อไม่อยากคิด ทำให้ข้อมูลไม่มีสัญญาณ
  *
+ *  ข้อความ label ต้องตรงกับ PRD §9.1 คำต่อคำ เพราะตารางเดียวกันนี้ผูกกับ s_left/s_right
+ *  ที่ scoring engine ใช้คำนวณ (US-16) — id คือสิ่งที่ backend เก็บ ไม่ใช่ label
  *  แยกออกจาก component เพราะ scoring engine ฝั่ง backend ต้องใช้นิยามชุดเดียวกัน
  */
 
-/** ฝั่งที่ผู้ประเมินตัดสินว่าดีกว่า */
-export type Winner = 'A' | 'B'
+/** ฝั่งที่ผู้ประเมินตัดสินว่าดีกว่า — ใช้ left/right ไม่ใช่ A/B เพราะหน้าจอแสดงผลจริง
+ *  วางสองฝั่งเป็นซ้าย/ขวา (D8 สุ่มตำแหน่ง) ไม่ใช่เรียงตามตัวอักษร */
+export type Winner = 'left' | 'right'
 
-/** ระดับความห่าง 1 = เล็กน้อย, 2 = ค่อนข้างมาก, 3 = มากที่สุด */
+/** ระดับความห่าง 1 = เล็กน้อย, 2 = ปกติ (ไม่มีคำขยาย), 3 = มาก */
 export type Strength = 1 | 2 | 3
 
 export type ComparisonChoice = {
@@ -20,11 +23,12 @@ export type ComparisonChoice = {
   label: string
 }
 
+// คำต่อคำจาก PRD §9.1 — ห้ามแก้ให้ "สวยขึ้น" โดยไม่เช็คว่า s_left/s_right ยังตรงกัน
 export const COMPARISON_SCALE: readonly ComparisonChoice[] = [
-  { id: 1, winner: 'A', strength: 3, label: 'A ดีกว่า B มากที่สุด' },
-  { id: 2, winner: 'A', strength: 2, label: 'A ดีกว่า B ค่อนข้างมาก' },
-  { id: 3, winner: 'A', strength: 1, label: 'A ดีกว่า B เล็กน้อย' },
-  { id: 4, winner: 'B', strength: 1, label: 'B ดีกว่า A เล็กน้อย' },
-  { id: 5, winner: 'B', strength: 2, label: 'B ดีกว่า A ค่อนข้างมาก' },
-  { id: 6, winner: 'B', strength: 3, label: 'B ดีกว่า A มากที่สุด' },
+  { id: 1, winner: 'left', strength: 3, label: 'ซ้ายดีกว่ามาก' },
+  { id: 2, winner: 'left', strength: 2, label: 'ซ้ายดีกว่า' },
+  { id: 3, winner: 'left', strength: 1, label: 'ซ้ายดีกว่าเล็กน้อย' },
+  { id: 4, winner: 'right', strength: 1, label: 'ขวาดีกว่าเล็กน้อย' },
+  { id: 5, winner: 'right', strength: 2, label: 'ขวาดีกว่า' },
+  { id: 6, winner: 'right', strength: 3, label: 'ขวาดีกว่ามาก' },
 ] as const

@@ -31,6 +31,9 @@ class EvaluationItem:
     right_id: str
     right_label: str
     completed: bool
+    # ค่าที่เคยเลือกไว้ (DRAFT หรือ SUBMITTED) — None ถ้ายังไม่เคยตอบเลย
+    # ต้องส่งกลับเพื่อให้เปิดเครื่องใหม่หรือปิด browser กลางคันแล้วยังเห็นคำตอบเดิม (FR-EVAL-04)
+    choice: int | None
 
 
 @dataclass(frozen=True)

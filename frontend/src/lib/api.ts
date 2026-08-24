@@ -312,6 +312,7 @@ export type EvaluationItem = {
   rightId: string
   rightLabel: string
   completed: boolean
+  choice: number | null
 }
 
 export type MyEvaluations = {
@@ -331,6 +332,27 @@ export function getMyEvaluations(
 ): Promise<MyEvaluations> {
   return apiFetch<MyEvaluations>(
     `/api/assignments/${encodeURIComponent(assignmentId)}/my-evaluations?side=${side}`,
+  )
+}
+
+// --- บันทึกคำตอบ (US-08) ---
+
+export type SavedComparison = {
+  id: string
+  pairAssignmentId: string
+  choice: number
+  status: 'DRAFT' | 'SUBMITTED' | 'EXCLUDED'
+  savedAt: string
+}
+
+/** autosave — idempotent ฝั่ง server เรียกซ้ำด้วย choice เดิมได้ผลเดิมเสมอ (FR-API-01) */
+export function saveComparison(
+  pairAssignmentId: string,
+  choice: number,
+): Promise<SavedComparison> {
+  return apiFetch<SavedComparison>(
+    `/api/comparisons/${encodeURIComponent(pairAssignmentId)}`,
+    { method: 'PUT', body: JSON.stringify({ choice }) },
   )
 }
 

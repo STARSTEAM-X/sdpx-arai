@@ -178,7 +178,8 @@ class PgAssignmentRepository:
                 SELECT p.id, p.item_a_id, p.item_b_id, p.display_left_item_id,
                        cr.id AS criterion_id, cr.name AS criterion_name,
                        {label_a} AS label_a, {label_b} AS label_b,
-                       (c.status = 'SUBMITTED') AS completed
+                       (c.status = 'SUBMITTED') AS completed,
+                       c.choice AS choice
                 FROM pair_assignment p
                 JOIN app_user e ON e.id = p.evaluator_user_id
                 JOIN criterion cr ON cr.id = p.criterion_id
@@ -211,6 +212,7 @@ class PgAssignmentRepository:
                     right_id=right_id,
                     right_label=right_label,
                     completed=bool(r["completed"]),
+                    choice=r["choice"],
                 )
             )
         return items

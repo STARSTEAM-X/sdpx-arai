@@ -602,11 +602,33 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-### สถานะ ณ 2026-08-24 — US-07 เสร็จ (US-08, US-09 ยังไม่เริ่ม)
+### สถานะ ณ 2026-08-24 — US-07, US-08 เสร็จ (US-09 ยังไม่เริ่ม)
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 | **4/4** | unit `test_evaluation_service.py` (8 ตัว) · e2e `evaluations.spec.ts` (6 ตัว, ผ่าน `--repeat-each=3`) |
+| [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 | **5/5** | unit `test_comparison_service.py` (15 ตัว) · e2e `comparisons.spec.ts` (9 ตัว รวม autosave 2 วินาทีจริงผ่าน web-first assertion ไม่ใช้ `waitForTimeout`, ผ่าน `--repeat-each=3`) |
+
+**US-08 บันทึกไว้เสมอเป็น `DRAFT`** — `PUT /comparisons/{id}` เขียนทับสถานะเป็น `DRAFT` ทุกครั้ง
+แม้แถวเดิมจะเคยเป็น `SUBMITTED` มาก่อนก็ตาม ตรงกับที่ `docs/openapi.yaml` เขียนไว้ว่า
+"บันทึกเป็นสถานะ DRAFT จนกว่าจะเรียก submissions" — หมายความว่าถ้านักศึกษาแก้คำตอบหลัง
+submit ไปแล้ว (ก่อน deadline) ต้องกด submit ใหม่อีกครั้งถึงจะนับเป็น `SUBMITTED` — ยังไม่มี
+endpoint submit จริง (US-09) จึงยังพิสูจน์ path นี้ทั้งเส้นไม่ได้ในตอนนี้
+
+**บั๊กที่เจอจากการทดสอบ manual ผ่าน browser จริง ไม่ใช่จาก unit test**
+
+`ComparisonRow.tsx` เดิมไม่เคลียร์สถานะ "บันทึกแล้ว" ตอนเลือกคำตอบใหม่ — เปลี่ยนคำตอบแล้ว
+ยังเห็นข้อความ "บันทึกแล้ว" ของคำตอบ**เก่า**ค้างอยู่ตลอด 2 วินาทีก่อน debounce จะยิงจริง
+ทำให้เข้าใจผิดว่าคำตอบใหม่บันทึกแล้ว เป็นเรื่อง UI state ล้วน ๆ ไม่มี business rule ให้ unit
+test คุ้มครองได้ — เห็นได้จากการรันจริงเท่านั้น แก้แล้วด้วยการ reset state เป็น `idle` ทันทีที่
+เลือกคำตอบใหม่ ก่อนจะเข้า debounce window
+
+**สิ่งที่แก้ระหว่างทาง — ข้อความมาตรวัดไม่ตรงกับ PRD §9.1**
+
+`frontend/src/lib/scale.ts` เดิมใช้คำว่า "A ดีกว่า B มากที่สุด" (winner: 'A'|'B') แต่ PRD §9.1
+ใช้ "ซ้ายดีกว่ามาก" (คำต่อคำ ผูกกับ s_left/s_right ที่ scoring engine จะใช้ใน US-16) แก้ label
+ให้ตรงเป๊ะและเปลี่ยน `Winner` เป็น `'left'|'right'` ให้ตรงความหมายจริง — id และลำดับ
+(ซึ่งคือสิ่งที่ backend เก็บจริง) ไม่เคยผิดตั้งแต่แรก มีแค่ข้อความที่ผู้ใช้เห็นที่คลาดไป
 
 **endpoint ที่ไม่มีระบุไว้ตรง ๆ ใน PRD §12 — เพิ่มเพราะจำเป็นจริง**
 

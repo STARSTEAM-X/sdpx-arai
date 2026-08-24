@@ -110,6 +110,26 @@
 > เพิ่งเห็นตอนทดสอบกับ assignment ที่มี 2 criteria ฝั่ง GROUP จริง ๆ ผ่าน API แล้วเห็นว่า
 > คู่ของสองเกณฑ์ปนกันในรายการเดียวโดยไม่มีอะไรบอกว่าคู่ไหนของเกณฑ์ไหน
 
+### 9. `comparison_service` — US-08 (Sprint 3)
+
+กฎ 3 ข้อล้วนเป็นเรื่อง "ทำได้ไหม" — การ upsert จริง (idempotent ตาม FR-API-01) อยู่ใน
+`PgComparisonRepository.save()` ซึ่งพิสูจน์ด้วย e2e ที่ยิง `PUT` ซ้ำ 3 ครั้งแล้วเทียบ `id`
+
+| กฎ | Test |
+|---|---|
+| **AC** 1–6 ผ่านหมด ไม่มีค่ากลาง | `test_AC_1_ถึง_6_ผ่านหมด_ไม่มีค่ากลาง` (parametrize) |
+| นอกช่วง 1–6 ถูกปฏิเสธ | `test_นอกช่วง_1_ถึง_6_ถูกปฏิเสธ` (parametrize: 0, 7, -1, 100) |
+| **AC** ไม่ใช่ evaluator ของคู่นี้ถูกปฏิเสธด้วย `NOT_YOUR_PAIR` | `test_AC_ไม่ใช่_evaluator_ของคู่นี้ถูกปฏิเสธด้วย_NOT_YOUR_PAIR` |
+| **AC** เลยกำหนดส่งแล้วถูกปฏิเสธด้วย `DEADLINE_PASSED` | `test_AC_เลยกำหนดส่งแล้วถูกปฏิเสธด้วย_DEADLINE_PASSED` |
+| ตรงเวลา deadline เป๊ะถือว่าเลยแล้ว (ขอบเขตปิด ไม่ใช่เปิด) | `test_ตรงเวลา_deadline_เป๊ะถือว่าเลยแล้ว` |
+
+> **บั๊กที่เจอตอนต่อ UI จริง ไม่ใช่ตอนเขียน backend:** `ComparisonRow.tsx` เดิมไม่เคลียร์
+> สถานะ "บันทึกแล้ว" ตอนเลือกคำตอบใหม่ — กดเปลี่ยนคำตอบแล้วยังเห็นข้อความ "บันทึกแล้ว"
+> ของคำตอบ**เก่า**ค้างอยู่ตลอด 2 วินาทีก่อน debounce จะยิงจริง ทำให้ผู้ใช้เข้าใจผิดว่า
+> คำตอบใหม่บันทึกแล้วทั้งที่ยังไม่ได้ส่ง เจอตอนทดสอบ manual ผ่าน browser จริง ไม่ใช่จาก unit
+> test เพราะเป็นเรื่อง UI state ล้วน ๆ ไม่มี business rule ให้ทดสอบแยก — บทเรียนคือ
+> unit test คุ้มครอง backend ได้ แต่ UX bug แบบนี้ต้องเห็นด้วยตาจากการรันจริงเท่านั้น
+
 ---
 
 ## Integration Test — ชั้นที่ unit test มองไม่เห็น
@@ -153,6 +173,14 @@ pytest -m integration   # เฉพาะที่ต้องมี Postgres
 | 4 | เงื่อนไข `status is AssignmentStatus.DRAFT` (เปลี่ยนเป็น `if False`) | `evaluation_service.py` | 4 ตัวใน `test_evaluation_service.py` ทั้งกลุ่ม `Testยังไม่เปิด` และ `test_DRAFT_มาก่อนเสมอ...` | ✅ harness ปกป้องกฎนี้ |
 
 หลังกู้คืน → **278 passed** (270 เดิม + 8 ของ US-07)
+
+### ครั้งที่ 6 — ทำตอน US-08 (Sprint 3, 2026-08-24)
+
+| # | กฎที่ลบ | ไฟล์ | Test ที่แดง | ผล |
+|---|---|---|---|---|
+| 5 | เงื่อนไข `pair_evaluator_email != caller_email` (เปลี่ยนเป็น `if False`) | `comparison_service.py` | `test_AC_ไม่ใช่_evaluator_ของคู่นี้ถูกปฏิเสธด้วย_NOT_YOUR_PAIR` | ✅ harness ปกป้องกฎนี้ |
+
+หลังกู้คืน → **293 passed** (278 เดิม + 15 ของ US-08)
 
 > ข้อสังเกต: การลบ R4 ทำให้ test แดงข้ามไฟล์ไปถึง `test_roster_import.py` ด้วย
 > แปลว่า roster import พึ่งพา email normalization จริง ไม่ได้ทำงานแยกกัน

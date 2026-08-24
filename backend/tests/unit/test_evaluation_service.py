@@ -24,6 +24,7 @@ def item(pair_id: str, completed: bool, criterion_id: str = "c1") -> EvaluationI
         right_id="b",
         right_label="กลุ่ม B",
         completed=completed,
+        choice=3 if completed else None,
     )
 
 
