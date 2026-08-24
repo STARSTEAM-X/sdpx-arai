@@ -1,27 +1,49 @@
-import { useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { Banner, Card, CardHead, Pill } from '../components/Ui'
-import { IconChevronLeft, IconLock, IconTransparentScore, LogoMark } from '../components/icons'
+import {
+  IconArrowRight,
+  IconCheckCircle,
+  IconChevronLeft,
+  IconLock,
+  IconShield,
+  IconStudent,
+  IconTransparentScore,
+  IconUsers,
+  LogoMark,
+} from '../components/icons'
 import { ApiError, type MyScore, getMyScore } from '../lib/api'
 
-/** แถวตัวเลขคะแนนหนึ่งบรรทัด — ใช้ซ้ำทั้งกลุ่มและรายบุคคล ให้หน้าตาตรงกันเป๊ะ */
-function ScoreRow({
+/** หนึ่งขั้นใน flow คะแนน — ตัวเลขแต่ละส่วนอยู่ตำแหน่งเดียวกันเพื่อไล่อ่านจากซ้ายไปขวา */
+function ScoreStep({
+  icon,
   label,
   value,
   hint,
+  muted = false,
 }: {
+  icon: ReactNode
   label: string
-  value: React.ReactNode
-  hint?: string
+  value: ReactNode
+  hint: string
+  muted?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-edge py-4 last:border-0">
-      <div>
-        <p className="font-display font-semibold">{label}</p>
-        {hint && <p className="mt-0.5 text-[12.5px] text-muted">{hint}</p>}
+    <div
+      className={`flex min-w-0 flex-col items-center rounded-2xl border p-5 text-center ${muted ? 'border-edge bg-sand' : 'border-edge bg-white'}`}
+    >
+      <span
+        aria-hidden="true"
+        className="grid size-10 place-items-center rounded-xl border border-edge bg-white text-ink-2"
+      >
+        {icon}
+      </span>
+      <h3 className="mt-3 font-display text-sm font-semibold">{label}</h3>
+      <div className="mt-2 flex min-h-8 items-center font-mono text-2xl font-bold tabular">
+        {value}
       </div>
-      <span className="font-mono text-xl tabular">{value}</span>
+      <p className="mt-2 text-xs leading-5 text-muted">{hint}</p>
     </div>
   )
 }
@@ -53,6 +75,10 @@ export default function ScorePage() {
     void refresh()
   }, [refresh])
 
+  const participationPercent = score?.participationRatio
+    ? Math.min(100, Math.max(0, Number(score.participationRatio) * 100))
+    : 0
+
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
       <header className="sticky top-0 z-40 border-b border-edge bg-white/88 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
@@ -78,11 +104,11 @@ export default function ScorePage() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-180 px-6 pt-8 pb-16 max-sm:px-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">คะแนนของฉัน</h1>
-        <p className="mt-1.5 max-w-[62ch] text-muted">
-          คะแนนสุดท้ายหลังงานประเมินนี้ประกาศผลแล้ว
-        </p>
+      <main className="mx-auto max-w-240 px-6 pt-8 pb-16 max-sm:px-4">
+        <div className="text-center">
+          <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">คะแนนของฉัน</h1>
+          <p className="mt-1.5 text-muted">ดูองค์ประกอบคะแนนและสถานะการประกาศผล</p>
+        </div>
 
         {error && (
           <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">
@@ -101,53 +127,110 @@ export default function ScorePage() {
             <CardHead
               id="h-score"
               icon={<IconTransparentScore className="size-5" />}
-              title="ผลคะแนน"
-              hint="ประกาศผลแล้ว — ตัวเลขนี้เป็นคะแนนสุดท้าย"
+              title="รายละเอียดคะแนน"
+              hint="ประกาศผลแล้ว — ไล่ดูที่มาของคะแนนจากซ้ายไปขวา"
+              badge={
+                <Pill tone="ok" icon={<IconCheckCircle className="size-3" />}>
+                  ประกาศผลแล้ว
+                </Pill>
+              }
             />
 
-            <div className="flex flex-col gap-0 px-6 max-sm:px-4">
-              <ScoreRow
-                label="คะแนนกลุ่ม"
-                value={<span data-testid="group-component">{score.groupComponent}</span>}
-              />
-
-              {score.individualHidden ? (
-                <div className="flex items-center justify-between gap-4 border-b border-edge py-4 last:border-0">
-                  <div>
-                    <p className="font-display font-semibold">คะแนนรายบุคคล</p>
-                    <p className="mt-0.5 max-w-[40ch] text-[12.5px] text-muted">
-                      ยังมีผู้ประเมินไม่ครบเกณฑ์ขั้นต่ำที่จะแสดงผลได้โดยไม่เปิดเผยตัวผู้ประเมิน
-                    </p>
-                  </div>
-                  <Pill data-testid="individual-hidden" tone="neutral" icon={<IconLock className="size-3" />}>
-                    ซ่อนไว้
-                  </Pill>
-                </div>
-              ) : (
-                <ScoreRow
-                  label="คะแนนรายบุคคล"
-                  value={<span data-testid="individual-component">{score.individualComponent}</span>}
+            <div className="p-6 max-sm:p-4">
+              <div className="grid items-stretch gap-3 md:grid-cols-[minmax(0,1fr)_2rem_minmax(0,1fr)_2rem_minmax(0,1fr)]">
+                <ScoreStep
+                  icon={<IconUsers className="size-5" />}
+                  label="คะแนนกลุ่ม"
+                  value={<span data-testid="group-component">{score.groupComponent}</span>}
+                  hint="ผลจากการเปรียบเทียบผลงานระหว่างกลุ่ม"
                 />
-              )}
 
-              <ScoreRow
-                label="สัดส่วนการมีส่วนร่วม"
-                value={<span data-testid="participation-ratio">{score.participationRatio}</span>}
-                hint="สัดส่วนคู่ที่ตอบเทียบกับที่ได้รับมอบหมายทั้งหมด"
-              />
+                <div aria-hidden="true" className="grid place-items-center text-xl font-bold text-muted max-md:rotate-90">
+                  +
+                </div>
 
-              <div className="flex items-center justify-between gap-4 py-4">
-                <p className="font-display text-lg font-bold">คะแนนรวมสุดท้าย</p>
-                {score.finalScore !== null ? (
-                  <span data-testid="final-score" className="font-mono text-2xl font-bold tabular">
-                    {score.finalScore}
-                  </span>
-                ) : (
-                  <Pill data-testid="final-score-hidden" tone="neutral">
-                    ยังแสดงไม่ได้
-                  </Pill>
-                )}
+                <ScoreStep
+                  icon={<IconStudent className="size-5" />}
+                  label="คะแนนรายบุคคล"
+                  muted={score.individualHidden}
+                  value={
+                    score.individualHidden ? (
+                      <Pill
+                        data-testid="individual-hidden"
+                        tone="neutral"
+                        icon={<IconLock className="size-3" />}
+                        className="font-body"
+                      >
+                        ซ่อนไว้
+                      </Pill>
+                    ) : (
+                      <span data-testid="individual-component">{score.individualComponent}</span>
+                    )
+                  }
+                  hint={
+                    score.individualHidden
+                      ? 'จำนวนผู้ประเมินยังไม่ถึงเกณฑ์ความเป็นส่วนตัว'
+                      : 'ผลประเมินการมีส่วนร่วมรายบุคคล'
+                  }
+                />
+
+                <div aria-hidden="true" className="grid place-items-center text-muted max-md:rotate-90">
+                  <IconArrowRight className="size-5" />
+                </div>
+
+                <ScoreStep
+                  icon={<IconTransparentScore className="size-5" />}
+                  label="คะแนนรวมสุดท้าย"
+                  muted={score.finalScore === null}
+                  value={
+                    score.finalScore !== null ? (
+                      <span data-testid="final-score">{score.finalScore}</span>
+                    ) : (
+                      <Pill data-testid="final-score-hidden" tone="neutral" className="font-body">
+                        ยังแสดงไม่ได้
+                      </Pill>
+                    )
+                  }
+                  hint={score.finalScore === null ? 'จะแสดงเมื่อองค์ประกอบคะแนนครบ' : 'คะแนนที่ผู้สอนประกาศแล้ว'}
+                />
               </div>
+
+              <div className="mt-4 rounded-2xl bg-sand p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span aria-hidden="true" className="grid size-9 place-items-center rounded-xl bg-white text-ok-700">
+                    <IconCheckCircle className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-display text-sm font-semibold">สัดส่วนการมีส่วนร่วม</p>
+                      <span data-testid="participation-ratio" className="font-mono font-bold tabular">
+                        {score.participationRatio}
+                      </span>
+                    </div>
+                    <div
+                      role="progressbar"
+                      aria-label="สัดส่วนคู่ที่ตอบเทียบกับที่ได้รับมอบหมาย"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={participationPercent}
+                      className="mt-2 h-2 overflow-hidden rounded-full bg-edge"
+                    >
+                      <div className="h-full rounded-full bg-ok-700" style={{ width: `${participationPercent}%` }} />
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted">สัดส่วนคู่ที่ตอบเทียบกับที่ได้รับมอบหมายทั้งหมด</p>
+                  </div>
+                </div>
+              </div>
+
+              {score.individualHidden && (
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-edge bg-white p-4 text-sm text-ink-2">
+                  <IconShield aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent-ink" />
+                  <p className="leading-6">
+                    ระบบซ่อนเฉพาะคะแนนที่อาจเปิดเผยตัวผู้ประเมิน คะแนนที่ซ่อนไว้ไม่ใช่คะแนนศูนย์
+                    และจะเปิดเผยอัตโนมัติเมื่อข้อมูลครบเกณฑ์
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         )}
