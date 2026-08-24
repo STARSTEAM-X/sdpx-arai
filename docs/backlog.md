@@ -602,13 +602,27 @@ Milestone: [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) —
 
 **US-07 ถึง US-09 แยกกันไม่ได้** — เป็นหน้าจอเดียวกันและ state machine เดียวกัน
 
-### สถานะ ณ 2026-08-24 — US-07, US-08, US-09 เสร็จครบ
+### สถานะ ณ 2026-08-24 — US-07, US-08, US-09 เสร็จครบ · US-16 เสร็จบางส่วน
 
 | Story | AC | หลักฐาน |
 |---|---|---|
 | [#7](https://github.com/STARSTEAM-X/sdpx-arai2/issues/7) US-07 | **4/4** | unit `test_evaluation_service.py` (8 ตัว) · e2e `evaluations.spec.ts` (6 ตัว, ผ่าน `--repeat-each=3`) |
 | [#8](https://github.com/STARSTEAM-X/sdpx-arai2/issues/8) US-08 | **5/5** | unit `test_comparison_service.py` (15 ตัว) · e2e `comparisons.spec.ts` (9 ตัว รวม autosave 2 วินาทีจริงผ่าน web-first assertion ไม่ใช้ `waitForTimeout`, ผ่าน `--repeat-each=3`) |
 | [#9](https://github.com/STARSTEAM-X/sdpx-arai2/issues/9) US-09 | **5/5** | e2e `submissions.spec.ts` (8 ตัว รวม idempotency-key จริงและ `window.confirm` dialog, ผ่าน `--repeat-each=3`) |
+| [#16](https://github.com/STARSTEAM-X/sdpx-arai2/issues/16) US-16 | **7/8** — เอนจินคำนวณเสร็จ, ยังไม่ persist | unit `test_scoring_service.py` (20 ตัว รวม golden test S10 จาก PRD §9.5 ตรงเป๊ะทุกตัวเลข) |
+
+**US-16 ทำเฉพาะเอนจินคำนวณ (pure function) — ยังไม่ผูก endpoint/database**
+
+AC ของ US-16 ทั้งหมดเป็นเรื่องความถูกต้องของการคำนวณ (quality index, band mapping,
+participation, reproducibility, golden test) ซึ่งทำครบและมี unit test คุ้มครองแล้วทุกข้อ
+ยกเว้น **S7** (`computed_score.is_final = true` แก้ตรง ๆ ไม่ได้ ต้องผ่าน `score_override`)
+ซึ่งทดสอบมีความหมายได้ก็ต่อเมื่อมีตาราง `computed_score`/`score_override` จริง — จุดนั้นผูก
+กับ US-13 (finalize) ที่เป็น story แรกที่ `is_final` ถูกตั้งเป็น `true` จริง จึงเก็บ migration
+และ endpoint `:recompute` ไว้ทำพร้อมกับ US-13 แทนที่จะสร้างตารางที่ไม่มีใครเขียนถึงไว้ก่อน
+
+engine ที่ได้ (`backend/app/domain/scoring_service.py`) รับ `SubmittedComparison` ที่กรอง
+`status = SUBMITTED` มาแล้ว (S2 เป็นความรับผิดชอบของผู้เรียก ไม่ใช่ของ engine) และไม่รู้จัก
+SQL เลยตาม AR-01 — พร้อมให้ US-13 เรียกใช้ทันทีที่มีข้อมูลจริงจาก database
 
 **US-08 บันทึกไว้เสมอเป็น `DRAFT`** — `PUT /comparisons/{id}` เขียนทับสถานะเป็น `DRAFT` ทุกครั้ง
 แม้แถวเดิมจะเคยเป็น `SUBMITTED` มาก่อนก็ตาม ตรงกับที่ `docs/openapi.yaml` เขียนไว้ว่า

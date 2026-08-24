@@ -157,6 +157,34 @@
 >    `submission_idempotency` เข้า TRUNCATE list ตรง ๆ ใน `test_support.py` แก้แล้ว
 >    (ดูรายละเอียดใน `docs/backlog.md` ที่ US-09)
 
+### 11. `scoring_service` — US-16 (Sprint 3)
+
+pure function ล้วน ตาม AR-01 — ไม่รู้จัก SQL เลย รับ `SubmittedComparison` ที่กรอง
+`status = SUBMITTED` มาแล้วจากชั้นเรียก (S2) กฎ S1–S10 อ้างจาก
+`memory-bank/units/scoring-engine/unit-brief.md`
+
+| กฎ | Test |
+|---|---|
+| S9 ไม่มี comparison เลยคืน `None` ไม่ crash | `test_S9_ไม่มี_comparison_เลยคืน_None_ไม่_crash` |
+| **AC S5** instructor_weight เป็น float ใน weighted mean ไม่ใช่นับ vote ซ้ำ | `test_AC_S5_instructor_weight_เป็น_float_ใน_weighted_mean_ไม่ใช่นับ_vote_ซ้ำ` |
+| S6 ผลลัพธ์เป็น `Decimal` ไม่ใช่ `float` | `test_S6_ผลลัพธ์เป็น_Decimal_ไม่ใช่_float` |
+| **AC S3** band mapping floor→ceiling ไม่ normalize (D2) | `test_AC_S3_band_mapping_ไม่_normalize` · `test_D2_ทุกคนได้เท่ากันหมด...` |
+| **AC S8** comparison น้อยกว่า min_comparisons ติด `LOW_CONFIDENCE` | `test_AC_S8_comparison_น้อยกว่า_min_comparisons_ติด_flag_LOW_CONFIDENCE` |
+| **D5** คะแนนแยกจากการมีส่วนร่วมโดยสิ้นเชิง (signature ไม่มีพารามิเตอร์ participation) | `test_D5_แยกคะแนนออกจากการมีส่วนร่วมโดยสิ้นเชิง` |
+| **AC S4** ตอบครบ/ไม่ตอบเลย ได้ M เต็ม/ศูนย์ตามสัดส่วน · cap ที่ 1 เสมอ | `TestComputeParticipation` (4 ตัว) |
+| **S10 golden test** — worked example PRD §9.5 ทุกตัวเลขต้องตรงเป๊ะ | `TestGoldenS10` (3 ตัว: กลุ่ม Aurora, นก ประเมินครบ, ต้น ประเมินไม่ครบ) |
+
+> **ตัดสินใจเรื่องขอบเขต S10:** point ต่อ comparison มีแค่ 6 ค่าคงที่ (0, 0.2, 0.4, 0.6, 0.8, 1.0)
+> การไล่หาชุด comparison ดิบที่เฉลี่ยแล้วได้ q = 0.61 (ตามตัวอย่างใน PRD) เป๊ะ ๆ เป็นปริศนาเลข
+> ไม่ใช่การพิสูจน์สูตร ส่วนที่ worked example ตั้งใจตรวจคือสูตรตั้งแต่ q ลงไป (band mapping,
+> ถ่วงน้ำหนักเกณฑ์, participation) — golden test จึงเริ่มจากค่า q ที่ PRD ให้มาตรง ๆ ส่วนความ
+> ถูกต้องของค่าเฉลี่ยถ่วงน้ำหนักที่ได้ q มา ถูกทดสอบแยกด้วยตัวเลขกลม ๆ ใน `TestComputeQualityIndex`
+
+> **ขอบเขตที่ยังไม่ทำใน US-16:** S7 (`computed_score.is_final = true` แก้ตรง ๆ ไม่ได้)
+> ต้องมีตาราง `computed_score` และ `score_override` จริงถึงจะทดสอบมีความหมาย — ผูกกับตอน
+> US-13 (finalize) ที่เป็นจุดแรกที่ `is_final` ถูกตั้งเป็น `true` จริง เก็บไว้ทำพร้อมกัน
+> เอนจินคำนวณเองพร้อมแล้ว รอแค่ชั้น persistence
+
 ---
 
 ## Integration Test — ชั้นที่ unit test มองไม่เห็น
