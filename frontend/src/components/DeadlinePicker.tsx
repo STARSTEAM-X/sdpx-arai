@@ -15,7 +15,7 @@ type LocalParts = {
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
-const QUICK_TIMES = ['09:00', '12:00', '16:30', '23:55']
+const QUICK_TIMES = ['09:00', '12:00', '16:30', '23:59']
 
 function pad(value: number): string {
   return String(value).padStart(2, '0')
@@ -67,7 +67,7 @@ function addDays(
 function initialParts(value: string, timezone: string): LocalParts {
   const parsed = parseValue(value)
   if (parsed) return parsed
-  return { ...addDays(zonedToday(timezone), 1), hour: '23', minute: '55' }
+  return { ...addDays(zonedToday(timezone), 1), hour: '23', minute: '59' }
 }
 
 function formatThaiDate(parts: Pick<LocalParts, 'year' | 'month' | 'day'>): string {
@@ -191,7 +191,7 @@ export function DeadlinePicker({
           id={`${id}-popover`}
           role="dialog"
           aria-label="เลือกวันและเวลากำหนดส่ง"
-          className="absolute right-0 z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-edge bg-white shadow-[0_18px_50px_rgba(23,32,51,0.18)] max-sm:left-1/2 max-sm:right-auto max-sm:-translate-x-1/2"
+          className="absolute right-0 z-50 mt-2 w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-edge bg-white shadow-[0_18px_50px_rgba(23,32,51,0.18)] max-sm:left-1/2 max-sm:right-auto max-sm:-translate-x-1/2"
         >
           <div className="flex items-start gap-3 border-b border-edge px-3.5 py-3">
             <div className="min-w-0 flex-1">
@@ -203,8 +203,8 @@ export function DeadlinePicker({
             </button>
           </div>
 
-          <div className="grid sm:grid-cols-[1.15fr_0.85fr]">
-            <section aria-label="เลือกวันที่" className="p-3.5">
+          <div className="grid sm:grid-cols-[1.1fr_0.9fr]">
+            <section aria-label="เลือกวันที่" className="p-3">
               <div className="mb-2.5 flex items-center justify-between gap-3">
                 <span className="font-display text-sm font-semibold">{formatThaiMonth(cursor.year, cursor.month)}</span>
                 <div className="flex gap-1">
@@ -218,8 +218,8 @@ export function DeadlinePicker({
               </div>
 
               <div className="mb-2.5 flex gap-2">
-                <button type="button" onClick={() => selectDate(today)} className={btn('ghost', 'sm')}>วันนี้</button>
-                <button type="button" onClick={() => selectDate(tomorrow)} className={btn('ghost', 'sm')}>พรุ่งนี้</button>
+                <button type="button" onClick={() => selectDate(today)} className={`min-h-10 rounded-lg border border-edge-strong bg-white px-3 text-[13px] font-semibold hover:bg-sand ${FOCUS}`}>วันนี้</button>
+                <button type="button" onClick={() => selectDate(tomorrow)} className={`min-h-10 rounded-lg border border-edge-strong bg-white px-3 text-[13px] font-semibold hover:bg-sand ${FOCUS}`}>พรุ่งนี้</button>
               </div>
 
               <div className="grid grid-cols-7 gap-1" aria-hidden="true">
@@ -227,7 +227,7 @@ export function DeadlinePicker({
                   <span key={weekday} className="py-1 text-center text-xs text-muted">{weekday}</span>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5">
                 {days.map((day, index) => {
                   if (day === null) return <span key={`blank-${index}`} aria-hidden="true" />
                   const date = { year: cursor.year, month: cursor.month, day }
@@ -242,7 +242,7 @@ export function DeadlinePicker({
                       aria-pressed={selected}
                       aria-label={`${day} ${formatThaiMonth(cursor.year, cursor.month)}`}
                       onClick={() => selectDate(date)}
-                      className={`relative aspect-square min-h-9 rounded-lg text-[13.5px] transition-colors disabled:cursor-not-allowed disabled:text-edge-strong ${FOCUS} ${
+                      className={`relative aspect-square min-h-8 rounded-lg text-[13px] transition-colors disabled:cursor-not-allowed disabled:text-edge-strong ${FOCUS} ${
                         selected
                           ? 'bg-cta font-semibold text-white hover:bg-cta-hover'
                           : 'hover:bg-accent-soft hover:text-accent-ink'
@@ -256,7 +256,7 @@ export function DeadlinePicker({
               </div>
             </section>
 
-            <section aria-label="เลือกเวลาแบบ 24 ชั่วโมง" className="border-edge bg-sand/55 p-3.5 sm:border-l">
+            <section aria-label="เลือกเวลาแบบ 24 ชั่วโมง" className="border-edge bg-sand/55 p-3 sm:border-l">
               <div className="mb-2.5 flex items-baseline justify-between gap-3">
                 <span className="font-display text-sm font-semibold">เวลา</span>
                 <span className="text-xs text-muted">รูปแบบ 24 ชั่วโมง</span>

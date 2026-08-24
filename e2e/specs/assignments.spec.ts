@@ -28,7 +28,7 @@ async function chooseDeadline(page: Page) {
 
   await page.getByRole('button', { name: /^31 มกราคม 2570$/ }).click()
   await page.getByRole('combobox', { name: 'ชั่วโมง' }).selectOption('23')
-  await page.getByRole('combobox', { name: 'นาที' }).selectOption('55')
+  await page.getByRole('combobox', { name: 'นาที' }).selectOption('59')
   await page.getByRole('button', { name: 'ยืนยันกำหนดส่ง' }).click()
 }
 
