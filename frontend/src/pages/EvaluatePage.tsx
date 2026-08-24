@@ -203,12 +203,14 @@ export default function EvaluatePage() {
                 )}
 
                 <Card>
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-6 max-sm:p-4">
+                  <div className="grid items-center gap-4 p-5 md:grid-cols-[auto_minmax(8rem,1fr)_auto] max-sm:p-4">
                     <div>
                       <p className="font-display text-lg font-semibold">
-                        ทำแล้ว{' '}
-                        <span className="font-mono tabular">{current.completedCount}</span> /{' '}
-                        <span className="font-mono tabular">{current.totalCount}</span> คู่
+                        ความคืบหน้า{' '}
+                        <span className="font-mono tabular text-ok-700">
+                          {current.completedCount} / {current.totalCount}
+                        </span>{' '}
+                        คู่
                       </p>
                       {current.deadlineUtc && (
                         <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
@@ -218,26 +220,12 @@ export default function EvaluatePage() {
                       )}
                     </div>
 
-                    {current.artifactUrl && (
-                      <a
-                        href={current.artifactUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-edge-strong bg-white px-4 text-sm font-semibold transition-colors hover:bg-sand ${FOCUS}`}
-                      >
-                        ดูผลงาน
-                        <IconArrowRight className="size-4" />
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="border-t border-edge px-6 pb-5 max-sm:px-4">
                     <div
                       role="progressbar"
                       aria-valuenow={current.completedCount}
                       aria-valuemin={0}
                       aria-valuemax={current.totalCount}
-                      className="mt-4 h-2 overflow-hidden rounded-full bg-sand"
+                      className="h-2 overflow-hidden rounded-full bg-sand"
                     >
                       <div
                         className="h-full rounded-full bg-ok-600 transition-[width]"
@@ -245,8 +233,19 @@ export default function EvaluatePage() {
                       />
                     </div>
 
-                    {!deadlinePassed && (
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                      {current.artifactUrl && (
+                        <a
+                          href={current.artifactUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-edge-strong bg-white px-4 text-sm font-semibold transition-colors hover:bg-sand ${FOCUS}`}
+                        >
+                          ดูผลงาน
+                          <IconArrowRight className="size-4" />
+                        </a>
+                      )}
+                      {!deadlinePassed && (
                         <button
                           type="button"
                           onClick={() => void handleSubmit()}
@@ -255,10 +254,12 @@ export default function EvaluatePage() {
                         >
                           {submitting ? 'กำลังส่ง…' : 'ส่งคำตอบ'}
                         </button>
-                        {submitResult && (
-                          <span className="text-sm text-ok-700">{submitResult}</span>
-                        )}
-                      </div>
+                      )}
+                    </div>
+                    {submitResult && (
+                      <span className="text-sm text-ok-700 md:col-start-3 md:text-right">
+                        {submitResult}
+                      </span>
                     )}
                   </div>
                 </Card>
@@ -272,10 +273,12 @@ export default function EvaluatePage() {
                       hint={`${section.items.filter((i) => i.completed).length} / ${section.items.length} คู่`}
                     />
                     <ul className="flex flex-col gap-3 p-6 max-sm:p-4">
-                      {section.items.map((item) => (
+                      {section.items.map((item, index) => (
                         <ComparisonRow
                           key={item.pairAssignmentId}
                           item={item}
+                          position={index + 1}
+                          total={section.items.length}
                           readOnly={deadlinePassed}
                         />
                       ))}

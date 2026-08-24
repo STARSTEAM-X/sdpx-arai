@@ -18,9 +18,14 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
  */
 export function ComparisonRow({
   item,
+  position,
+  total,
   readOnly = false,
 }: {
   item: EvaluationItem
+  /** ลำดับภายในเกณฑ์เดียวกัน — ช่วยให้ผู้ใช้รู้ว่ากำลังดูคู่ไหนจากทั้งหมด */
+  position: number
+  total: number
   /** FR-EVAL-08 — เลย deadline แล้วต้องแสดงคำตอบแบบ read-only ห้ามแก้ต่อ */
   readOnly?: boolean
 }) {
@@ -92,8 +97,12 @@ export function ComparisonRow({
   }
 
   return (
-    <li className="rounded-xl border border-edge p-4">
-      <div className="flex items-center justify-end">
+    <li className="rounded-xl border border-edge bg-cream p-4">
+      <div className="flex min-h-7 items-center justify-between gap-3">
+        <p className="font-display text-sm font-semibold">
+          คู่ที่ <span className="font-mono tabular">{position}</span> จาก{' '}
+          <span className="font-mono tabular">{total}</span>
+        </p>
         {item.completed && (
           <Pill tone="ok" icon={<IconCheck className="size-3" />}>
             ส่งแล้ว
@@ -104,24 +113,29 @@ export function ComparisonRow({
       <div
         role="radiogroup"
         aria-label={`เปรียบเทียบ ${item.leftLabel} กับ ${item.rightLabel}`}
-        className={`${item.completed ? 'mt-3' : ''} grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 sm:gap-5`}
+        className="mt-3 grid grid-cols-1 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-5"
       >
         <div className="min-w-0">
-          <div className="grid min-h-28 place-items-center rounded-xl border border-accent-line bg-brand-50 px-3 py-5 text-center">
-            <p className="font-display text-base font-semibold text-accent-ink wrap-break-word">
+          <div className="grid min-h-20 place-items-center rounded-xl border border-accent-line bg-brand-50 px-3 py-4 text-center">
+            <p className="text-xs text-muted">ผลงานฝั่งซ้าย</p>
+            <p className="mt-1 font-display text-base font-semibold text-accent-ink wrap-break-word">
               {item.leftLabel}
             </p>
           </div>
           <div className="mt-3 flex flex-col gap-1">{leftChoices.map(choiceButton)}</div>
         </div>
 
-        <span className="mt-12 font-display text-sm font-semibold text-muted" aria-hidden="true">
+        <span
+          className="mx-auto grid size-9 place-items-center rounded-full bg-sand font-display text-xs font-semibold text-muted sm:mt-6"
+          aria-hidden="true"
+        >
           VS
         </span>
 
         <div className="min-w-0">
-          <div className="grid min-h-28 place-items-center rounded-xl border border-ok-line bg-ok-50 px-3 py-5 text-center">
-            <p className="font-display text-base font-semibold text-ok-700 wrap-break-word">
+          <div className="grid min-h-20 place-items-center rounded-xl border border-comparison-right-line bg-comparison-right-soft px-3 py-4 text-center">
+            <p className="text-xs text-muted">ผลงานฝั่งขวา</p>
+            <p className="mt-1 font-display text-base font-semibold text-comparison-right-ink wrap-break-word">
               {item.rightLabel}
             </p>
           </div>

@@ -28,6 +28,12 @@
   --color-ok-700: #1f7a54;
   --color-ok-line: #bee2d0;
 
+  /* ฝั่งขวาของการเปรียบเทียบใช้ฟ้าอมเทาแทนเขียวสถานะสำเร็จ
+     เพื่อไม่ชี้นำว่าผลงานฝั่งขวาเป็นคำตอบที่ "ถูก" ตั้งแต่ก่อนผู้ใช้เลือก */
+  --color-comparison-right-soft: #f0f7fa;
+  --color-comparison-right-line: #b9d8e5;
+  --color-comparison-right-ink: #285f75;
+
   /* แดงหม่น ไม่ใช่แดงเตือนภัย — หน้าจัดการรายชื่อขึ้น error บ่อยจนแดงจัดกลายเป็นเสียงรบกวน */
   --color-err: #b23a2c;
   --color-err-soft: #fcefec;
