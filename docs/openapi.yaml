@@ -1173,7 +1173,7 @@ components:
           examples: [Asia/Bangkok]
         allowedEmailDomains:
           type: array
-          description: ถ้าเว้นว่าง = รับทุก domain
+          description: ระบบ production บังคับใช้ kmitl.ac.th และไม่ยอมให้ client เปิดรับ domain อื่น
           items:
             type: string
 

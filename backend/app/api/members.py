@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
+from app.config import ALLOWED_EMAIL_DOMAINS
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
 from app.domain.audit import AuditAction, AuditEvent
@@ -58,7 +59,7 @@ def add_member(
         candidate = validate_new_member(
             email_raw=body.email,
             role=body.role,
-            allowed_email_domains=classroom.allowed_email_domains,
+            allowed_email_domains=ALLOWED_EMAIL_DOMAINS or classroom.allowed_email_domains,
             existing_role=repo.get_member_role(
                 classroom_id, normalize_email(body.email)
             ),

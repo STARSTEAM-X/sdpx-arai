@@ -77,13 +77,9 @@ services:
       - key: GOOGLE_CLIENT_ID
         value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
 
-      # จำกัด domain อีเมลที่เข้าระบบได้ — ว่าง = รับทุก domain (FR-AUTH-02)
-      #
-      # ค่าที่ต้องใช้ตอนส่งมอบจริงคือ kmitl.ac.th
-      # ยังปล่อยว่างไว้เพราะทันทีที่ตั้ง บัญชีนอก domain จะ login ไม่ได้ทั้งหมด
-      # รวมถึงบัญชีที่ทีมใช้ทดสอบ production อยู่ — ตั้งใน dashboard เมื่อพร้อม
+      # จำกัดทั้งการ login และการเพิ่มสมาชิกให้ใช้บัญชีสถาบันเท่านั้น (FR-AUTH-02)
       - key: ALLOWED_EMAIL_DOMAINS
-        sync: false
+        value: kmitl.ac.th
 
       # ต่อกับ Postgres ด้านล่าง — Render ใส่ connection string ให้เอง
       # ค่า default ใน config.py ชี้ไป localhost:5433 ซึ่งไม่มีอยู่บน Render

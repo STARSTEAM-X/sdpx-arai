@@ -83,6 +83,23 @@ class TestImportCsv:
 
         assert len(repo.roster_of(ROOM)) == 4
 
+    def test_domain_ระดับระบบปฏิเสธทั้งไฟล์และบอกแถวที่ผิด(
+        self, repo: FakeClassroomRepo
+    ):
+        service = RosterService(
+            classroom_repo=repo, allowed_email_domains=["kmitl.ac.th"]
+        )
+        raw = make_csv(
+            ["student@kmitl.ac.th,group-1", "outsider@gmail.com,group-1"]
+        )
+
+        with pytest.raises(RosterImportError) as exc:
+            service.import_csv(classroom_id=ROOM, actor_email=AJARN, raw=raw)
+
+        assert [error.row for error in exc.value.rows] == [3]
+        assert "kmitl.ac.th" in exc.value.rows[0].reason
+        assert repo.replace_roster_call_count == 0
+
     def test_import_ทับของเดิมแต่ไม่ลบอาจารย์ในห้อง(
         self, service: RosterService, repo: FakeClassroomRepo
     ):

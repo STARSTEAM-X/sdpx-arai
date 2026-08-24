@@ -10,6 +10,7 @@ from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
+from app.config import ALLOWED_EMAIL_DOMAINS
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess, capabilities_of
 from app.domain.assignment_service import Assignment
@@ -73,7 +74,9 @@ def create_classroom(
             name=body.name,
             timezone=body.timezone,
             created_by=user_email,
-            allowed_email_domains=body.allowedEmailDomains,
+            # policy ระดับระบบชนะค่าจาก client เสมอ เพื่อให้ API client ส่ง []
+            # แล้วเปิดรับ domain อื่นไม่ได้
+            allowed_email_domains=ALLOWED_EMAIL_DOMAINS or body.allowedEmailDomains,
         )
         repo.save_member(owner)
 

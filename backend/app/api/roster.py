@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
 from app.auth import CurrentUser
+from app.config import ALLOWED_EMAIL_DOMAINS
 from app.db import transaction
 from app.domain.errors import ValidationError
 from app.domain.models import RosterImportResult, RosterMember
@@ -69,7 +70,10 @@ class RosterImportOut(BaseModel):
 @router.get("/{classroom_id}/roster", response_model=RosterList)
 def get_roster(classroom_id: str, user_email: CurrentUser) -> RosterList:
     with transaction() as conn:
-        service = RosterService(classroom_repo=PgClassroomRepository(conn))
+        service = RosterService(
+            classroom_repo=PgClassroomRepository(conn),
+            allowed_email_domains=ALLOWED_EMAIL_DOMAINS,
+        )
         members = service.list_roster(classroom_id=classroom_id, actor_email=user_email)
     return RosterList(items=[RosterEntryOut.of(m) for m in members])
 
@@ -96,7 +100,10 @@ async def import_roster(
 
     # transaction ครอบทั้งการเขียน — ถ้าแถวใดพังกลางทาง จะ rollback ทั้งชุด
     with transaction() as conn:
-        service = RosterService(classroom_repo=PgClassroomRepository(conn))
+        service = RosterService(
+            classroom_repo=PgClassroomRepository(conn),
+            allowed_email_domains=ALLOWED_EMAIL_DOMAINS,
+        )
         result = service.import_csv(
             classroom_id=classroom_id, actor_email=user_email, raw=raw
         )

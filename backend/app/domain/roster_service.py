@@ -9,15 +9,25 @@
 """
 
 from app.domain.access import Capability, ClassroomAccess
+from app.domain.errors import RosterImportError, RowError
 from app.domain.models import RosterImportResult, RosterMember
 from app.domain.repositories import ClassroomRepository
 from app.domain.roster_import import parse_roster_csv
 
 
 class RosterService:
-    def __init__(self, classroom_repo: ClassroomRepository):
+    def __init__(
+        self,
+        classroom_repo: ClassroomRepository,
+        allowed_email_domains: list[str] | None = None,
+    ):
         self._repo = classroom_repo
         self._access = ClassroomAccess(classroom_repo)
+        self._allowed_email_domains = {
+            domain.strip().lower()
+            for domain in (allowed_email_domains or [])
+            if domain.strip()
+        }
 
     def import_csv(
         self, *, classroom_id: str, actor_email: str, raw: bytes
@@ -31,6 +41,27 @@ class RosterService:
 
         # raise RosterImportError พร้อมความผิดทุกแถวถ้าไฟล์ไม่ผ่าน (R1 + R2)
         result = parse_roster_csv(raw)
+
+        if self._allowed_email_domains:
+            domain_errors = [
+                RowError(
+                    row.row_number,
+                    (
+                        f"อีเมล domain '{row.email_normalized.rpartition('@')[2]}' "
+                        f"ใช้ไม่ได้ · domain ที่อนุญาต: "
+                        f"{', '.join(sorted(self._allowed_email_domains))}"
+                    ),
+                )
+                for row in result.rows
+                if row.email_normalized.rpartition("@")[2]
+                not in self._allowed_email_domains
+            ]
+            if domain_errors:
+                raise RosterImportError(
+                    f"พบอีเมลนอก domain ที่อนุญาต {len(domain_errors)} แถว "
+                    "— ไม่มีแถวใดถูกบันทึก",
+                    rows=domain_errors,
+                )
 
         self._repo.replace_roster(classroom_id, result.rows)
         return result

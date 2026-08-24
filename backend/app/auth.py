@@ -11,7 +11,7 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, Request
 
-from app.config import SESSION_SECRET, SESSION_TTL_HOURS
+from app.config import ALLOWED_EMAIL_DOMAINS, SESSION_SECRET, SESSION_TTL_HOURS
 
 _ALGORITHM = "HS256"
 
@@ -58,7 +58,24 @@ def current_user_email(request: Request) -> str:
             detail={"code": "UNAUTHENTICATED", "message": "token ไม่ถูกต้อง"},
         ) from None
 
-    return str(payload["sub"])
+    email = str(payload["sub"]).strip().lower()
+    domain = email.rpartition("@")[2]
+    allowed = {item.strip().lower() for item in ALLOWED_EMAIL_DOMAINS if item.strip()}
+    if allowed and domain not in allowed:
+        # ตรวจทุก request ไม่ใช่เฉพาะตอน login เพื่อให้ session เก่าของ domain อื่น
+        # ใช้งานต่อไม่ได้หลังเปิด policy นี้
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "DOMAIN_NOT_ALLOWED",
+                "message": (
+                    f"อีเมล domain '{domain}' ใช้เข้าระบบไม่ได้ "
+                    f"· domain ที่อนุญาต: {', '.join(sorted(allowed))}"
+                ),
+            },
+        )
+
+    return email
 
 
 CurrentUser = Annotated[str, Depends(current_user_email)]
