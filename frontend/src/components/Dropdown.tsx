@@ -123,7 +123,7 @@ export function Dropdown<T extends string>({
           role="listbox"
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledby}
-          className="absolute top-[calc(100%+0.5rem)] right-0 z-50 w-full min-w-64 rounded-2xl border border-edge-strong bg-white p-1.5 shadow-[0_18px_42px_-16px_rgba(23,32,51,0.32)]"
+          className="absolute top-[calc(100%+0.5rem)] right-0 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-edge-strong bg-white p-1.5 shadow-[0_18px_42px_-16px_rgba(23,32,51,0.32)]"
         >
           {options.map((option, index) => {
             const active = option.value === value
@@ -140,19 +140,19 @@ export function Dropdown<T extends string>({
                 onKeyDown={(event) => handleOptionKeyDown(event, index)}
                 className={
                   'grid w-full grid-cols-[2rem_minmax(0,1fr)_1rem] items-center gap-2.5 rounded-xl px-2.5 py-2 text-left ' +
-                  `transition-colors ${active ? 'bg-accent-soft text-accent-ink' : 'hover:bg-sand'} ${FOCUS}`
+                  `transition-colors ${active ? 'bg-accent-soft/60 text-accent-ink' : 'hover:bg-sand'} ${FOCUS}`
                 }
               >
                 <span
                   aria-hidden="true"
-                  className={`grid size-8 place-items-center rounded-lg ${active ? 'bg-white/70' : 'bg-sand text-ink-2'}`}
+                  className={`grid size-8 place-items-center rounded-lg ${active ? 'bg-white/60' : 'bg-sand text-ink-2'}`}
                 >
                   {option.icon ?? <span className="size-1.5 rounded-full bg-current" />}
                 </span>
                 <span className="min-w-0">
                   <span className="block font-display text-sm font-semibold">{option.label}</span>
                   {option.description && (
-                    <span className="mt-0.5 block text-xs leading-4 text-muted">
+                    <span className="mt-0.5 block truncate text-xs leading-4 text-muted">
                       {option.description}
                     </span>
                   )}

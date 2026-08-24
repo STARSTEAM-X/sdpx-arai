@@ -34,7 +34,10 @@ const ROLE_OPTIONS: { value: InstructorRole; label: string; hint: string }[] = [
 const ROLE_DROPDOWN_OPTIONS: DropdownOption<InstructorRole>[] = ROLE_OPTIONS.map((option) => ({
   value: option.value,
   label: option.label,
-  description: option.hint,
+  description:
+    option.value === 'CO_TEACHER'
+      ? 'จัดการรายชื่อและงานประเมิน'
+      : 'ดูแลรายชื่อเท่านั้น',
   icon:
     option.value === 'CO_TEACHER' ? (
       <IconInstructor className="size-4" />
