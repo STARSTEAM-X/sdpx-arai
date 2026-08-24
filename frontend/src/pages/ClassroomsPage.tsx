@@ -205,16 +205,19 @@ export default function ClassroomsPage() {
                 {/* ห่อด้วย div ที่กำหนดความกว้างแทนการต่อ "w-auto" ท้าย CTRL
                     เพราะ CTRL มี w-full ฝังอยู่แล้ว — ลำดับ class ของ Tailwind ตัดสินกันที่
                     stylesheet ไม่ใช่ตัวที่เขียนทีหลัง จึง "w-auto" แพ้ไม่แน่นอน (ดู btn() ใน Ui.tsx) */}
-                <div className="shrink-0 sm:w-48">
+                <div className="relative shrink-0 sm:w-48">
+                  {/* appearance-none ปิดลูกศรเดิมของ browser เพราะตำแหน่งมันชิดขอบเกินไป
+                      ไม่ตรงกับ padding ที่เหลือ component ในหน้านี้ใช้ — วาดเองแทนให้ระยะเท่ากันทุกช่อง */}
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortOrder)}
                     aria-label="เรียงลำดับ"
-                    className={CTRL}
+                    className={`${CTRL} appearance-none pr-10`}
                   >
                     <option value="recent">อัปเดตล่าสุด</option>
                     <option value="name">ชื่อ ก-ฮ</option>
                   </select>
+                  <IconChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted" />
                 </div>
               </div>
 
@@ -304,7 +307,7 @@ export default function ClassroomsPage() {
                         name="timezone"
                         value={timezone}
                         onChange={(e) => setTimezone(e.target.value)}
-                        className={`${CTRL} pl-10`}
+                        className={`${CTRL} appearance-none pl-10 pr-10`}
                       >
                         {TIMEZONES.map((tz) => (
                           <option key={tz} value={tz}>
@@ -312,6 +315,7 @@ export default function ClassroomsPage() {
                           </option>
                         ))}
                       </select>
+                      <IconChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted" />
                     </div>
                     <p className="mt-1.5 text-[12.5px] text-muted">
                       ใช้สำหรับกำหนดวันและเวลาส่งงาน
