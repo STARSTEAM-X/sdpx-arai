@@ -1,0 +1,22 @@
+# ไฟล์ที่ไม่ควรถูกส่งเข้า build context ของ backend
+# ทุกอย่างที่ไม่ถูกกันไว้ตรงนี้จะถูกอัปโหลดให้ Docker daemon ทุกครั้งที่ build
+# — ช้าลง, image ใหญ่ขึ้น, และที่แย่ที่สุดคือ secret มีโอกาสหลุดเข้า layer
+
+# --- secret: ห้ามเข้า image เด็ดขาด (image ถูก push และ layer ย้อนดูได้) ---
+.env
+.env.*
+!.env.example
+
+# --- ของที่สร้างใหม่ได้เสมอ ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- ไฟล์ของ dev ที่ image ไม่ต้องใช้ ---
+*.log
+.DS_Store
+TEST_PLAN.md

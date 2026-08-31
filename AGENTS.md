@@ -10,7 +10,8 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
-- **สถานะปัจจุบัน:** WS-01 — มีแค่ landing page และ health endpoint ยังไม่มี feature จริง
+- **สถานะปัจจุบัน:** WS-05 — walking skeleton ครบ (login → classroom → roster → assignment → pair → ประเมิน → คะแนน)
+  และทั้ง app กับ test suite รันด้วย Docker คำสั่งเดียวได้แล้ว
 
 ## Paths
 
@@ -25,6 +26,41 @@
 | เอกสารประกอบวิชา (อ่านอย่างเดียว) | `Sources/` |
 
 ## Setup & Commands
+
+### วิธีที่สั้นที่สุด — Docker (WS-05)
+
+รันได้ทันทีหลัง clone โดยไม่ต้องลง Node, Python หรือ Postgres บนเครื่อง
+**ทุกคำสั่งในหัวข้อนี้รันจาก root ของ repo**
+
+```bash
+# dev — ยกทั้ง web + api + db พร้อมกัน (web: 5173 · api: 8000 · db: 5433)
+docker compose up
+
+# unit test ฝั่ง backend (pytest · ไม่ต้องมี database)
+docker compose -f compose.test.yaml up unit-api --abort-on-container-exit --exit-code-from unit-api
+
+# unit test ฝั่ง frontend (vitest)
+docker compose -f compose.test.yaml up unit-web --abort-on-container-exit --exit-code-from unit-web
+
+# integration test (ต้องมี Postgres จริง — compose ยก test-db แบบ ephemeral ให้เอง)
+docker compose -f compose.test.yaml up integration-api --abort-on-container-exit --exit-code-from integration-api
+
+# e2e เต็มระบบ (ยก db + api + web ที่ build แล้ว + Playwright ให้ครบ)
+docker compose -f compose.test.yaml --profile e2e up e2e --abort-on-container-exit --exit-code-from e2e
+
+# teardown — -v ลบ volume ด้วย ไม่งั้นข้อมูลของรอบก่อนค้างไปรอบถัดไป
+docker compose -f compose.test.yaml --profile e2e down -v
+docker compose down
+```
+
+**`--exit-code-from <service>` ห้ามลืม** — ถ้าไม่ใส่ compose จะคืน exit code 0 เสมอ
+ตราบใดที่มันหยุด container ได้สำเร็จ แม้ test จะแดง แปลว่า CI จะเขียวหลอกทั้ง pipeline
+คำสั่งข้างบนนี้คือชุดเดียวกับที่ CI รัน — ผลที่ agent เห็นบนเครื่องจึงเท่ากับผลบน CI
+
+ถ้าพอร์ตบนเครื่องชนกับของเดิม ตั้ง `WEB_PORT`, `API_PORT`, `DB_PORT` ทับได้
+เช่น `WEB_PORT=5174 CORS_ORIGINS=http://localhost:5174 docker compose up`
+
+### วิธีติดตั้งบนเครื่องตรง ๆ (ไม่ผ่าน Docker)
 
 ### Frontend (`frontend/`)
 

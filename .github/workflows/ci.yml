@@ -1,0 +1,24 @@
+# CI ตัวแรกของโปรเจกต์ (WS-05 homework)
+#
+# ตั้งใจให้เล็กที่สุดเท่าที่ยังพิสูจน์ได้ว่า pipeline เดินจริง — job เดียว ขั้นตอนเดียว
+# WS-06 จะต่อยอดไฟล์นี้เป็น pipeline เต็ม (lint → test → build → deploy)
+# การเริ่มจากของที่เขียวแน่ ๆ ทำให้รู้ทันทีว่าถ้ามันแดงตอนต่อยอด สาเหตุคือของที่เพิ่งเพิ่ม
+
+name: CI
+
+on: [push, pull_request]
+
+# ให้สิทธิ์น้อยที่สุดเท่าที่จำเป็น: workflow นี้แค่ checkout กับ echo จึงขอแค่ contents: read
+#
+# ถ้าไม่ประกาศบล็อกนี้ GITHUB_TOKEN จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเป็น write ทั้งชุด
+# workflow ที่รัน code จาก pull request ของคนนอกพร้อม token ที่เขียน repo ได้
+# คือช่องทางที่ใช้ยึด build pipeline กันจริง ๆ
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: echo "Pipeline works!"

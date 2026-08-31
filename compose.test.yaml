@@ -1,0 +1,169 @@
+# Test environment ของ PairEval — รัน test ชุดเดียวกับที่ CI รัน บนเครื่องใครก็ได้
+#
+#   unit ทั้งสองฝั่ง (ไม่ต้องมี database):
+#     docker compose -f compose.test.yaml up unit-api --abort-on-container-exit --exit-code-from unit-api
+#     docker compose -f compose.test.yaml up unit-web --abort-on-container-exit --exit-code-from unit-web
+#
+#   integration (ต้องมี Postgres จริง):
+#     docker compose -f compose.test.yaml up integration-api --abort-on-container-exit --exit-code-from integration-api
+#
+#   E2E เต็มระบบ:
+#     docker compose -f compose.test.yaml --profile e2e up e2e --abort-on-container-exit --exit-code-from e2e
+#
+#   ล้างทิ้ง:
+#     docker compose -f compose.test.yaml down -v
+#
+# --exit-code-from <service> คือหัวใจของไฟล์นี้: มันทำให้ exit code ของคำสั่ง
+# เท่ากับ exit code ของ container ตัวนั้น ถ้าไม่ใส่ compose จะคืน 0 เสมอตราบใดที่มัน
+# หยุด container ได้สำเร็จ — CI ก็จะเขียวทั้งที่ test แดง
+#
+# ไม่มีคีย์ `version:` โดยตั้งใจ · ทุก credential ในไฟล์นี้เป็นค่าสำหรับ test เท่านั้น
+# database ทั้งก้อนหายเมื่อ container ตาย จึงไม่มีอะไรให้ป้องกัน
+
+name: paireval-test # แยก project name ออกจาก compose.yaml เพื่อไม่ให้ทับ container ของ dev
+
+services:
+  # ---------------------------------------------------------------------------
+  # test-db — Postgres แบบ ephemeral: ข้อมูลอยู่ใน RAM และหายทุกครั้งที่ container ตาย
+  # ---------------------------------------------------------------------------
+  test-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    tmpfs:
+      # ไม่มี named volume โดยตั้งใจ — ข้อมูลค้างจากการรันครั้งก่อนทำให้ test
+      # ผ่านหรือแดงด้วยเหตุผลที่ไม่เกี่ยวกับ code ที่เพิ่งแก้ ซึ่งเป็นผลที่เชื่อไม่ได้
+      # ผลพลอยได้: Postgres บน tmpfs เขียนลง RAM จึงเร็วกว่า disk มาก
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # unit-api — pytest ฝั่ง backend · pytest.ini ตัด integration ออกให้แล้ว จึงไม่ต้องพึ่ง DB
+  # ---------------------------------------------------------------------------
+  unit-api:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      ENVIRONMENT: test
+    command: pytest
+
+  # ---------------------------------------------------------------------------
+  # unit-web — vitest ฝั่ง frontend
+  # ---------------------------------------------------------------------------
+  unit-web:
+    build:
+      context: ./frontend
+      target: test
+    command: npm test
+
+  # ---------------------------------------------------------------------------
+  # integration-api — test ที่ต้องคุยกับ Postgres จริง (marker `integration`)
+  # ---------------------------------------------------------------------------
+  integration-api:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      DATABASE_URL: postgresql://testuser:testpass@test-db:5432/testdb
+      ENVIRONMENT: test
+      SESSION_SECRET: test-only-secret-value-that-is-long-enough-32b
+    depends_on:
+      test-db:
+        condition: service_healthy
+    # -m integration override addopts ใน pytest.ini ที่ตั้ง `not integration` ไว้
+    command: pytest -m integration
+
+  # ---------------------------------------------------------------------------
+  # api-test / web-test — ระบบที่ถูกทดสอบ ยกขึ้นเฉพาะตอนรัน E2E
+  # ---------------------------------------------------------------------------
+  api-test:
+    build:
+      context: ./backend
+      target: build
+    environment:
+      DATABASE_URL: postgresql://testuser:testpass@test-db:5432/testdb
+      # ต้องไม่ใช่ production ไม่งั้น /api/test/seed|cleanup|session จะไม่ถูกลงทะเบียน
+      # แล้ว fixture ของ Playwright จะเตรียม state ไม่ได้เลย
+      ENVIRONMENT: development
+      # origin ที่เบราว์เซอร์ของ Playwright เปิดหน้าเว็บอยู่ — container e2e ใช้
+      # network stack ร่วมกับ web-test หน้าเว็บจึงอยู่ที่ http://localhost:8080 ในสายตามัน
+      CORS_ORIGINS: http://localhost:8080
+      SESSION_SECRET: test-only-secret-value-that-is-long-enough-32b
+    command: sh -c "python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).status == 200 else 1)",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    depends_on:
+      test-db:
+        condition: service_healthy
+    profiles: ["e2e"]
+
+  web-test:
+    build:
+      context: ./frontend
+      # runtime (nginx เสิร์ฟ bundle ที่ build แล้ว) ไม่ใช่ dev server โดยตั้งใจ 2 เหตุผล:
+      # 1. E2E ควรยิงใส่ของที่ใกล้เคียง production ไม่ใช่ของที่มี HMR และ source map ติดมา
+      # 2. dev server ของ Vite ตรวจ Host header และตอบ 403 ให้ชื่อที่ไม่ได้ประกาศไว้ใน
+      #    server.allowedHosts — ใน compose หน้าเว็บถูกเรียกด้วยชื่อ service (web-test)
+      #    จึงโดนบล็อกทุก request ถ้าใช้ stage build
+      target: runtime
+      args:
+        # เบราว์เซอร์ที่รัน test อยู่ใน container ของ e2e จึง resolve ชื่อ service ได้
+        VITE_API_BASE_URL: http://api-test:8000
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    depends_on:
+      api-test:
+        condition: service_healthy
+    profiles: ["e2e"]
+
+  # ---------------------------------------------------------------------------
+  # e2e — Playwright ยิงใส่ระบบที่ประกอบเสร็จแล้วข้างบน
+  # ---------------------------------------------------------------------------
+  e2e:
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile
+    # ใช้ network stack ของ web-test ร่วมกัน — หน้าเว็บจึงอยู่ที่ http://localhost:8080
+    # ในสายตาของเบราว์เซอร์
+    #
+    # ที่ต้องเป็น localhost ไม่ใช่ http://web-test:8080 เพราะเบราว์เซอร์นับเฉพาะ https
+    # กับ localhost เป็น "secure context" · origin อื่นจะไม่มี crypto.randomUUID() ให้เรียก
+    # (หน้าส่งคำตอบใช้มันสร้าง idempotency key) แล้ว test จะแดงด้วยเหตุผลที่ไม่มีจริง
+    # บน production ซึ่งเสิร์ฟผ่าน https
+    network_mode: "service:web-test"
+    environment:
+      BASE_URL: http://localhost:8080
+      # ฝั่ง API เรียกจาก node ไม่ใช่จากหน้าเว็บ จึงไม่ติดเงื่อนไข secure context
+      API_BASE_URL: http://api-test:8000
+      # บอก playwright.config.ts ว่า app ถูกยกโดย compose แล้ว ไม่ต้องยก webServer เอง
+      # (ถ้าไม่บอก มันจะเห็นคำว่า localhost ใน BASE_URL แล้วไปเรียก .venv/npm ที่ไม่มีใน container นี้)
+      E2E_EXTERNAL_STACK: "1"
+    volumes:
+      # เอา report กลับออกมาดูบนเครื่อง host ได้หลัง container ตาย
+      - ./e2e/playwright-report:/work/e2e/playwright-report
+      - ./e2e/test-results:/work/e2e/test-results
+    depends_on:
+      web-test:
+        condition: service_healthy
+    profiles: ["e2e"]

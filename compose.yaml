@@ -1,27 +1,106 @@
-# Local development database
+# Development environment ของ PairEval — ยกทั้งระบบด้วยคำสั่งเดียว
 #
-# ตอนนี้มีแค่ Postgres — WS-05 จะเพิ่ม service ของ frontend และ backend เข้ามา
-# ให้ยกทั้งระบบขึ้นได้ด้วยคำสั่งเดียว
+#   docker compose up
 #
-#   docker compose up -d db
-#   cd backend && ./.venv/Scripts/python.exe -m app.migrate
+#   web  → http://localhost:5173   (Vite dev server, hot reload)
+#   api  → http://localhost:8000   (uvicorn --reload)
+#   db   → localhost:5433          (Postgres 17, เปิดพอร์ตไว้ให้ DB tool บนเครื่องต่อได้)
+#
+# ไม่มีคีย์ `version:` โดยตั้งใจ — Compose Spec เลิกใช้แล้ว และ v2 จะเตือนถ้าใส่มา
+#
+# ค่าที่เห็นเป็น credential ในไฟล์นี้เป็นค่า dev บนเครื่องตัวเองเท่านั้น ไม่ใช่ secret จริง
+# ทุกตัวเขียนเป็น ${VAR:-default} จึง override ด้วย environment ของ shell ได้โดยไม่ต้องแก้ไฟล์
 
 services:
+  # ---------------------------------------------------------------------------
+  # web — Vite dev server
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ./frontend
+      target: build # dev ใช้ stage ที่ยังมี devDependencies (vite, vitest) ครบ
+      args:
+        # VITE_* เป็น build-time — ค่านี้ถูกฝังตอน build ไม่ได้อ่านตอน run
+        # ต้องเป็น URL ที่ "เบราว์เซอร์บนเครื่อง host" เรียกได้ ไม่ใช่ชื่อ service ใน network
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: paireval-web
+    ports:
+      # พอร์ตฝั่ง host ตั้งค่าได้ เผื่อมี dev server ตัวอื่นจองพอร์ตเดิมอยู่แล้ว
+      # (ค่า default คือพอร์ตเดิมที่ทุกเอกสารอ้างถึง จึงไม่ต้องตั้งอะไรในกรณีปกติ)
+      - "${WEB_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app # hot reload: แก้ไฟล์บนเครื่องแล้วเห็นผลทันทีโดยไม่ต้อง rebuild
+      - /app/node_modules # anonymous volume กัน node_modules ของ host ทับของที่ npm ci ลงไว้ใน image
+    # --host ผูกกับ 0.0.0.0 ไม่ใช่ 127.0.0.1 ของ container ไม่งั้น port mapping ทะลุเข้าไม่ได้
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # api — FastAPI + uvicorn --reload
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      target: build
+    container_name: paireval-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # ชื่อ service `db` คือ hostname ใน network ของ compose · พอร์ตในนั้นคือ 5432 เสมอ
+      # (5433 เป็นแค่พอร์ตฝั่ง host ที่ตั้งไว้กันชนกับ Postgres ที่อาจติดตั้งบนเครื่องอยู่แล้ว)
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paireval:devpassword@db:5432/paireval}
+      # development เปิด endpoint /api/test/* ที่ E2E ใช้ seed และ login แทนคน
+      # ห้ามใช้ค่านี้บน service ที่เข้าถึงได้จาก internet — ดูเหตุผลเต็มใน AGENTS.md
+      ENVIRONMENT: development
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      # ค่า dev เท่านั้น (ต้องยาว >= 32 bytes ตาม RFC 7518 §3.2) — ของจริงบน Render
+      # มาจาก generateValue ซึ่งไม่มีใครเห็นค่า แม้แต่คนตั้ง
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-not-for-production-use-32b}
+    volumes:
+      - ./backend:/app # hot reload ผ่าน uvicorn --reload
+    # migrate ก่อนทุกครั้ง — runner ข้ามไฟล์ที่รันแล้วเอง จึงรันซ้ำได้ไม่มีผลข้างเคียง
+    command: sh -c "python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      # stage build ไม่มี HEALTHCHECK ติดมา (มีเฉพาะ runtime) จึงประกาศที่นี่
+      # เพื่อให้ web รอจน API ตอบ /api/health ได้จริงก่อนค่อยขึ้น
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).status == 200 else 1)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      db:
+        # ไม่ใช่แค่ "container ขึ้นแล้ว" — Postgres ใช้เวลา initdb อีกหลายวินาทีกว่าจะรับ connection
+        # ถ้ารอแค่ service_started migrate จะพังเพราะต่อ database ไม่ได้
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # db — Postgres สำหรับ dev (ข้อมูลอยู่ถาวรใน named volume)
+  # ---------------------------------------------------------------------------
   db:
-    image: postgres:17-alpine
+    image: postgres:17-alpine # pin major ไว้ให้ตรงกับ Render — ห้าม latest
     container_name: paireval-db
     environment:
       POSTGRES_USER: paireval
       POSTGRES_PASSWORD: devpassword # ค่านี้ใช้เฉพาะเครื่อง dev ไม่ใช่ secret จริง
       POSTGRES_DB: paireval
     ports:
-      - "5433:5432" # 5433 กัน port ชนกับ Postgres ที่อาจติดตั้งบนเครื่องอยู่แล้ว
+      - "${DB_PORT:-5433}:5432" # 5433 กัน port ชนกับ Postgres ที่อาจติดตั้งบนเครื่องอยู่แล้ว
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U paireval -d paireval"]
       interval: 3s
       timeout: 3s
       retries: 10
     volumes:
+      # dev database เก็บข้อมูลถาวร ต่างจาก test database ที่ต้องหายทุกครั้ง
       - paireval-db-data:/var/lib/postgresql/data
 
 volumes:

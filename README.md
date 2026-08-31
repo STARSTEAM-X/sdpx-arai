@@ -61,6 +61,26 @@ Sources/      เอกสารประกอบวิชา (MIT)
 
 ## รันบนเครื่องตัวเอง
 
+### วิธีที่สั้นที่สุด — Docker (แนะนำ)
+
+ต้องมีแค่ Docker Desktop ไม่ต้องลง Node, Python หรือ Postgres
+
+```bash
+docker compose up
+```
+
+- หน้าเว็บ: `http://localhost:5173`
+- API: `http://localhost:8000/api/health`
+- Postgres: `localhost:5433`
+
+migration รันให้เองก่อน API ขึ้นทุกครั้ง และแก้ code แล้ว reload ทั้งสองฝั่งโดยไม่ต้อง build ใหม่
+ถ้าพอร์ตชนกับโปรแกรมอื่นบนเครื่อง ตั้งทับได้:
+`WEB_PORT=5174 CORS_ORIGINS=http://localhost:5174 docker compose up`
+
+จำนวนขั้นตอนก่อน/หลังใช้ Docker และวิธีวัด: [`docs/setup-steps.md`](docs/setup-steps.md)
+
+### วิธีติดตั้งบนเครื่องตรง ๆ
+
 ต้องเปิด 2 terminal — ฝั่งละอัน
 
 **Database** (ต้องขึ้นก่อน backend)
@@ -91,8 +111,8 @@ npm run dev
 
 เปิด `http://localhost:5173` — ถ้าตั้งค่าถูก จะเห็นป้ายสถานะขึ้นว่า **API พร้อมใช้งาน**
 
-> ขั้นตอนตอนนี้ยังเยอะและต้องทำมือหลายอย่าง — **WS-05 จะย่อให้เหลือ `docker compose up` คำสั่งเดียว**
-> จำนวนขั้นตอนตอนนี้คือ baseline ที่จะเอาไปเทียบ
+> ขั้นตอนชุดนี้คือ baseline ที่ WS-05 เอาไปเทียบ — **15 ขั้นตอน 3 terminal และต้องเติมค่าใน `.env` เอง 4 ค่า**
+> ย่อเหลือ `docker compose up` คำสั่งเดียวแล้ว ตัวเลขและวิธีวัดอยู่ใน [`docs/setup-steps.md`](docs/setup-steps.md)
 
 ### ถ้า port ชนกัน
 
@@ -134,6 +154,13 @@ cd backend && ./.venv/Scripts/python.exe -m pytest                 # unit + api 
 cd backend && ./.venv/Scripts/python.exe -m pytest -m integration  # ต้องมี Postgres
 cd frontend && npm test                                            # unit test
 npm run e2e                                                        # E2E (ต้องมี Postgres ขึ้นอยู่)
+
+# หรือรันทั้งหมดใน Docker — environment เดียวกับ CI ไม่ต้องลงอะไรบนเครื่อง
+docker compose -f compose.test.yaml up unit-api --abort-on-container-exit --exit-code-from unit-api
+docker compose -f compose.test.yaml up unit-web --abort-on-container-exit --exit-code-from unit-web
+docker compose -f compose.test.yaml up integration-api --abort-on-container-exit --exit-code-from integration-api
+docker compose -f compose.test.yaml --profile e2e up e2e --abort-on-container-exit --exit-code-from e2e
+docker compose -f compose.test.yaml --profile e2e down -v            # teardown
 npm run e2e:report                                                 # เปิด HTML report
 npm run lint:api                                                   # validate docs/openapi.yaml
 ```

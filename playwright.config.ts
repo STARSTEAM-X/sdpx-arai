@@ -14,6 +14,16 @@ const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:8123'
 // ถ้าชี้ไป staging แล้ว ไม่ต้องยก server ขึ้นมาเอง
 const isLocal = BASE_URL.includes('localhost')
 
+/* ใน Docker (compose.test.yaml) app ถูกยกโดย compose ไปแล้ว และ BASE_URL ก็ชี้ไป
+ * localhost เหมือนกัน — ถ้าดูแค่ชื่อ host จะเข้าใจผิดว่าต้องยก server เอง
+ * แล้วไปเรียก .venv กับ npm ที่ไม่มีอยู่ใน container ของ Playwright
+ *
+ * (เหตุผลที่ใน Docker ต้องเป็น localhost ไม่ใช่ชื่อ service: เบราว์เซอร์ให้สิทธิ์
+ *  secure context เฉพาะ https กับ localhost เท่านั้น นอกนั้น crypto.randomUUID()
+ *  จะไม่มีอยู่เลย ทั้งที่ของจริงบน Render เสิร์ฟผ่าน https)
+ */
+const managesServers = isLocal && !process.env.E2E_EXTERNAL_STACK
+
 // Playwright รันคำสั่งผ่าน shell ของ OS — Windows ใช้ cmd.exe ที่ไม่รู้จัก forward slash
 // เขียนแยกตาม platform เพื่อให้คำสั่งเดียวกันรันได้ทั้งบน Windows และ mac/Linux
 const PYTHON_BIN =
@@ -49,7 +59,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   // ยกทั้ง API และ frontend ให้เอง — กันเคส "ลืมเปิด server แล้ว test แดงเพราะเหตุผลผิด ๆ"
-  webServer: isLocal
+  webServer: managesServers
     ? [
         {
           command: `${PYTHON_BIN} -m uvicorn app.main:app --host 127.0.0.1 --port 8123`,
