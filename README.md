@@ -5,6 +5,8 @@
 ผู้ประเมินเทียบงานครั้งละ 2 ชิ้นด้วยมาตรวัด 6 ระดับ แล้วระบบคำนวณคะแนนจากผลเปรียบเทียบทั้งหมด
 เพื่อแก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
+[![CI](https://github.com/STARSTEAM-X/sdpx-arai/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/STARSTEAM-X/sdpx-arai/actions/workflows/ci.yml)
+
 > Project ของวิชา **SDPX-AI** — Software Development Process in Practice (AI-Assisted)
 > สรุปงานทั้ง 8 workshop อยู่ที่ [`summary.md`](summary.md)
 
@@ -24,16 +26,16 @@
 
 ## สถานะ
 
-ตัวเลข test / coverage / E2E วัดใหม่เมื่อ **2026-08-24** ไม่ใช่ค่าที่จดไว้ตอนทำ workshop นั้น ๆ
+ตัวเลข test / coverage / E2E วัดใหม่เมื่อ **2026-08-31** ไม่ใช่ค่าที่จดไว้ตอนทำ workshop นั้น ๆ
 ส่วน commit-to-live ยังเป็นค่าที่วัดตอน WS-01 — วิธีวัดซ้ำอยู่ใน [`memory-bank/standards/tech-stack.md`](memory-bank/standards/tech-stack.md)
 
 | Workshop | สถานะ | ได้อะไร |
 |---|---|---|
 | WS-01 First Deploy | ✅ | Landing page + `GET /api/health` + auto-deploy จาก `develop` ทั้งสองฝั่ง · commit-to-live 42 วิ (ฝั่ง web) |
 | WS-02 Requirements & API Design | ✅ | Backlog 16 stories (ทุกอันมี AC + DoD), architecture + ERD, OpenAPI 13 paths / 14 operations validate ผ่าน, memory-bank |
-| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **262 tests 0.75s** (เพดาน 10 วิ) · integration อีก 27 · fidelity check 6 ครั้ง · coverage backend 77% |
-| WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 63 tests · `--repeat-each=3` ได้ 189 passed ไม่ flaky** |
-| WS-05 Docker | ⬜ | |
+| WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **backend 350 tests 0.96s + frontend 21 tests 0.23s** (เพดาน 10 วิ) · integration อีก 29 · fidelity check 6 ครั้ง · coverage backend 67% |
+| WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
+| WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
 | WS-06 CI/CD | ⬜ | |
 | WS-07 Performance | ⬜ | |
 | WS-08 Code Quality & Security | ⬜ | |
@@ -42,9 +44,9 @@
 
 | Sprint | สถานะ | ได้อะไร |
 |---|---|---|
-| [Sprint 1](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/1) | ✅ | login · สร้างห้องเรียน · นำเข้ารายชื่อ CSV · กันการเข้าถึงข้ามห้อง |
-| [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/2) | ✅ | สร้างงานประเมิน · feasibility · เผยแพร่แล้วจัดคู่อัตโนมัติ · จัดการผู้ร่วมสอนและ TA · audit log |
-| [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai2/milestone/3) | ⬜ | นักศึกษาประเมินและดูคะแนน · scoring engine · finalize — 7 stories, ไม่ติด blocker แล้ว |
+| [Sprint 1](https://github.com/STARSTEAM-X/sdpx-arai/milestone/1) | ✅ | login · สร้างห้องเรียน · นำเข้ารายชื่อ CSV · กันการเข้าถึงข้ามห้อง |
+| [Sprint 2](https://github.com/STARSTEAM-X/sdpx-arai/milestone/2) | ✅ | สร้างงานประเมิน · feasibility · เผยแพร่แล้วจัดคู่อัตโนมัติ · จัดการผู้ร่วมสอนและ TA · audit log |
+| [Sprint 3](https://github.com/STARSTEAM-X/sdpx-arai/milestone/3) | ✅ | นักศึกษาประเมินและดูคะแนน · scoring engine · finalize — ปิดครบ 7 stories |
 
 แผนและเหตุผลของการแบ่ง Sprint อยู่ใน [`docs/backlog.md`](docs/backlog.md)
 
@@ -56,6 +58,8 @@ backend/      FastAPI (Python 3.12)
 memory-bank/  context ที่ทั้งคนและ AI agent อ่าน
 docs/         design docs และเอกสารของ project
 render.yaml   Render Blueprint — infra เป็น code
+compose.yaml       dev environment — web + api + db ด้วยคำสั่งเดียว
+compose.test.yaml  test environment — unit / integration / e2e พร้อม db แบบ ephemeral
 Sources/      เอกสารประกอบวิชา (MIT)
 ```
 
@@ -171,6 +175,12 @@ integration test ถูกตัดออกจาก `pytest` เปล่า �
 รายละเอียดว่า test แต่ละตัวปกป้องกฎอะไร: [`backend/TEST_PLAN.md`](backend/TEST_PLAN.md) ·
 [`frontend/TEST_PLAN.md`](frontend/TEST_PLAN.md) · [`docs/e2e-report.md`](docs/e2e-report.md)
 
+## CI
+
+ทุก push และ pull request รัน workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+ตอนนี้เป็น smoke job (checkout + echo) พร้อม `permissions: contents: read` ขั้นต่ำ —
+WS-06 จะต่อยอดเป็น pipeline เต็ม โดยใช้คำสั่ง `docker compose -f compose.test.yaml ...` ชุดเดียวกับที่รันบนเครื่อง
+
 ## Deploy
 
 Deploy อัตโนมัติขึ้น Render ทุกครั้งที่ push เข้า `develop` — ไม่ต้องกดปุ่ม
@@ -179,6 +189,7 @@ config อยู่ใน [`render.yaml`](render.yaml)
 ## เอกสาร
 
 - [`AGENTS.md`](AGENTS.md) — กติกาสำหรับ AI agent และคำสั่งที่ใช้ได้จริง
+- [`docs/setup-steps.md`](docs/setup-steps.md) — จำนวนขั้นตอนและเวลาในการติดตั้ง ก่อน/หลังใช้ Docker
 - [`memory-bank/standards/tech-stack.md`](memory-bank/standards/tech-stack.md) — การตัดสินใจเรื่อง stack
 - [`docs/superpowers/specs/`](docs/superpowers/specs/) — design doc ของแต่ละ workshop
 - PRD ฉบับเต็ม: `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
