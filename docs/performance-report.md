@@ -46,6 +46,16 @@ Peak 10 student VUs + 1 instructor; ใช้เวลา 133.2s รวม grace
 - คาด staging ช้ากว่า local: **ยังไม่มี staging journey baseline ของ candidate นี้**.
   CI เตรียมรันหลัง deploy-staging; ห้ามใช้ baseline local แทนผลนั้น.
 
+### Staging smoke — 2026-10-05 หลัง deploy 7db9796
+
+ยิงจากเครื่อง Windows ในไทยไป paireval-api.onrender.com (Singapore), 3 VUs/30s,
+health เท่านั้น: 87 requests, 2.85 req/s, p50 46.45ms, p95 **64.22ms**,
+max 103.51ms, errors 0%, checks ทุกข้อผ่าน, exit 0.
+หลักฐาน [staging-smoke.json](../performance/staging-smoke.json).
+API health และ web build-info ยืนยัน SHA ตรงกัน; /api/test/* ไม่เปิด.
+Smoke profile นี้ไม่ใช่ journey ที่มี autosave/submit และไม่ใช้แทน NFR 200 users.
+ตำแหน่ง runner ต่างจาก failure proof บน GitHub จึงไม่เปรียบเทียบ p95 สองรอบโดยตรง.
+
 ### หลักฐานจาก structured logs
 
 | Route | duration_ms | requestId | บริบท |
@@ -58,6 +68,14 @@ HTTP log และ business events มี event, requestId, duration_ms;
 business duration คือเวลาจากรับ request ถึงจุด log ไม่ใช่เวลาของ SQL statement.
 Route ใช้ pattern, ผู้ใช้ใช้ HMAC reference, formatter redact ข้อมูลอ่อนไหว.
 Unit tests ตรวจ context และ redaction โดยใช้ข้อมูลสังเคราะห์.
+
+### CI threshold failure proof
+
+Branch ทดลอง codex/ws06-07-gate-proof ใช้ smoke บน staging health ด้วย
+p95<0.0001ms, ได้ p95 730.24ms และ k6 exit 99 จริงใน
+[run 37244411279](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244411279).
+PR #19 ปิดโดยไม่ merge; candidate คงเกณฑ์ปกติ. นี่เป็น failure proof 5s
+ไม่ใช่ baseline smoke 30s หรือ journey ของ staging candidate.
 
 ### ข้อเสนอ AI ที่รับและยังไม่รับ
 

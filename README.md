@@ -38,8 +38,8 @@
 | WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **backend 350 tests 0.96s + frontend 21 tests 0.23s** (เพดาน 10 วิ) · integration อีก 29 · fidelity check 6 ครั้ง · coverage backend 67% |
 | WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
-| WS-06 CI/CD | 🟡 | Docker test gates → E2E → deploy API/เว็บ SHA เดียวกัน → staging performance; production แยกและต้องมีคน approve. Candidate รอ CI/deploy proof และค่าลับ GitHub ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
-| WS-07 Performance | 🟡 | Local journey 60 บัญชี, 10 student VUs + instructor, 347 requests/0 errors; autosave p95 8.78ms, submit 15.66ms. Structured logs มี requestId/duration/redaction; **ยังรอ staging journey ของ candidate** ([`docs/performance-report.md`](docs/performance-report.md)) |
+| WS-06 CI/CD | 🟡 | Docker CI ผ่าน 7 checks, PR ทดลองบล็อก merge จริง, staging API/เว็บ SHA เดียวกัน 7db9796. รอ GitHub secrets สำหรับ deploy อัตโนมัติ; production มี reviewer gate และ template แยก ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
+| WS-07 Performance | 🟡 | Local journey 347 requests/0 errors, autosave p95 8.78ms, submit 15.66ms; staging smoke 3 VUs/30s p95 64.22ms. CI threshold proof exit 99; **ยังรอ staging journey** ([`docs/performance-report.md`](docs/performance-report.md)) |
 | WS-08 Code Quality & Security | ⬜ | |
 
 ### Product backlog

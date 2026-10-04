@@ -70,10 +70,10 @@ required checks: lint-api, lint-fe, test-fe, lint-be, test-be, integration-be, e
 ไม่บังคับ performance บน PR เพราะรันหลัง deploy-staging.
 เปิด secret scanning และ push protection.
 
-ตาม lab ต้องทำ implementation เสียใน PR ทดลอง, ตรวจ CI แดงและ merge ถูกบล็อก,
-เก็บภาพ docs/screenshots/merge-blocked.png แล้วปิด PR โดยไม่ merge.
-ทดลอง performance threshold ที่เข้มเกินจริงให้ CI แดงแล้วคืนค่าเดิม.
-อย่าแก้ test assertions เพื่อสร้างหลักฐาน.
+พิสูจน์แล้วใน PR #19: implementation health ผิดทำให้ CI แดงและ merge ถูกบล็อก,
+เก็บภาพ docs/screenshots/merge-blocked.png แล้วปิดโดยไม่ merge.
+Performance smoke threshold ที่เข้มเกินจริงทำให้ CI exit 99; branch งานจริงใช้เกณฑ์เดิม.
+ไม่แก้ existing test assertions. ลิงก์ run และข้อจำกัดอยู่ใน loop-metrics.md.
 
 ## ตรวจและ debug
 

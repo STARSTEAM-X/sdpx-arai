@@ -75,13 +75,14 @@ def main() -> int:
         print(f"Deployment failed ({type(exc).__name__}); inspect Render and environment configuration", file=sys.stderr)
         return 1
     lead = round(time.time() - float(os.getenv("COMMIT_TIMESTAMP", str(time.time()))), 1)
-    print(f"Verified API + frontend @ {sha[:7]}; deploy {seconds}s; commit-to-live {lead}s")
+    label = "verify" if args.verify_only else "deploy"
+    print(f"Verified API + frontend @ {sha[:7]}; {label} {seconds}s; commit-to-live {lead}s")
     if os.getenv("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            output.write(f"deploy_seconds={seconds}\nlead_seconds={lead}\n")
+            output.write(f"{label}_seconds={seconds}\nlead_seconds={lead}\n")
     if os.getenv("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-            summary.write(f"### Deploy {sha[:7]} verified\n\nAPI and web commit match; deploy {seconds}s; commit-to-live {lead}s.\n")
+            summary.write(f"### Deploy {sha[:7]} verified\n\nAPI and web commit match; {label} {seconds}s; commit-to-live {lead}s.\n")
     return 0
 
 

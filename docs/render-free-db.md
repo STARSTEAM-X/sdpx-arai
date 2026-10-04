@@ -17,6 +17,10 @@ commit `15449ab`, ใช้เวลา 71 วินาที. ตรวจ SQL 
 health ตอบ status=ok, environment=production และ OpenAPI ไม่มี /api/test/*.
 ภาพ deploy: `docs/screenshots/render-api-db-restored-20261005.jpg`.
 
+หลังตรวจ CI candidate เมื่อ 2026-10-05 ทั้ง API และเว็บ deploy commit 7db9796
+ด้วย Dashboard แล้ว. health ยืนยัน ENVIRONMENT=production, DEPLOYMENT_TIER=staging,
+ไม่มี public test endpoints. รายละเอียดเวลาและ smoke ใน docs/loop-metrics.md.
+
 ตัวเดิม `paireval-db` หมดอายุและเข้าใช้งานไม่ได้ การสร้างตัวใหม่เริ่มด้วยฐานข้อมูลว่าง
 ไม่ได้ย้ายข้อมูลเดิม และไม่ได้ลบตัวเดิมด้วยคำสั่งของ agent.
 

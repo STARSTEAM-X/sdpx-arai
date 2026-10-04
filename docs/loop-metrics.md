@@ -16,8 +16,8 @@
 | E2E | 118 tests | 118 passed, 2.4min หลัง migrate DB แยกครบ |
 | API contract | ต้องไม่มี warnings | Redocly valid, 0 warnings |
 | Workflow static check | — | actionlint 1.7.12 ผ่าน; shellcheck ไม่ได้ติดตั้ง |
-| Pipeline Docker | [Sup PR #17 run เดิม](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37211760610) | รอ run ของ candidate |
-| Lead time commit → staging | WS-01 web 42s (ไม่มี gate) | รอ deploy ผ่าน CI; script บันทึก API + web exact SHA |
+| Pipeline Docker | [Sup PR #17 run เดิม](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37211760610) | [Candidate 7db9796](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244353349) ผ่านทั้ง 7 checks, 4m29s |
+| Lead time commit → staging | WS-01 web 42s (ไม่มี gate) | manual หลัง CI เขียว 690.2s; ยังไม่ใช่เวลา automated deploy job |
 | Deploy DB replacement | — | Render deploy 15449ab Live, 71s; migration 11 ชุด |
 | Deployment frequency | นับ push อย่างเดียวไม่ยืนยัน deploy สำเร็จ | รอนับ successful deployments หลัง gate ใช้งาน |
 
@@ -52,6 +52,51 @@ Production service/DB แยกยังไม่สร้าง; template อ�
 CI รอบแรก [37244218180](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244218180)
 พบ Vitest ลบ coverage directory ที่เป็น mount root ไม่ได้ (EBUSY); แก้ให้รายงานอยู่
 ใน /reports/coverage ภายใน mount เดียวกับ JUnit โดยไม่แก้ tests.
-จำนวน push เพื่อแก้ Docker CI: 1 หลัง initial PR push; รอผล run ที่แก้แล้ว.
-CI failure proof (PR merge blocked) และ performance threshold-red proof บน CI ยังรอ.
-เมื่อได้ run จริงให้บันทึก URL, job duration, slowest job และจำนวน push เพิ่มในไฟล์นี้.
+จำนวน push เพื่อแก้ Docker CI: 1 หลัง initial PR push; รอบที่แก้แล้วเขียว.
+
+## Docker CI ที่ผ่านจริง
+
+Run 37244353349, head 7db9796, 2026-10-05 06:36:12–06:40:41 Asia/Bangkok.
+
+| Job | เวลารวม setup/report/teardown |
+|---|---:|
+| lint-api | 6s |
+| lint-fe | 12s |
+| lint-be | 9s |
+| test-fe | 35s |
+| test-be | 38s |
+| integration-be | 34s |
+| e2e | 221s (test จริง 97s, 118 passed) |
+
+E2E เป็น job ที่ช้าที่สุด; ผลนี้เป็น first E2E image/cache ของ candidate.
+cache ช่วย setup ในการรันครั้งต่อไป แต่ยังไม่สรุปว่าเร็วขึ้นจนกว่าจะวัด.
+Deploy/performance skipped บน PR ตามเงื่อนไข; ไม่ใช่หลักฐานว่า deploy ผ่าน CI แล้ว.
+
+## Failure proof ตาม Source
+
+[PR ทดลอง #19](https://github.com/STARSTEAM-X/sdpx-arai/pull/19) head 6242423
+→ main ใช้ implementation health ผิด โดยไม่แก้ existing tests.
+[Run 37244411279](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244411279):
+backend 403 passed / 1 failed, container และ compose exit 1.
+GitHub รายงาน mergeStateStatus=BLOCKED และปุ่ม Merge disabled;
+ภาพ [merge-blocked.png](screenshots/merge-blocked.png). ปิด PR แล้วโดยไม่ merge.
+
+ใน branch ทดลองเดียวกัน k6 smoke ยิง staging health ด้วย p95<0.0001ms;
+ได้ p95 730.24ms และ job exit **99**, จึงพิสูจน์ threshold failure บน CI จริง.
+Job นี้ไม่เรียก Render deploy; GitHub แสดง deployment record เพราะใช้ staging environment.
+กลับ branch งานจริงที่ health=ok และเกณฑ์เดิมครบ; ไม่ merge branch ทดลอง.
+
+## Staging verification หลัง CI เขียว
+
+2026-10-05 deploy **7db9796** ด้วย Dashboard ระบุ SHA เดียวกัน:
+เว็บ Live ใน 14.3s, API Live ใน 72.8s; script verify-only รอ 21.6s.
+Commit-to-verified-live 690.2s รวมเวลาตรวจ CI และขั้นตอน deploy ด้วย Dashboard จึงห้ามใช้
+เทียบกับ automated commit-to-live. เปลี่ยน ENVIRONMENT/DEPLOYMENT_TIER ผ่าน Render API
+ทำให้ Render deploy branch ปัจจุบันหนึ่งรอบ แม้ Auto-Deploy Off; รอบระบุ SHA ใช้ Dashboard.
+
+API health: status=ok, version=7db9796, environment=production, deploymentTier=staging.
+Web build-info version ตรง full SHA; OpenAPI มี /api/test/* **0 paths**.
+ภาพ [render-staging-7db9796-20261005.jpg](screenshots/render-staging-7db9796-20261005.jpg).
+Smoke 3 VUs/30s ผ่าน p95 64.22ms, 87 requests, 0 errors, exit 0.
+ยังรอ deploy hooks และ fixture credentials ใน GitHub เพื่อรัน automatic deployment
+และ staging journey หลัง merge; production resources ยังเป็น template.
