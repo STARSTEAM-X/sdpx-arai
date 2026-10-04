@@ -46,7 +46,12 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
 
-  reporter: [['html', { outputFolder: 'e2e/playwright-report', open: 'never' }], ['list']],
+  reporter: [
+    ['html', { outputFolder: 'e2e/playwright-report', open: 'never' }],
+    ['list'],
+    // JUnit XML ให้ test-reporter สรุปผลลง PR (WS-06) — บนเครื่องไม่จำเป็น จึงเปิดเฉพาะ CI
+    ...(process.env.CI ? [['junit', { outputFile: 'e2e/test-results/e2e.xml' }] as const] : []),
+  ],
 
   use: {
     baseURL: BASE_URL,

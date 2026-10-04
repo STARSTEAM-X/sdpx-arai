@@ -1,24 +1,336 @@
-# CI ตัวแรกของโปรเจกต์ (WS-05 homework)
+# CI/CD Pipeline ของ PairEval (WS-06) — Integration Loop: รวมทุก loop ให้เป็น gate เดียว
 #
-# ตั้งใจให้เล็กที่สุดเท่าที่ยังพิสูจน์ได้ว่า pipeline เดินจริง — job เดียว ขั้นตอนเดียว
-# WS-06 จะต่อยอดไฟล์นี้เป็น pipeline เต็ม (lint → test → build → deploy)
-# การเริ่มจากของที่เขียวแน่ ๆ ทำให้รู้ทันทีว่าถ้ามันแดงตอนต่อยอด สาเหตุคือของที่เพิ่งเพิ่ม
-
-name: CI
-
-on: [push, pull_request]
-
-# ให้สิทธิ์น้อยที่สุดเท่าที่จำเป็น: workflow นี้แค่ checkout กับ echo จึงขอแค่ contents: read
+#   lint-fe ─┐
+#   test-fe ─┤
+#   lint-be ─┼─► e2e ─► deploy-staging    (push เข้า develop)
+#   test-be ─┤     └──► deploy-production (push เข้า main · ต้องมีคน approve)
+#   integ-be ┘
 #
-# ถ้าไม่ประกาศบล็อกนี้ GITHUB_TOKEN จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเป็น write ทั้งชุด
-# workflow ที่รัน code จาก pull request ของคนนอกพร้อม token ที่เขียน repo ได้
-# คือช่องทางที่ใช้ยึด build pipeline กันจริง ๆ
+# job แยกฝั่งรันขนานกัน (summary.md · WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
+# แล้วค่อยรวมที่ e2e ซึ่งแพงที่สุด — ไม่เสียเวลายก browser ถ้า lint/unit แดงตั้งแต่แรก
+#
+# reproduce บนเครื่องด้วยคำสั่งชุดเดียวกัน (ดู AGENTS.md):
+#   docker compose -f compose.test.yaml up unit-api --abort-on-container-exit --exit-code-from unit-api
+#
+# action ทุกตัว pin ด้วย commit SHA ไม่ใช่ tag — tag ย้ายไปชี้ commit อื่นได้
+# (เคยเกิดจริงกับ tj-actions/changed-files ปี 2025 ที่ tag ถูกแก้ให้ขโมย secret)
+# comment ท้ายบรรทัดบอกว่า SHA นั้นคือเวอร์ชันไหน
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+# สิทธิ์ขั้นต่ำของ GITHUB_TOKEN สำหรับทุก job — อ่าน code ได้อย่างเดียว
+# ถ้าไม่ประกาศ token จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเขียน repo ได้ทั้งชุด
+# job ที่ต้องการมากกว่านี้ (เขียน check run ของ test report) ขอเพิ่มเป็นราย job
 permissions:
   contents: read
 
+# push ซ้อนกันบน branch เดียว → ยกเลิกรอบเก่าที่ยังรันไม่จบ
+# ผลของ commit เก่าไม่มีใครสนใจแล้ว และไม่ควรมี deploy 2 รอบแข่งกันขึ้น staging
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PYTHON_VERSION: '3.12'
+
 jobs:
-  smoke:
+  # ===========================================================================
+  # Frontend
+  # ===========================================================================
+  lint-fe:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
-      - run: echo "Pipeline works!"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # npm ci ไม่ใช่ npm install — ติดตั้งตาม lockfile เป๊ะ และ fail ถ้า lockfile ไม่ตรง package.json
+      - run: npm ci
+      - name: Lint (oxlint)
+        run: npm run lint
+      - name: Typecheck (tsc)
+        run: npm run typecheck
+
+  test-fe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # checks: write ให้ test-reporter สร้าง check run "Unit Tests (frontend)" ใน PR ได้
+    permissions:
+      contents: read
+      checks: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Unit tests with coverage
+        run: >-
+          npx vitest run --coverage
+          --reporter=default --reporter=junit
+          --outputFile.junit=test-results/unit-fe.xml
+      # build อยู่ job เดียวกับ test เพราะใช้ node_modules ชุดเดียวกัน แยก job = npm ci ซ้ำอีกรอบ
+      - name: Build production bundle
+        run: npm run build
+      - name: Test summary
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        # PR จาก fork ได้ token แบบอ่านอย่างเดียวเสมอ เขียน check run ไม่ได้ — ข้ามไปแทนที่จะแดง
+        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          name: Unit Tests (frontend)
+          path: frontend/test-results/unit-fe.xml
+          reporter: java-junit
+      - name: Upload coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage-frontend-${{ github.sha }}
+          # vitest.config เขียน coverage ไปที่ docs/coverage/frontend/ (ดู AGENTS.md)
+          path: docs/coverage/frontend/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ===========================================================================
+  # Backend
+  # ===========================================================================
+  lint-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # ruff เป็น binary ตัวเดียว ไม่ต้องลง dependency ของ app ทั้งชุดเพื่อ lint
+      # เวอร์ชันอ่านจาก requirements-dev.txt ที่เดียว — CI กับเครื่อง dev จะได้ตัวเดียวกันเสมอ
+      - run: pip install "$(grep -E '^ruff' requirements-dev.txt)"
+      - name: Lint (ruff)
+        run: ruff check --output-format=github .
+
+  test-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Unit tests with coverage
+        # pytest.ini ตัด integration ออกให้แล้ว — job นี้ไม่ต้องมี Postgres
+        run: pytest --cov --cov-report=term --cov-report=html --junitxml=test-results/unit-be.xml
+      - name: Test summary
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          name: Unit Tests (backend)
+          path: backend/test-results/unit-be.xml
+          reporter: java-junit
+      - name: Upload coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage-backend-${{ github.sha }}
+          path: docs/coverage/backend/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  integration-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: backend
+    # credential ชุดนี้เป็นค่าสำหรับ test ล้วน — database ตายพร้อม job จึงไม่มีอะไรให้ป้องกัน
+    # (ค่าเดียวกับ compose.test.yaml)
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Integration tests (Postgres จริง)
+        run: pytest -m integration
+
+  # ===========================================================================
+  # E2E — รวมทุกฝั่งเข้าด้วยกัน รันเมื่อทุก job ข้างบนเขียวแล้วเท่านั้น
+  # ===========================================================================
+  e2e:
+    needs: [lint-fe, test-fe, lint-be, test-be, integration-be]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # อ่านโดย backend ที่ playwright.config.ts ยกขึ้นผ่าน webServer (env ของ job ถูกส่งต่อให้)
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      # build-time env ของ Vite — dev server อ่านจาก process.env ได้ตรง ๆ ไม่ต้องมีไฟล์ .env
+      VITE_API_BASE_URL: http://localhost:8123
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies (root · frontend · backend)
+        run: |
+          npm ci
+          npm ci --prefix frontend
+          # playwright.config.ts เรียก backend/.venv/bin/python — สร้าง venv ให้ตรง path นั้น
+          python -m venv backend/.venv
+          backend/.venv/bin/pip install -r backend/requirements.txt
+
+      # browser ~150MB ดาวน์โหลดทุกรอบไม่คุ้ม — cache ตามเวอร์ชันใน lockfile
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      # cache เก็บได้แค่ตัว browser — system library ต้องลงใหม่ทุกครั้งที่ cache hit
+      - name: Install Chromium system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Migrate test database
+        working-directory: backend
+        run: .venv/bin/python -m app.migrate
+
+      - name: Run E2E tests
+        # playwright.config.ts มี webServer ยก API (:8123) และหน้าเว็บ (:5173) ให้เอง
+        run: npx playwright test
+
+      - name: Test summary
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          name: E2E Tests
+          path: e2e/test-results/e2e.xml
+          reporter: java-junit
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: e2e/playwright-report/
+          retention-days: 7
+
+  # ===========================================================================
+  # Deploy — Render deploy hook · render.yaml ปิด auto-deploy ไว้แล้ว
+  # ทำให้ "ขึ้น staging ได้" มีทางเดียวคือผ่าน pipeline นี้จนเขียวทุก job
+  # ===========================================================================
+  deploy-staging:
+    needs: e2e
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # secret ของ deploy hook ผูกกับ environment staging ไม่ใช่ระดับ repo
+    # job ที่ไม่ได้ประกาศ environment นี้ (เช่น PR) จึงอ่านค่าไม่ได้เลย
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Trigger Render deploy + wait for this commit to go live
+        env:
+          API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+          WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+          API_URL: ${{ vars.STAGING_API_URL }}
+        run: scripts/ci/render-deploy.sh
+
+  deploy-production:
+    needs: e2e
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # environment production ตั้ง Required reviewers ไว้ — job จะหยุดรอจนมีคนกด approve
+    # คือ human checkpoint ที่บังคับใช้จริง ไม่ใช่แค่ข้อตกลงในกลุ่ม
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_WEB_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Trigger Render deploy + wait for this commit to go live
+        env:
+          API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+          WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: scripts/ci/render-deploy.sh
