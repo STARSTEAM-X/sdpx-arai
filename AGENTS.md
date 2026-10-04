@@ -130,11 +130,13 @@ deploy ขึ้น staging **ผ่าน pipeline เท่านั้น** (
 # smoke ใส่ staging (ยิงแค่ /api/health) — ไม่มี k6 บนเครื่องใช้ docker แทนได้
 docker run --rm -i -e BASE_URL=https://paireval-api.onrender.com grafana/k6:2.3.0 run - < performance/smoke.js
 
-# load test journey เต็ม — ต้องยิงใส่ backend ที่ ENVIRONMENT ≠ production เท่านั้น
-# (setup() เรียก /api/test/seed ซึ่ง TRUNCATE ข้อมูลทั้งหมด)
+# load test journey เต็ม — ยิงได้เฉพาะ backend ที่ ENVIRONMENT ≠ production
 docker compose -f compose.test.yaml --profile e2e up -d --wait api-test
 docker run --rm --network paireval-test_default -v "$PWD/performance:/perf" -e BASE_URL=http://api-test:8000   grafana/k6:2.3.0 run --summary-export=/perf/results.json /perf/load-test.js
 echo $?   # 99 = threshold ไม่ผ่าน
+
+# ใส่ staging (ENVIRONMENT=staging) — ต้องมี token ไม่งั้น /api/test/* ตอบ 404 · ไม่ลบข้อมูลเดิม
+BASE_URL=https://<staging-api> TEST_SUPPORT_TOKEN=<secret> k6 run performance/load-test.js
 ```
 
 **log ของ backend เป็น JSON ทุกบรรทัด** (`backend/app/observability.py`) — เพิ่ม log ใหม่ด้วย

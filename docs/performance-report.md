@@ -23,21 +23,21 @@
 | Thresholds | `http_req_failed<1%` · `http_req_duration p95<500ms` · `checks>99%` · `journey_errors<5%` · `autosave_latency p95<300ms` · ราย endpoint ด้วย tag `name` |
 | เครื่องมือ | k6 v2.3.0 (Docker image `grafana/k6`) · วันที่ 2026-10-04 |
 
-### ทำไม load test เต็มไม่ได้ยิงใส่ staging (ข้อขัดแย้งกับเอกสาร lab)
+### ยิง journey เต็มใส่ staging อย่างไร (และข้อขัดแย้งกับเอกสาร lab ที่เจอ)
 
-lab และ `summary.md` ให้ยิง journey ใส่ **staging** แต่ staging ของเรา login ได้ทาง **Google OIDC อย่างเดียว**
-และ endpoint ออก session สำหรับ test (`/api/test/session`) **ถูกปิดสนิทเมื่อ `ENVIRONMENT=production`** โดยตั้งใจ
-(ถ้าเปิดบน internet = ใครก็ปลอมเป็นใครก็ได้) — k6 จึงได้ session ของนักศึกษาบน staging ไม่ได้
+lab ให้ยิง journey ใส่ **staging** แต่ staging เดิมของกลุ่ม (`paireval-api.onrender.com`) login ได้ทาง **Google OIDC อย่างเดียว**
+และ `/api/test/session` ถูกปิดสนิทเมื่อ `ENVIRONMENT=production` — k6 จึงขอ session ของนักศึกษาไม่ได้
 
-ทางที่เลือก:
+ทางแก้ (commit `26738ba`): staging ของ fork ตั้ง `ENVIRONMENT=staging` ซึ่งเปิด `/api/test/*`
+**เฉพาะ request ที่แนบ `X-Test-Support-Token` ตรงกับ `TEST_SUPPORT_TOKEN`** (ไม่ตรง = 404 เหมือนไม่มี route)
+และ seed แบบ `reset: false` ไม่ลบข้อมูลเดิม — ทุก run เพิ่มห้องใหม่ ข้อมูลบน staging จึงสะสมให้ใหญ่ขึ้น
+ทดสอบบนเครื่องแล้ว: ไม่มี token → setup fail พร้อมข้อความ (exit 107) · มี token → ผ่าน · token ไม่โผล่ใน log
 
-1. **staging จริง:** `performance/smoke.js` ยิง `/api/health` (endpoint เดียวที่ไม่ต้อง login) — วัดได้จริงด้านล่าง
-2. **journey เต็ม:** ยิงใส่ backend image เดียวกับที่ใช้ทดสอบ (`compose.test.yaml` → `api-test`) บนเครื่อง
-   แล้ว **จำกัดทรัพยากรให้เท่า Render free plan** (`--cpus 0.1 --memory 512m`) เพื่อให้ตัวเลขใกล้ staging มากกว่าการยิงเครื่อง dev ที่แรงเกินจริง
-   — ยังไม่ใช่ staging จริง (ไม่มี network latency, proxy ของ Render และ Render อาจจัด CPU แบบ burst ไม่ใช่ quota ตายตัว)
-
-ถ้าจะยิง journey ใส่ staging ให้ได้จริง ต้องมี staging แยกที่ตั้ง `ENVIRONMENT=staging` + database ของตัวเอง
-(ต้องแยก staging กับ production ออกจากกันก่อน — ดู `docs/cicd.md`)
+| ตัวเลข | ที่มา |
+|---|---|
+| smoke ใส่ staging จริงของกลุ่ม | วัดแล้ว (ด้านล่าง) |
+| journey เต็ม — baseline + หาจุดแตก | วัดกับ backend image เดียวกันบนเครื่อง จำกัดทรัพยากรเท่า Render free (`--cpus 0.1 --memory 512m`) |
+| journey เต็มใส่ staging ของ fork (`paireval-sp-api-staging`) | **รอวัด** — job `performance` ใน CI รันหลัง deploy staging ครั้งแรก (ดู `docs/cicd.md` ขั้น 6) |
 
 ## Results
 
@@ -171,16 +171,15 @@ log JSON ของ request ที่ช้าที่สุด, error ของ
 
 ## CI performance gate
 
-job `performance` ใน `.github/workflows/ci.yml` (หลัง `e2e` ก่อน deploy) ยก API + Postgres ใน runner
-แล้วรัน `load-test.js` ด้วย profile สั้น (15s/30s/15s) threshold ชุดเดียวกับ baseline
+job `performance` ใน `.github/workflows/ci.yml` รัน **หลัง `deploy-staging`** ตาม lab:
+รอ `/api/health` ของ staging (กัน cold start ของ free plan) → `smoke.js` → `load-test.js` profile สั้น (15s/30s/15s) threshold ชุดเดียวกับ baseline
 
-| ทดสอบ (จำลอง job บนเครื่องด้วยขั้นตอนเดียวกัน) | ผล |
+| ทดสอบ (จำลองบนเครื่องด้วย script และ profile เดียวกับ job) | ผล |
 |---|---|
 | profile ของ CI · threshold ปกติ | 251 requests · p95 7.0ms · **exit 0** · k6 ใช้ 76 วินาที |
 | แก้ threshold ให้เข้มเกินจริง `AUTOSAVE_P95_MS=1` | `✗ 'p(95)<1' p(95)=6.54ms` · **exit 99** → job แดง |
 
-ยังไม่ได้เห็นบน GitHub Actions จริง เพราะยังไม่ได้ push (ดู `docs/cicd.md`)
-หลัง deploy มี job `staging-smoke` ยิง `smoke.js` ใส่ staging จริงอีกชั้น
+ยังไม่ได้เห็นบน GitHub Actions จริง — ต้องมี staging ของ fork ก่อน (ดู `docs/cicd.md` ขั้น 3–8)
 
 ## Structured logging ที่ใช้เก็บหลักฐานในรายงานนี้
 

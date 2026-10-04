@@ -1,0 +1,130 @@
+# Render Blueprint ของ fork supitcha0j/sdpx-arai — staging + production แยกกันจริง (WS-06)
+#
+# ⚠️ ไฟล์นี้เป็นของ fork เท่านั้น — render.yaml คือของกลุ่ม (ตัวที่ deploy paireval-web.onrender.com)
+# ตอนเปิด PR กลับเข้า repo กลุ่ม ไม่ต้องเอาไฟล์นี้ไปด้วย
+#
+# ใช้: Render Dashboard > New > Blueprint > เลือก repo supitcha0j/sdpx-arai
+#      > ช่อง Blueprint Path ใส่ "render.supitcha.yaml" > Apply
+#
+# ทุก service ปิด auto-deploy — deploy ได้ทางเดียวคือ job deploy-* ใน .github/workflows/ci.yml
+# ยิง deploy hook หลัง lint + test + E2E เขียวครบ (ขั้นตอนตั้งค่าอยู่ใน docs/cicd.md)
+#
+#   develop ─► paireval-sp-web-staging + paireval-sp-api-staging ─► paireval-sp-db-staging (Render)
+#   main    ─► paireval-sp-web         + paireval-sp-api         ─► Neon (DATABASE_URL กรอกเอง)
+
+services:
+  # ======================= STAGING (branch develop) =======================
+  - type: web
+    name: paireval-sp-web-staging
+    runtime: static
+    rootDir: frontend
+    branch: develop
+    autoDeployTrigger: "off"
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    # Google Sign-In ใช้ popup + postMessage — ต้องเป็น same-origin-allow-popups (เหตุผลเต็มใน render.yaml)
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin-allow-popups
+    # SPA: path อย่าง /classrooms ไม่มีไฟล์จริง ต้อง rewrite กลับ index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # URL ของ paireval-sp-api-staging (มี https:// ไม่มี / ปิดท้าย) — build-time ของ Vite
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+  - type: web
+    name: paireval-sp-api-staging
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    branch: develop
+    autoDeployTrigger: "off"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      # origin ของ paireval-sp-web-staging
+      - key: CORS_ORIGINS
+        sync: false
+      # staging ไม่ใช่ production: /api/test/* ถูกลงทะเบียน แต่ใช้ได้เฉพาะ request ที่แนบ
+      # X-Test-Support-Token ตรงกับค่าด้านล่าง (ไม่ตรง = 404) — ให้ k6 ขอ session ของนักศึกษาได้
+      - key: ENVIRONMENT
+        value: staging
+      # Render สุ่มให้ · คัดลอกจาก Dashboard ไปใส่ GitHub secret TEST_SUPPORT_TOKEN ของ environment staging
+      - key: TEST_SUPPORT_TOKEN
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: kmitl.ac.th
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paireval-sp-db-staging
+          property: connectionString
+
+  # ===================== PRODUCTION (branch main) =====================
+  - type: web
+    name: paireval-sp-web
+    runtime: static
+    rootDir: frontend
+    branch: main
+    autoDeployTrigger: "off"
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin-allow-popups
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # URL ของ paireval-sp-api
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+  - type: web
+    name: paireval-sp-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    branch: main
+    autoDeployTrigger: "off"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false
+      # ★ production: /api/test/* ไม่ถูกลงทะเบียนเลย ไม่ว่าจะตั้ง TEST_SUPPORT_TOKEN หรือไม่
+      - key: ENVIRONMENT
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: kmitl.ac.th
+      # database แยกจาก staging จริง — Postgres ของ Neon (region Singapore)
+      # ใช้ connection string แบบ pooled และต้องมี ?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+
+databases:
+  - name: paireval-sp-db-staging
+    plan: free
+    region: singapore # ต้อง region เดียวกับ paireval-sp-api-staging
