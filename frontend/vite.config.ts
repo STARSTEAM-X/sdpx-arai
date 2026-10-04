@@ -5,7 +5,22 @@ import tailwindcss from '@tailwindcss/vite'
 
 // Tailwind v4 ติดตั้งเป็น Vite plugin — ไม่ต้องมี tailwind.config.js หรือ postcss.config.js
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: 'build-version',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'build-info.json',
+          source: JSON.stringify({
+            version: process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || process.env.APP_VERSION || 'dev',
+          }),
+        })
+      },
+    },
+  ],
   server: {
     port: 5173,
     headers: {

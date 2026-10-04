@@ -20,6 +20,7 @@ import re
 import sys
 from contextvars import ContextVar
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 
 from app.config import SESSION_SECRET
@@ -30,6 +31,7 @@ REDACTED = "[REDACTED]"
 # และถูก copy เข้า thread ที่ FastAPI ใช้รัน handler แบบ sync ให้เอง
 # log ที่ออกจากที่ไหนก็ได้ระหว่าง request จึงมี requestId ติดมาโดยไม่ต้องส่งต่อเป็น parameter
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
+request_start_var: ContextVar[float | None] = ContextVar("request_start", default=None)
 
 # ชื่อ key ที่ค่าทั้งก้อนถือเป็นความลับ (เทียบแบบไม่สนตัวพิมพ์ และ "มีคำนี้อยู่ในชื่อ")
 _SENSITIVE_KEY = re.compile(r"password|passwd|secret|token|authorization|cookie|email|api[_-]?key", re.I)
@@ -80,12 +82,15 @@ class JsonFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
+        started = request_start_var.get()
         line: dict[str, Any] = {
             "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname.lower(),
             "logger": record.name,
             "event": getattr(record, "event_name", "log"),
             "requestId": request_id_var.get(),
+            # business event วัดเวลาตั้งแต่รับ request จนถึงจุดที่บันทึก event
+            "duration_ms": round((perf_counter() - started) * 1000, 1) if started else None,
         }
         fields = getattr(record, "fields", None)
         if fields:

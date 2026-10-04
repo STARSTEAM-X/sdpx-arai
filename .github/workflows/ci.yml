@@ -1,13 +1,9 @@
 # CI/CD Pipeline ของ PairEval (WS-06) — Integration Loop: รวมทุก loop ให้เป็น gate เดียว
 #
-#   lint-fe ─┐
-#   test-fe ─┤
-#   lint-be ─┼─► e2e ─► performance ─┬─► deploy-staging ─► staging-smoke  (push develop)
-#   test-be ─┤                       └─► deploy-production                (push main · ต้องมีคน approve)
-#   integ-be ┘
-#
-# deploy-staging ไม่สั่ง deploy เอง: Render ของกลุ่ม deploy อัตโนมัติจาก develop อยู่แล้ว
-# job นี้รอจน staging รัน commit นี้จริง (เว็บของกลุ่มไม่ถูกเปลี่ยนการตั้งค่าใด ๆ)
+# lint/typecheck/unit/integration → e2e (built web + api)
+# push develop: deploy-staging → smoke → performance journey บน staging จริง
+# push main: deploy-production ผ่าน environment ที่ต้องมีคน approve
+# Render Auto Deploy และ Blueprint Auto Sync ต้องปิด เพื่อให้ CI เป็นผู้สั่ง deploy
 #
 # job แยกฝั่งรันขนานกัน (summary.md · WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
 # แล้วค่อยรวมที่ e2e ซึ่งแพงที่สุด — ไม่เสียเวลายก browser ถ้า lint/unit แดงตั้งแต่แรก
@@ -44,6 +40,20 @@ env:
   PYTHON_VERSION: '3.12'
 
 jobs:
+  lint-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Lint API contract
+        run: npm run lint:api
+
   # ===========================================================================
   # Frontend
   # ===========================================================================
@@ -69,51 +79,44 @@ jobs:
 
   test-fe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # checks: write ให้ test-reporter สร้าง check run "Unit Tests (frontend)" ใน PR ได้
+    timeout-minutes: 15
     permissions:
       contents: read
       checks: write
-    defaults:
-      run:
-        working-directory: frontend
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - name: Unit tests with coverage
-        run: >-
-          npx vitest run --coverage
-          --reporter=default --reporter=junit
-          --outputFile.junit=test-results/unit-fe.xml
-      # build อยู่ job เดียวกับ test เพราะใช้ node_modules ชุดเดียวกัน แยก job = npm ci ซ้ำอีกรอบ
-      - name: Build production bundle
-        run: npm run build
-      - name: Test summary
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        # PR จาก fork ได้ token แบบอ่านอย่างเดียวเสมอ เขียน check run ไม่ได้ — ข้ามไปแทนที่จะแดง
-        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        with:
-          name: Unit Tests (frontend)
-          path: frontend/test-results/unit-fe.xml
-          reporter: java-junit
-      - name: Upload coverage
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: coverage-frontend-${{ github.sha }}
-          # vitest.config เขียน coverage ไปที่ docs/coverage/frontend/ (ดู AGENTS.md)
-          path: docs/coverage/frontend/
-          retention-days: 7
-          if-no-files-found: ignore
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-test-fe-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-test-fe-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build unit-web
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-web --no-build --abort-on-container-exit --exit-code-from unit-web
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: test-fe
+        path: test-results/frontend/unit.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: test-fe-${{ github.sha }}
+        path: 'test-results/frontend/
 
-  # ===========================================================================
-  # Backend
-  # ===========================================================================
+          docs/coverage/frontend/'
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
+
   lint-be:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -129,309 +132,238 @@ jobs:
       # เวอร์ชันอ่านจาก requirements-dev.txt ที่เดียว — CI กับเครื่อง dev จะได้ตัวเดียวกันเสมอ
       - run: pip install "$(grep -E '^ruff' requirements-dev.txt)"
       - name: Lint (ruff)
-        run: ruff check --output-format=github .
+        run: ruff check --output-format=github . ../scripts/ci
+      - name: Deployment safety tests (stdlib)
+        run: python -m unittest discover -s ../scripts/ci -p 'test_*.py' -v
 
   test-be:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      checks: write
-    defaults:
-      run:
-        working-directory: backend
-    env:
-      ENVIRONMENT: test
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
-      - run: pip install -r requirements-dev.txt
-      - name: Unit tests with coverage
-        # pytest.ini ตัด integration ออกให้แล้ว — job นี้ไม่ต้องมี Postgres
-        run: pytest --cov --cov-report=term --cov-report=html --junitxml=test-results/unit-be.xml
-      - name: Test summary
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        with:
-          name: Unit Tests (backend)
-          path: backend/test-results/unit-be.xml
-          reporter: java-junit
-      - name: Upload coverage
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: coverage-backend-${{ github.sha }}
-          path: docs/coverage/backend/
-          retention-days: 7
-          if-no-files-found: ignore
-
-  integration-be:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: backend
-    # credential ชุดนี้เป็นค่าสำหรับ test ล้วน — database ตายพร้อม job จึงไม่มีอะไรให้ป้องกัน
-    # (ค่าเดียวกับ compose.test.yaml)
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 3s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-      ENVIRONMENT: test
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
-      - run: pip install -r requirements-dev.txt
-      - name: Integration tests (Postgres จริง)
-        run: pytest -m integration
-
-  # ===========================================================================
-  # E2E — รวมทุกฝั่งเข้าด้วยกัน รันเมื่อทุก job ข้างบนเขียวแล้วเท่านั้น
-  # ===========================================================================
-  e2e:
-    needs: [lint-fe, test-fe, lint-be, test-be, integration-be]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       checks: write
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 3s
-          --health-timeout 3s
-          --health-retries 10
     env:
-      # อ่านโดย backend ที่ playwright.config.ts ยกขึ้นผ่าน webServer (env ของ job ถูกส่งต่อให้)
-      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-      # build-time env ของ Vite — dev server อ่านจาก process.env ได้ตรง ๆ ไม่ต้องมีไฟล์ .env
-      VITE_API_BASE_URL: http://localhost:8123
+      BUILD_CACHE_DIR: .local/build-cache
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-test-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-test-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build unit-api
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-api --no-build --abort-on-container-exit --exit-code-from unit-api
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: test-be
+        path: test-results/backend/unit.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: test-be-${{ github.sha }}
+        path: test-results/backend/
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
 
-      - name: Install dependencies (root · frontend · backend)
-        run: |
-          npm ci
-          npm ci --prefix frontend
-          # playwright.config.ts เรียก backend/.venv/bin/python — สร้าง venv ให้ตรง path นั้น
-          python -m venv backend/.venv
-          backend/.venv/bin/pip install -r backend/requirements.txt
+  integration-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-integration-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-integration-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build integration-api
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up integration-api --no-build --abort-on-container-exit --exit-code-from integration-api
+    - name: Require integration tests to execute
+      run: 'python3 - <<''PY''
 
-      # browser ~150MB ดาวน์โหลดทุกรอบไม่คุ้ม — cache ตามเวอร์ชันใน lockfile
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Chromium
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      # cache เก็บได้แค่ตัว browser — system library ต้องลงใหม่ทุกครั้งที่ cache hit
-      - name: Install Chromium system deps
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        import xml.etree.ElementTree as ET
 
-      - name: Migrate test database
-        working-directory: backend
-        run: .venv/bin/python -m app.migrate
+        root = ET.parse(''test-results/integration/integration.xml'').getroot()
 
-      - name: Run E2E tests
-        # playwright.config.ts มี webServer ยก API (:8123) และหน้าเว็บ (:5173) ให้เอง
-        run: npx playwright test
+        suites = list(root.iter(''testsuite''))
 
-      - name: Test summary
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        with:
-          name: E2E Tests
-          path: e2e/test-results/e2e.xml
-          reporter: java-junit
+        assert sum(int(s.get(''tests'', 0)) for s in suites) > 0, ''No integration tests ran''
 
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report-${{ github.sha }}
-          path: e2e/playwright-report/
-          retention-days: 7
+        assert sum(int(s.get(''skipped'', 0)) for s in suites) == 0, ''Database tests were skipped''
 
-  # ===========================================================================
-  # Performance gate (WS-07) — k6 ยิง journey จริงของนักศึกษา ถ้า threshold แดง k6 คืน 99 → job แดง
-  #
-  # ยิงใส่ backend ที่ยกขึ้นใน runner ไม่ใช่ staging เพราะ journey ต้องมี session ของนักศึกษา
-  # 60 คน — staging login ได้ทาง Google อย่างเดียว และ /api/test/* ถูกปิดใน production โดยตั้งใจ
-  # (เหตุผลเต็มใน docs/performance-report.md) · staging โดนยิงจริงที่ job staging-smoke ด้านล่าง
-  # ===========================================================================
+        PY'
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: integration-be
+        path: test-results/integration/integration.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: integration-be-${{ github.sha }}
+        path: test-results/integration/
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-e2e-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-e2e-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e build --with-dependencies e2e
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e up e2e --no-build --abort-on-container-exit --exit-code-from e2e
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: e2e
+        path: e2e/test-results/e2e.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: e2e-${{ github.sha }}
+        path: 'e2e/test-results/
+
+          e2e/playwright-report/'
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e down -v
+    needs:
+    - lint-api
+    - lint-fe
+    - test-fe
+    - lint-be
+    - test-be
+    - integration-be
+
   performance:
-    needs: e2e
+    needs: deploy-staging
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 3s
-          --health-timeout 3s
-          --health-retries 10
+    environment: staging
     env:
-      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-      # ต้องไม่ใช่ production — setup() ของ load-test.js ใช้ /api/test/* สร้างห้องและ session
-      ENVIRONMENT: development
-      SESSION_SECRET: perf-only-secret-value-that-is-long-enough-32b
+      BASE_URL: ${{ vars.STAGING_API_URL }}
+      PERF_FIXTURE_FILE: ./.secrets/fixture.json
+      PERF_EMAIL_DOMAIN: ${{ vars.PERF_EMAIL_DOMAIN }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
-      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
-        with:
-          k6-version: '2.3.0' # เวอร์ชันเดียวกับที่วัด baseline — เปลี่ยน k6 แล้วตัวเลขเทียบกันไม่ได้
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
+      with:
+        k6-version: 2.3.0
+    - name: Install existing backend runtime
+      run: pip install -r backend/requirements.txt
+    - name: Prepare private staging sessions (test endpoints remain closed)
+      working-directory: backend
+      env:
+        ENVIRONMENT: production
+        DEPLOYMENT_TIER: staging
+        DATABASE_URL: ${{ secrets.PERF_DATABASE_URL }}
+        SESSION_SECRET: ${{ secrets.PERF_SESSION_SECRET }}
+        ALLOWED_EMAIL_DOMAINS: ${{ vars.PERF_EMAIL_DOMAIN }}
+      run: python -m app.perf_fixture --base-url "$BASE_URL" --domain "$PERF_EMAIL_DOMAIN"
+    - name: Smoke against deployed staging
+      run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
+    - name: 'Staging journey: 0 -> 5 -> 10 -> 0 VUs, PRD thresholds'
+      run: k6 run --summary-export=performance/staging-baseline.json performance/load-test.js
+    - name: Upload metrics only (never sessions)
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: k6-staging-${{ github.sha }}
+        path: 'performance/staging-smoke.json
 
-      - name: Start API
-        working-directory: backend
-        run: |
-          pip install -r requirements.txt
-          python -m app.migrate
-          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          performance/staging-baseline.json'
+        retention-days: 7
+    - name: Remove private fixture
+      if: always()
+      run: rm -f performance/.secrets/fixture.json
 
-      # ด่านตรวจก่อนยิง load: ถ้า API ยังไม่พร้อม ผลที่ได้คือ connection refused ไม่ใช่ตัวเลข performance
-      - name: Wait for /api/health
-        run: |
-          for _ in $(seq 1 30); do
-            curl -fsS http://127.0.0.1:8000/api/health && exit 0
-            sleep 1
-          done
-          echo "::error::API ไม่ขึ้นภายใน 30 วินาที"; cat "$RUNNER_TEMP/api.log"; exit 1
-
-      - name: k6 load test (ramp 0→5→10 VUs)
-        run: k6 run --summary-export=performance/results.json performance/load-test.js
-        env:
-          BASE_URL: http://127.0.0.1:8000
-          # profile สั้นกว่า baseline (1 นาทีแทน 2) ให้ pipeline ไม่ช้าเกิน — threshold ชุดเดียวกัน
-          RAMP: 15s
-          STEADY: 30s
-          INSTRUCTOR_DURATION: 60s
-
-      - name: Upload k6 results + API log
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: k6-results-${{ github.sha }}
-          path: |
-            performance/results.json
-            ${{ runner.temp }}/api.log
-          retention-days: 7
-
-  # ===========================================================================
-  # Deploy staging — Render ของกลุ่ม deploy เองทุก push เข้า develop (render.yaml ไม่ถูกแตะ)
-  # job นี้ยืนยันว่าของใหม่ขึ้นจริงแล้วรายงาน lead time · ไม่ต้องใช้ secret ใด ๆ
-  # ===========================================================================
   deploy-staging:
-    needs: [e2e, performance]
+    needs: e2e
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
       name: staging
-      url: ${{ vars.STAGING_WEB_URL || 'https://paireval-web.onrender.com' }}
+      url: ${{ vars.STAGING_WEB_URL }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # ต้องมี history เพื่อเทียบว่า commit ที่ API รันอยู่ต่างจาก commit นี้ใน backend/ ไหม
-          fetch-depth: 0
-      - name: Wait until staging runs this commit
-        env:
-          API_URL: ${{ vars.STAGING_API_URL || 'https://paireval-api.onrender.com' }}
-          WEB_URL: ${{ vars.STAGING_WEB_URL || 'https://paireval-web.onrender.com' }}
-        run: scripts/ci/verify-staging.sh
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - name: Record commit timestamp
+      run: echo "COMMIT_TIMESTAMP=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+    - name: Deploy exact commit and verify API + frontend
+      id: deploy
+      env:
+        TARGET_TIER: staging
+        API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+        API_URL: ${{ vars.STAGING_API_URL }}
+        WEB_URL: ${{ vars.STAGING_WEB_URL }}
+      run: python scripts/ci/deploy.py
 
   deploy-production:
-    needs: [e2e, performance]
+    needs: e2e
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # environment production ตั้ง Required reviewers ไว้ — job จะหยุดรอจนมีคนกด approve
-    # คือ human checkpoint ที่บังคับใช้จริง ไม่ใช่แค่ข้อตกลงในกลุ่ม
     environment:
       name: production
       url: ${{ vars.PRODUCTION_WEB_URL }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Trigger Render deploy + wait for this commit to go live
-        env:
-          API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
-          WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
-          API_URL: ${{ vars.PRODUCTION_API_URL }}
-        run: scripts/ci/render-deploy.sh
-
-  # smoke test ของ k6 ยิงใส่ staging จริงหลัง deploy — ยืนยันว่าของที่เพิ่งขึ้นตอบได้เร็วพอ
-  # (3 VUs 30 วินาที ยิงแค่ /api/health ซึ่งเป็น endpoint เดียวที่ไม่ต้อง login)
-  staging-smoke:
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
-        with:
-          k6-version: '2.3.0'
-      - name: k6 smoke → staging
-        run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
-        env:
-          BASE_URL: ${{ vars.STAGING_API_URL }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: k6-staging-smoke-${{ github.sha }}
-          path: performance/staging-smoke.json
-          retention-days: 7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - name: Record commit timestamp
+      run: echo "COMMIT_TIMESTAMP=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+    - name: Deploy exact commit and verify API + frontend
+      id: deploy
+      env:
+        TARGET_TIER: production
+        API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+        API_URL: ${{ vars.PRODUCTION_API_URL }}
+        WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+      run: python scripts/ci/deploy.py

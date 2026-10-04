@@ -41,9 +41,16 @@ ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").strip().lower()
 
 IS_PRODUCTION: bool = ENVIRONMENT == "production"
 
-# token ที่เปิด /api/test/* บน staging (WS-07) — ให้ k6 ขอ session ของนักศึกษาได้
-# บน staging ที่อยู่บน internet · ไม่ได้ตั้ง หรือสั้นกว่า 32 ตัว = ปิดสนิท
-# ไม่มีผลกับ development/test (เปิดอยู่แล้ว) และ production (ปิดเสมอ ไม่ว่าตั้งอะไร)
+# บอกเป้าหมายของ deployment โดยไม่เปิด test endpoints บน public staging
+DEPLOYMENT_TIER: str = os.getenv(
+    "DEPLOYMENT_TIER", "production" if IS_PRODUCTION else "local"
+).strip().lower()
+if DEPLOYMENT_TIER not in {"local", "staging", "production"}:
+    raise RuntimeError("DEPLOYMENT_TIER ต้องเป็น local, staging หรือ production")
+
+# รองรับ test harness เดิมใน environment ที่แยกจาก internet เท่านั้น
+# public staging ต้องใช้ ENVIRONMENT=production จึงปิด /api/test/* เสมอ
+# load test ใช้ app.perf_fixture แทน HTTP test endpoints
 TEST_SUPPORT_TOKEN: str = os.getenv("TEST_SUPPORT_TOKEN", "")
 
 DATABASE_URL: str = os.getenv(

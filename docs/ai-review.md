@@ -1,5 +1,10 @@
 # AI Review — function ที่แย่ที่สุด (WS-07 homework → แก้ใน WS-08)
 
+> บันทึก review ของ branch supitcha เมื่อ 2026-10-04 ด้านล่างเป็นหลักฐานเดิม.
+> Candidate 2026-10-05 ยังเลือก publish_assignment เป็นเป้าหมาย WS-08 และยังไม่ refactor.
+> Local log ใหม่วัด publish 54.3ms ระหว่าง setup, submit p95 15.66ms ระหว่าง load;
+> ไม่ยืนยันข้อสรุปเดิมเรื่อง round trips/CPU บน Render. ผลปัจจุบันอยู่ใน performance-report.md.
+
 > **ยังไม่แก้** ตามที่ homework กำหนด — เก็บไว้เป็นเป้าหมาย refactor ของ WS-08
 > ทุกข้อด้านล่างต้องถูก "ตรวจซ้ำโดยคน" ก่อนลงมือแก้ ข้อที่ไม่จริงให้ขีดฆ่าพร้อมเหตุผล ไม่ใช่ลบทิ้ง
 

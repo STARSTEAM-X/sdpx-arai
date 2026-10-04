@@ -25,11 +25,23 @@ from app.api.errors import (
     http_error_handler,
     validation_error_handler,
 )
-from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
+from app.config import (
+    APP_VERSION,
+    CORS_ORIGINS,
+    DEPLOYMENT_TIER,
+    ENVIRONMENT,
+    IS_PRODUCTION,
+)
 from app.daily_scoring import daily_scoring_loop
 from app.db import close_pool, open_pool
 from app.domain.errors import DomainError
-from app.observability import configure_logging, log_event, request_id_var, user_ref
+from app.observability import (
+    configure_logging,
+    log_event,
+    request_id_var,
+    request_start_var,
+    user_ref,
+)
 
 # ตั้งก่อนสร้าง app — log ทุกบรรทัดหลังจากนี้ (รวมของ uvicorn) ออกเป็น JSON
 configure_logging()
@@ -78,6 +90,7 @@ async def request_context(
     request.state.request_id = request_id
     token = request_id_var.set(request_id)
     start = time.perf_counter()
+    start_token = request_start_var.set(start)
     status_code = 500
     try:
         response = await call_next(request)
@@ -100,6 +113,7 @@ async def request_context(
             errorCode=getattr(request.state, "error_code", None),
         )
         request_id_var.reset(token)
+        request_start_var.reset(start_token)
 
 
 _REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
@@ -152,4 +166,7 @@ def health() -> dict[str, str]:
     - HEALTHCHECK ของ Docker (WS-05)
     - ด่านตรวจว่า staging พร้อมก่อนยิง load test (WS-07)
     """
-    return {"status": "ok", "version": APP_VERSION, "environment": ENVIRONMENT}
+    return {
+        "status": "ok", "version": APP_VERSION,
+        "environment": ENVIRONMENT, "deploymentTier": DEPLOYMENT_TIER,
+    }

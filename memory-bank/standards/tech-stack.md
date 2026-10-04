@@ -2,13 +2,24 @@
 
 บันทึกการตัดสินใจเรื่องเครื่องมือของ PairEval — **เปลี่ยนได้ แต่ต้องเขียน ADR ก่อน** (WS-08)
 
+## สถานะ deployment 2026-10-05
+
+Stack เดิม React/TypeScript/Vite, FastAPI Python 3.12, PostgreSQL, Render.
+DB Free ใหม่ paireval-db-20261005 (Postgres 18, Singapore) แทนตัวที่หมดอายุ.
+API/เว็บ Auto-Deploy = Off และ Blueprint Auto Sync = No;
+candidate CI สั่ง deploy exact SHA หลัง Docker test gates แล้ววัด staging performance.
+Public API ใช้ ENVIRONMENT=production; DEPLOYMENT_TIER แยก staging/production.
+Production template แยก workspace และ GitHub environment ต้องมี human reviewer.
+รายละเอียดการตั้งค่าและสิ่งที่ยังไม่ตรวจ: docs/cicd.md และ docs/loop-metrics.md.
+ตัวเลข deployment ในหัวข้อด้านล่างเป็นประวัติ WS-01 ไม่ใช่ผล candidate นี้.
+
 ## Decision Summary
 
 | ด้าน | เลือก | เหตุผลสั้น ๆ |
 |---|---|---|
 | Frontend | React 19 + Vite + TypeScript + Tailwind v4 | Vite build เร็ว · Tailwind v4 เป็น Vite plugin ไม่ต้องมี config file |
 | Backend | FastAPI (Python 3.12) | PRD ต้องการ REST JSON · Pairing/Scoring Engine ต้องมี property-based test ซึ่ง Python ทำได้ดีที่สุด |
-| Database | PostgreSQL | ระบุไว้ใน PRD §6 — **ยังไม่สร้างจนถึง WS-03** |
+| Database | PostgreSQL | ระบุไว้ใน PRD §6; ใช้ผ่าน psycopg และ SQL migrations |
 | Deployment | Render (Blueprint `render.yaml`) | สมัครที่เดียว · infra เป็น code อยู่ใน git ตรวจผ่าน review ได้ |
 
 ## Frontend
@@ -29,16 +40,16 @@
 - **Python:** 3.12 (pin ที่ `backend/.python-version`)
 - **Config:** อ่านจาก environment variable ผ่าน `app/config.py` ด้วย `os.getenv` ตรง ๆ
   ยังไม่ใช้ pydantic-settings เพราะตอนนี้มีค่าแค่ 2 ตัว — ถ้าโตขึ้นค่อยย้ายแล้วเขียน ADR
-- **Endpoint ที่มีตอนนี้:** `GET /api/health` เท่านั้น
+- **API:** health, auth, classroom, roster, assignment/pairing, comparison/submission และ scoring
 
-## Database
+## ประวัติ Database (WS-01)
 
 **ยังไม่สร้างใน WS-01 โดยตั้งใจ** — Render free Postgres หมดอายุใน 30 วัน
 และ WS-01/WS-02 ยังไม่ใช้ DB เลย (WS-02 เป็นเอกสารล้วน)
 
 จะสร้างตอน **WS-03** โดยปลดคอมเมนต์ส่วน `databases:` ใน `render.yaml`
 
-## Deployment
+## ประวัติ Deployment (WS-01)
 
 - **Platform:** Render
 - **Config:** `render.yaml` ที่ root ของ repo
