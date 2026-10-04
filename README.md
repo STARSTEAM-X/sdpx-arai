@@ -37,7 +37,7 @@
 | WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
 | WS-06 CI/CD | 🟡 | Pipeline 8 job (lint/test แยกฝั่งขนาน → E2E → deploy ผ่าน Render hook) · ruff + oxlint · deploy ขึ้น staging ผ่าน pipeline เท่านั้น · พิสูจน์บนเครื่องแล้วว่า test แดง → exit 1 · **รอ push + ตั้ง branch protection / environments บน GitHub** ([`docs/cicd.md`](docs/cicd.md) · [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
-| WS-07 Performance | ⬜ | |
+| WS-07 Performance | 🟡 | k6 smoke ใส่ staging จริง (p95 92.8ms) + load test journey นักศึกษา 60 คน (stages · tags · thresholds · custom metrics · think time) · **พบคอขวด: healthcheck กิน CPU ~43% ของงบ 0.1 CPU** · log JSON ทุก request พร้อม requestId + redact (ตรวจ 20,082 บรรทัด ไม่มีอีเมล/token) · performance gate ใน CI พิสูจน์แล้วว่า exit 99 · **รอ push** ([`docs/performance-report.md`](docs/performance-report.md)) |
 | WS-08 Code Quality & Security | ⬜ | |
 
 ### Product backlog

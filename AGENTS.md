@@ -10,8 +10,8 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
-- **สถานะปัจจุบัน:** WS-05 — walking skeleton ครบ (login → classroom → roster → assignment → pair → ประเมิน → คะแนน)
-  และทั้ง app กับ test suite รันด้วย Docker คำสั่งเดียวได้แล้ว
+- **สถานะปัจจุบัน:** WS-07 — walking skeleton ครบ (login → classroom → roster → assignment → pair → ประเมิน → คะแนน)
+  ทั้ง app กับ test suite รันด้วย Docker คำสั่งเดียว · CI/CD pipeline เต็ม (WS-06) · k6 + structured logging (WS-07)
 
 ## Paths
 
@@ -123,6 +123,25 @@ deploy ขึ้น staging **ผ่าน pipeline เท่านั้น** (
 คำสั่ง reproduce แต่ละ job บนเครื่อง และสิ่งที่ต้องตั้งบน GitHub: `docs/cicd.md`
 
 **ก่อน push ให้รัน lint + unit ทั้งสองฝั่งบนเครื่องให้เขียวก่อน — ห้าม debug ด้วยการ push ซ้ำ ๆ**
+
+### Performance & logging (WS-07)
+
+```bash
+# smoke ใส่ staging (ยิงแค่ /api/health) — ไม่มี k6 บนเครื่องใช้ docker แทนได้
+docker run --rm -i -e BASE_URL=https://paireval-api.onrender.com grafana/k6:2.3.0 run - < performance/smoke.js
+
+# load test journey เต็ม — ต้องยิงใส่ backend ที่ ENVIRONMENT ≠ production เท่านั้น
+# (setup() เรียก /api/test/seed ซึ่ง TRUNCATE ข้อมูลทั้งหมด)
+docker compose -f compose.test.yaml --profile e2e up -d --wait api-test
+docker run --rm --network paireval-test_default -v "$PWD/performance:/perf" -e BASE_URL=http://api-test:8000   grafana/k6:2.3.0 run --summary-export=/perf/results.json /perf/load-test.js
+echo $?   # 99 = threshold ไม่ผ่าน
+```
+
+**log ของ backend เป็น JSON ทุกบรรทัด** (`backend/app/observability.py`) — เพิ่ม log ใหม่ด้วย
+`log_event(log, "snake_case_event", field=...)` ไม่ใช่ `print` หรือ f-string
+**ห้ามส่งอีเมล / token / password เข้า log ตรง ๆ** — อ้างถึงผู้ใช้ด้วย `user_ref(email)`
+formatter มี redact เป็นตาข่ายชั้นสุดท้าย ไม่ใช่ใบอนุญาตให้ log ของอ่อนไหว
+ผลวัดและคอขวดล่าสุด: `docs/performance-report.md`
 
 ### API contract (`docs/openapi.yaml`)
 

@@ -2,8 +2,8 @@
 #
 #   lint-fe ─┐
 #   test-fe ─┤
-#   lint-be ─┼─► e2e ─► deploy-staging    (push เข้า develop)
-#   test-be ─┤     └──► deploy-production (push เข้า main · ต้องมีคน approve)
+#   lint-be ─┼─► e2e ─► performance ─┬─► deploy-staging ─► staging-smoke  (push develop)
+#   test-be ─┤                       └─► deploy-production                (push main · ต้องมีคน approve)
 #   integ-be ┘
 #
 # job แยกฝั่งรันขนานกัน (summary.md · WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
@@ -294,11 +294,87 @@ jobs:
           retention-days: 7
 
   # ===========================================================================
+  # Performance gate (WS-07) — k6 ยิง journey จริงของนักศึกษา ถ้า threshold แดง k6 คืน 99 → job แดง
+  #
+  # ยิงใส่ backend ที่ยกขึ้นใน runner ไม่ใช่ staging เพราะ journey ต้องมี session ของนักศึกษา
+  # 60 คน — staging login ได้ทาง Google อย่างเดียว และ /api/test/* ถูกปิดใน production โดยตั้งใจ
+  # (เหตุผลเต็มใน docs/performance-report.md) · staging โดนยิงจริงที่ job staging-smoke ด้านล่าง
+  # ===========================================================================
+  performance:
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      # ต้องไม่ใช่ production — setup() ของ load-test.js ใช้ /api/test/* สร้างห้องและ session
+      ENVIRONMENT: development
+      SESSION_SECRET: perf-only-secret-value-that-is-long-enough-32b
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+        with:
+          k6-version: '2.3.0' # เวอร์ชันเดียวกับที่วัด baseline — เปลี่ยน k6 แล้วตัวเลขเทียบกันไม่ได้
+
+      - name: Start API
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          python -m app.migrate
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+
+      # ด่านตรวจก่อนยิง load: ถ้า API ยังไม่พร้อม ผลที่ได้คือ connection refused ไม่ใช่ตัวเลข performance
+      - name: Wait for /api/health
+        run: |
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/api/health && exit 0
+            sleep 1
+          done
+          echo "::error::API ไม่ขึ้นภายใน 30 วินาที"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: k6 load test (ramp 0→5→10 VUs)
+        run: k6 run --summary-export=performance/results.json performance/load-test.js
+        env:
+          BASE_URL: http://127.0.0.1:8000
+          # profile สั้นกว่า baseline (1 นาทีแทน 2) ให้ pipeline ไม่ช้าเกิน — threshold ชุดเดียวกัน
+          RAMP: 15s
+          STEADY: 30s
+          INSTRUCTOR_DURATION: 60s
+
+      - name: Upload k6 results + API log
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: k6-results-${{ github.sha }}
+          path: |
+            performance/results.json
+            ${{ runner.temp }}/api.log
+          retention-days: 7
+
+  # ===========================================================================
   # Deploy — Render deploy hook · render.yaml ปิด auto-deploy ไว้แล้ว
   # ทำให้ "ขึ้น staging ได้" มีทางเดียวคือผ่าน pipeline นี้จนเขียวทุก job
   # ===========================================================================
   deploy-staging:
-    needs: e2e
+    needs: [e2e, performance]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -317,7 +393,7 @@ jobs:
         run: scripts/ci/render-deploy.sh
 
   deploy-production:
-    needs: e2e
+    needs: [e2e, performance]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -334,3 +410,25 @@ jobs:
           WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
           API_URL: ${{ vars.PRODUCTION_API_URL }}
         run: scripts/ci/render-deploy.sh
+
+  # smoke test ของ k6 ยิงใส่ staging จริงหลัง deploy — ยืนยันว่าของที่เพิ่งขึ้นตอบได้เร็วพอ
+  # (3 VUs 30 วินาที ยิงแค่ /api/health ซึ่งเป็น endpoint เดียวที่ไม่ต้อง login)
+  staging-smoke:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+        with:
+          k6-version: '2.3.0'
+      - name: k6 smoke → staging
+        run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
+        env:
+          BASE_URL: ${{ vars.STAGING_API_URL }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: k6-staging-smoke-${{ github.sha }}
+          path: performance/staging-smoke.json
+          retention-days: 7

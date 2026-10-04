@@ -6,9 +6,9 @@ pipeline อยู่ที่ [`.github/workflows/ci.yml`](../.github/workflows
 
 ```
 lint-fe ─┐
-test-fe ─┤                  (push develop)
-lint-be ─┼─► e2e ─┬─► deploy-staging
-test-be ─┤        └─► deploy-production   (push main · ต้องมีคน approve)
+test-fe ─┤                                 (push develop)
+lint-be ─┼─► e2e ─► performance ─┬─► deploy-staging ─► staging-smoke
+test-be ─┤                       └─► deploy-production   (push main · ต้องมีคน approve)
 integ-be ┘
 ```
 
@@ -20,8 +20,10 @@ integ-be ┘
 | `test-be` | pytest (unit + api) + coverage + JUnit | ไม่ต้องมี DB · ตัด integration ออกด้วย `pytest.ini` |
 | `integration-be` | `pytest -m integration` กับ Postgres service | ช้ากว่าเพราะต้องยก DB — แยกไว้ไม่ให้ถ่วง unit |
 | `e2e` | Playwright 118 tests กับ Postgres + API + หน้าเว็บจริง | แพงที่สุด รันเมื่อ 5 job แรกเขียวครบเท่านั้น |
+| `performance` (WS-07) | k6 `load-test.js` ใส่ API + Postgres ที่ยกใน runner · threshold แดง → exit 99 → job แดง | gate ก่อน deploy · เหตุผลที่ไม่ยิง staging อยู่ใน `performance-report.md` |
 | `deploy-staging` | ยิง Render deploy hook แล้วรอจน `/api/health` รายงาน commit นี้ | ดู [`scripts/ci/render-deploy.sh`](../scripts/ci/render-deploy.sh) |
 | `deploy-production` | เหมือนกัน แต่ผูก environment `production` ที่ต้องมีคน approve | human checkpoint ที่บังคับใช้จริง |
+| `staging-smoke` (WS-07) | k6 `smoke.js` ใส่ staging จริงหลัง deploy | ยืนยันว่าของที่เพิ่งขึ้นตอบได้เร็วพอ |
 
 ### หลักที่ใช้ในไฟล์ workflow
 
@@ -57,7 +59,7 @@ Settings → Environments → New environment
 
 | Environment | Secrets | Variables | Protection |
 |---|---|---|---|
-| `staging` | `RENDER_DEPLOY_HOOK_API`, `RENDER_DEPLOY_HOOK_WEB` | `STAGING_API_URL` = `https://paireval-api.onrender.com`<br>`STAGING_WEB_URL` = `https://paireval-web.onrender.com` | Deployment branches: `develop` |
+| `staging` | `RENDER_DEPLOY_HOOK_API`, `RENDER_DEPLOY_HOOK_WEB` | `STAGING_API_URL` = `https://paireval-api.onrender.com` (ตั้งเป็น **repository variable** ด้วย เพราะ job `staging-smoke` ไม่ได้ผูก environment)<br>`STAGING_WEB_URL` = `https://paireval-web.onrender.com` | Deployment branches: `develop` |
 | `production` | `RENDER_DEPLOY_HOOK_API`, `RENDER_DEPLOY_HOOK_WEB` (ของ service production) | `PRODUCTION_API_URL`, `PRODUCTION_WEB_URL` | ✅ **Required reviewers** (สมาชิกกลุ่ม) · Deployment branches: `main` |
 
 ใส่ secret ที่ระดับ **environment** ไม่ใช่ระดับ repo — job ที่ไม่ได้ประกาศ `environment:`
@@ -73,7 +75,7 @@ Settings → Rules → Rulesets → New branch ruleset → Target: `main` (ท�
 - ✅ Restrict deletions · ✅ **Block force pushes**
 - ✅ **Require a pull request before merging** — Required approvals: 1
 - ✅ **Require status checks to pass** + Require branches to be up to date
-  เพิ่ม check: `lint-fe`, `test-fe`, `lint-be`, `test-be`, `integration-be`, `e2e`
+  เพิ่ม check: `lint-fe`, `test-fe`, `lint-be`, `test-be`, `integration-be`, `e2e`, `performance`
   (ชื่อจะขึ้นให้เลือกได้หลัง pipeline รันอย่างน้อย 1 ครั้ง)
 
 ### 4. Secret scanning
