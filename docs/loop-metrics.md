@@ -1,16 +1,16 @@
 # Loop Metrics — WS-06
 
 วัดเมื่อ **2026-10-04** บนเครื่อง dev (Windows 11 + Docker Desktop) · commit `69df953`
-ช่อง "หลังมี CI" ที่เขียนว่า **รอวัด** คือยังไม่มี run จริงบน GitHub Actions — **ไม่ใส่ตัวเลขประมาณแทน**
-(push ขึ้น GitHub ยังไม่ได้ทำ ดู [`cicd.md`](cicd.md) หัวข้อ "สิ่งที่ต้องตั้งบนเว็บเอง")
+ช่อง "หลังมี CI" มาจาก run จริงบน GitHub Actions ของ PR STARSTEAM-X/sdpx-arai#17 (2026-10-04)
+ช่องที่ยังเขียนว่า **รอวัด** คือยังไม่มี run ที่วัดค่านั้นได้ — **ไม่ใส่ตัวเลขประมาณแทน**
 
 | ตัวชี้วัด | ก่อนมี CI | หลังมี CI |
 |---|---|---|
-| Unit test — backend (350 tests) | 1.33 วินาที (local) · 1.06 วินาที (ใน container) | รอวัด (`test-be`) |
-| Unit test — frontend (21 tests) | 0.79 วินาที (local) · 0.34 วินาที (ใน container) | รอวัด (`test-fe`) |
-| E2E (118 tests) | 1.6 นาที (เวลารัน test) · 297 วินาที รวม build image ของ `compose.test.yaml` | 1.6 นาที (99 วินาที) เมื่อจำลอง job `e2e` ใน container Linux ด้วยขั้นตอนเดียวกับ workflow · บน GitHub รอวัด |
-| Pipeline ทั้งอัน | — (ไม่มี มีแต่ job `smoke` ที่ echo ข้อความ) | รอวัด |
-| Lead time (commit → staging) | 42 วินาที (web · วัดตอน WS-01) — **แต่ไม่มี gate** test แดงก็ขึ้น | รอวัด — job `deploy-staging` พิมพ์ตัวเลขนี้ลง step summary เอง |
+| Unit test — backend (350 → 393 tests) | 1.33 วินาที (local) · 1.06 วินาที (ใน container) | job `test-be` **19 วินาที** (รวมติดตั้ง dependency) |
+| Unit test — frontend (21 tests) | 0.79 วินาที (local) · 0.34 วินาที (ใน container) | job `test-fe` **14 วินาที** (รวม `npm ci` + build) |
+| E2E (118 tests) | 1.6 นาที (เวลารัน test) · 297 วินาที รวม build image ของ `compose.test.yaml` | job `e2e` **177 วินาที** (รอบแรก ยังไม่มี cache ของ Chromium) |
+| Pipeline ทั้งอัน | — (ไม่มี มีแต่ job `smoke` ที่ echo ข้อความ) | **5 นาที 27 วินาที** ([run บน PR #17](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37211333860)) · เขียวทุก job |
+| Lead time (commit → staging) | 42 วินาที (web · วัดตอน WS-01) — **แต่ไม่มี gate** test แดงก็ขึ้น | รอวัดหลัง merge เข้า `develop` — job `deploy-staging` พิมพ์ตัวเลขลง step summary เอง |
 | Deployment frequency | 28 commits (W34) · 40 commits (W35) บน `develop` — Render deploy ทุก push จึงเป็นเพดานบน | คาดว่าเท่าเดิม แต่ทุกครั้งผ่าน gate ครบ |
 
 ### ตัวเลขที่ได้จากการพิสูจน์ failure case (วัดแล้ว)
@@ -25,8 +25,11 @@
 
 ## Pipeline ช้าที่สุดตรงไหน
 
-**`e2e`** — จากการจำลอง job ใน container: ติดตั้ง dependency ~30 วินาที + Playwright 99 วินาที
-และมันรอ 5 job แรกเสร็จก่อน (critical path = job ที่ช้าที่สุดในชุดแรก + e2e)
+วัดจาก run จริง: critical path = `integration-be` 31 วิ → **`e2e` 177 วิ** → `performance` 106 วิ ≈ 5.2 นาที
+(job ชุดแรก 4 ตัวจบใน 7–19 วิ แต่ `e2e` ต้องรอ `integration-be` ที่ช้าที่สุดในชุดแรก)
+
+**`e2e` คือคอขวด** — 177 วิ ในนั้นรวมการติดตั้ง Chromium รอบแรกที่ยังไม่มี cache
+และ Playwright รันแบบ `workers: 1` · อันดับสองคือ `performance` 106 วิ (k6 ยิงจริง 60 วิ + ติดตั้ง/ยก API)
 
 แผนลดเวลาโดยไม่ลด coverage:
 
