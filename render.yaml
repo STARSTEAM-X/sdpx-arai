@@ -11,11 +11,7 @@ services:
     runtime: static
     # static site ไม่มี region — Render เสิร์ฟผ่าน global CDN ให้อยู่แล้ว
     rootDir: frontend
-    branch: develop
-    # ปิด auto-deploy ของ Render (WS-06) — deploy เกิดได้ทางเดียวคือ job deploy-staging
-    # ใน .github/workflows/ci.yml ยิง deploy hook หลัง lint + test + E2E เขียวครบ
-    # ถ้าปล่อยเป็น commit (default) Render จะ deploy ทันทีที่ push แม้ test จะแดง
-    autoDeployTrigger: "off"
+    branch: develop # auto-deploy ทุก push เข้า develop (เป็น default ของ Render)
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     # Google Sign-In เปิด popup แล้วคุยกลับด้วย window.postMessage
@@ -53,7 +49,6 @@ services:
     # Postgres ที่จะสร้างใน WS-03 ต้องอยู่ region เดียวกันนี้
     rootDir: backend
     branch: develop
-    autoDeployTrigger: "off" # เหตุผลเดียวกับ paireval-web ด้านบน
     buildCommand: pip install -r requirements.txt
     # migrate ก่อน uvicorn ทุกครั้ง — runner เก็บชื่อไฟล์ที่รันแล้วใน schema_migration
     # จึงข้ามของเดิมเอง การรันซ้ำทุก deploy ไม่มีผลข้างเคียง

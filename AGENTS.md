@@ -119,7 +119,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ### CI/CD (WS-06)
 
 `.github/workflows/ci.yml` รัน lint-fe · test-fe · lint-be · test-be · integration-be ขนานกัน แล้วค่อย e2e
-deploy ขึ้น staging **ผ่าน pipeline เท่านั้น** (`render.yaml` ปิด auto-deploy แล้ว)
+Render deploy staging เองจาก `develop` (ไม่เปลี่ยน) · job `deploy-staging` รอจน staging รัน commit นั้นจริงแล้วค่อย `staging-smoke`
 คำสั่ง reproduce แต่ละ job บนเครื่อง และสิ่งที่ต้องตั้งบน GitHub: `docs/cicd.md`
 
 **ก่อน push ให้รัน lint + unit ทั้งสองฝั่งบนเครื่องให้เขียวก่อน — ห้าม debug ด้วยการ push ซ้ำ ๆ**
