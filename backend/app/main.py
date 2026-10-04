@@ -1,6 +1,9 @@
 """PairEval API"""
 
 import asyncio
+import logging
+import re
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
@@ -26,6 +29,11 @@ from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
 from app.daily_scoring import daily_scoring_loop
 from app.db import close_pool, open_pool
 from app.domain.errors import DomainError
+from app.observability import configure_logging, log_event, request_id_var, user_ref
+
+# ตั้งก่อนสร้าง app — log ทุกบรรทัดหลังจากนี้ (รวมของ uvicorn) ออกเป็น JSON
+configure_logging()
+http_log = logging.getLogger("paireval.http")
 
 
 @asynccontextmanager
@@ -58,18 +66,54 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def attach_request_id(
+async def request_context(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    """ให้ทุก request มี id ของตัวเอง
+    """ให้ทุก request มี id ของตัวเอง แล้วออก log JSON หนึ่งบรรทัดเมื่อจบ (WS-07)
 
-    ใช้ตามรอย error ใน log และส่งกลับไปใน error response เพื่อให้ผู้ใช้แจ้งปัญหาได้ตรงจุด
-    จะต่อยอดเป็น structured logging เต็มรูปแบบใน WS-07
+    requestId ถูกส่งกลับใน header และใน ErrorEnvelope — ผู้ใช้แจ้งเลขนี้มา
+    ก็หาบรรทัด log ของ request นั้นเจอทันที (correlation ID)
     """
-    request.state.request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
-    response = await call_next(request)
-    response.headers["x-request-id"] = request.state.request_id
-    return response
+    request_id = _accept_request_id(request.headers.get("x-request-id"))
+    request.state.request_id = request_id
+    token = request_id_var.set(request_id)
+    start = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers["x-request-id"] = request_id
+        return response
+    finally:
+        # route pattern (/api/classrooms/{classroom_id}) ไม่ใช่ path จริง — path มี id ปน
+        # ทำให้รวมสถิติราย endpoint ไม่ได้ และเป็นข้อมูลที่ไม่จำเป็นต้องอยู่ใน log
+        route = request.scope.get("route")
+        log_event(
+            http_log,
+            "http_request",
+            level=logging.WARNING if status_code >= 500 else logging.INFO,
+            method=request.method,
+            route=getattr(route, "path", "unmatched"),
+            statusCode=status_code,
+            duration_ms=round((time.perf_counter() - start) * 1000, 1),
+            user=user_ref(getattr(request.state, "user_email", None)),
+            errorCode=getattr(request.state, "error_code", None),
+        )
+        request_id_var.reset(token)
+
+
+_REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
+
+
+def _accept_request_id(incoming: str | None) -> str:
+    """ใช้ id ที่ client/load balancer ส่งมาถ้ารูปแบบปลอดภัย ไม่งั้นสร้างใหม่
+
+    ค่านี้มาจากภายนอกและถูกเขียนลง log ตรง ๆ — ถ้ารับทุกอย่าง คนส่ง header
+    ยาวเป็นเมกะไบต์หรือมีอักขระขึ้นบรรทัดใหม่มาปลอม log บรรทัดอื่นได้ (log injection)
+    """
+    if incoming and _REQUEST_ID.fullmatch(incoming):
+        return incoming
+    return str(uuid.uuid4())
 
 
 # error ทุกชนิดต้องออกมาในรูป ErrorEnvelope เดียวกัน ไม่งั้น client อ่านไม่ออก

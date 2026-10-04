@@ -4,6 +4,7 @@ route บาง: โหลด pair แล้วตรวจสิทธิ์ส
 ของคู่นี้ไหม → เลยเวลาไหม) กฎทั้งหมดอยู่ใน comparison_service ซึ่งทดสอบได้โดยไม่ต้องมี DB
 """
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter
@@ -19,9 +20,12 @@ from app.domain.comparison_service import (
 )
 from app.domain.errors import NotFoundError
 from app.domain.pairing import Side
+from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_comparison_repo import PgComparisonRepository
+
+log = logging.getLogger("paireval.comparisons")
 
 router = APIRouter(prefix="/api/comparisons", tags=["evaluation"])
 
@@ -80,6 +84,15 @@ def save_comparison(
             now=datetime.now(UTC),
         )
 
+    # endpoint ที่ถูกเรียกบ่อยที่สุดของระบบ (autosave ทุกครั้งที่นักศึกษาเลือกคำตอบ)
+    log_event(
+        log,
+        "comparison_saved",
+        pairAssignmentId=pair_assignment_id,
+        assignmentId=pair.assignment_id,
+        status=saved.status,
+        user=user_ref(user_email),
+    )
     return ComparisonOut(
         id=saved.id,
         pairAssignmentId=saved.pair_assignment_id,

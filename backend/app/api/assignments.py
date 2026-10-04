@@ -5,6 +5,7 @@ route ที่นี่บาง: อ่าน input, ตรวจสิทธ�
 ทั้งสองอย่างทดสอบได้โดยไม่ต้องมี HTTP หรือ DB
 """
 
+import logging
 import secrets
 import uuid
 from datetime import UTC, datetime
@@ -35,10 +36,13 @@ from app.domain.pairing import (
     solve_group_feasibility,
     solve_individual_feasibility,
 )
+from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_comparison_repo import PgComparisonRepository
+
+log = logging.getLogger("paireval.assignments")
 
 router = APIRouter(prefix="/api/assignments", tags=["assignments"])
 
@@ -396,6 +400,14 @@ def publish_assignment(
             )
         )
 
+    log_event(
+        log,
+        "assignment_published",
+        assignmentId=assignment.id,
+        classroomId=assignment.classroom_id,
+        pairsCreated=created,
+        user=user_ref(user_email),
+    )
     return PublishOut(
         assignmentId=assignment.id,
         status=str(AssignmentStatus.PUBLISHED),
@@ -524,4 +536,12 @@ def submit_evaluations(
             {"side": result.side, "submittedCount": result.submittedCount, "submittedAt": now.isoformat()}
         )
 
+    log_event(
+        log,
+        "evaluations_submitted",
+        assignmentId=assignment_id,
+        side=result.side,
+        submittedCount=count,
+        user=user_ref(user_email),
+    )
     return result

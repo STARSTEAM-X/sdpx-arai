@@ -21,6 +21,7 @@ from app.google_oidc import (
     JwksUnavailable,
     verify_id_token,
 )
+from app.observability import log_event, user_ref
 from app.repositories.pg_user_repo import PgUserRepository
 
 router = APIRouter(prefix="/api", tags=["auth"])
@@ -89,11 +90,14 @@ def create_session(body: SessionRequest) -> dict:
         except Exception:  # noqa: BLE001 - debug path ห้ามทำให้ response พังซ้ำ
             hint = {"note": "decode payload ไม่ได้เลย - token อาจไม่ใช่ JWT"}
 
-        log.warning(
-            "auth/session ปฏิเสธ id_token: %s | คาดหวัง aud=%s | ได้ %s",
-            exc,
-            GOOGLE_CLIENT_ID,
-            hint,
+        log_event(
+            log,
+            "auth_rejected",
+            level=logging.WARNING,
+            reason=exc.code,
+            detail=str(exc),
+            expectedAud=GOOGLE_CLIENT_ID,
+            got=hint,
         )
         raise HTTPException(
             status_code=401, detail={"code": exc.code, "message": str(exc)}
@@ -109,6 +113,7 @@ def create_session(body: SessionRequest) -> dict:
         )
 
     token, expires_at = issue_session(user.email_normalized)
+    log_event(log, "session_created", method="google", user=user_ref(user.email_normalized))
     return {
         "accessToken": token,
         "expiresAt": expires_at.isoformat(),

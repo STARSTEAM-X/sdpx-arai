@@ -75,6 +75,9 @@ def current_user_email(request: Request) -> str:
             },
         )
 
+    # ให้ request log ระบุได้ว่าเป็นผู้ใช้คนไหน (เก็บเป็น hash ตอนเขียน log ไม่ใช่อีเมล)
+    # request.state อยู่ใน scope ร่วมกับ middleware จึงอ่านได้หลัง handler ทำงานเสร็จ
+    request.state.user_email = email
     return email
 
 

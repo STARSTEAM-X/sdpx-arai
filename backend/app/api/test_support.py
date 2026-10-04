@@ -18,6 +18,7 @@ router ทั้งชุดนี้จะถูก **ไม่ลงทะเ�
 ค่า default ของ ENVIRONMENT คือ "production" — การลืมตั้ง env จึงเป็นการปิด ไม่ใช่เปิด
 """
 
+import logging
 import uuid
 
 from fastapi import APIRouter, HTTPException
@@ -27,6 +28,9 @@ from app.auth import issue_session
 from app.config import IS_PRODUCTION
 from app.db import transaction
 from app.domain.email import normalize_email
+from app.observability import log_event, user_ref
+
+_log = logging.getLogger("paireval.test_support")
 
 router = APIRouter(prefix="/api/test", tags=["test-support"])
 
@@ -113,6 +117,7 @@ def test_session(body: SessionRequest) -> dict:
             )
 
     token, expires_at = issue_session(email)
+    log_event(_log, "session_created", method="test", user=user_ref(email))
     return {"accessToken": token, "expiresAt": expires_at.isoformat(), "email": email}
 
 

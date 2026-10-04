@@ -6,6 +6,7 @@ PgScoringRepository กฎว่า finalize ได้เมื่อไรอ�
 
 import csv
 import io
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -30,11 +31,14 @@ from app.domain.scoring_service import (
     compute_final_personal_score,
     compute_participation,
 )
+from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_scoring_repo import ComparisonExportRow, PgScoringRepository
 from app.scoring_orchestrator import run_recompute
+
+log = logging.getLogger("paireval.scoring")
 
 router = APIRouter(prefix="/api/assignments", tags=["scoring"])
 
@@ -128,6 +132,13 @@ def finalize_assignment(
             )
         )
 
+    log_event(
+        log,
+        "scores_finalized",
+        assignmentId=assignment_id,
+        hadLowConfidenceItems=has_low_confidence,
+        user=user_ref(user_email),
+    )
     return FinalizeOut(status="FINALIZED", finalizedAt=now, hadLowConfidenceItems=has_low_confidence)
 
 

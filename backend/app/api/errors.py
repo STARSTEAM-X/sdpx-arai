@@ -81,6 +81,7 @@ async def http_error_handler(request: Request, exc: Exception) -> JSONResponse:
         message = str(detail)
         field = None
 
+    request.state.error_code = code
     return JSONResponse(
         status_code=exc.status_code,
         content=error_body(code, message, request_id, field=field),
@@ -98,6 +99,7 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
     loc = [str(p) for p in first.get("loc", []) if p not in ("body", "query", "path")]
     field = loc[-1] if loc else None
 
+    request.state.error_code = "VALIDATION_FAILED"
     body = error_body(
         "VALIDATION_FAILED",
         str(first.get("msg", "ข้อมูลที่ส่งมาไม่ถูกต้อง")),
@@ -116,6 +118,8 @@ async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse
     request_id = getattr(request.state, "request_id", "unknown")
 
     body = error_body(exc.code, exc.message, request_id, field=exc.field)
+    # middleware เขียน code นี้ลง request log — นับ error ตามชนิดได้โดยไม่ต้องอ่านข้อความ
+    request.state.error_code = exc.code
 
     # RosterImportError พก error รายแถวมาด้วย — ต้องส่งให้ครบทุกแถว (R2)
     if isinstance(exc, RosterImportError) and exc.rows:
