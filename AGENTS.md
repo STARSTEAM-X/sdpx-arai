@@ -72,6 +72,7 @@ npm run typecheck      # ตรวจ type ด้วย tsc
 npm test               # vitest run — ต้องเขียวก่อน commit เสมอ
 npm run test:watch     # vitest โหมดเฝ้าไฟล์ ใช้ตอนเขียน code
 npm run test:cov       # coverage ออกที่ docs/coverage/frontend/
+npm run lint           # oxlint — กฎและเหตุผลอยู่ใน .oxlintrc.json · CI แดงเมื่อมี error
 ```
 
 ### Backend (`backend/`)
@@ -90,6 +91,7 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest -m integration   # ต้องมี Postgres (docker compose up -d db)
 ./.venv/Scripts/python.exe -m pytest -m ""            # ทั้งหมด
 ./.venv/Scripts/python.exe -m pytest --cov --cov-report=html   # coverage ออกที่ docs/coverage/backend/
+./.venv/Scripts/python.exe -m ruff check .      # lint — กฎและเหตุผลอยู่ใน ruff.toml · CI แดงเมื่อเจอ
 # path และ source ตั้งไว้ใน backend/.coveragerc แล้ว จึงไม่ต้องพิมพ์ --cov=app
 ```
 
@@ -113,6 +115,14 @@ npm run e2e:report                         # เปิด HTML report
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
+
+### CI/CD (WS-06)
+
+`.github/workflows/ci.yml` รัน lint-fe · test-fe · lint-be · test-be · integration-be ขนานกัน แล้วค่อย e2e
+deploy ขึ้น staging **ผ่าน pipeline เท่านั้น** (`render.yaml` ปิด auto-deploy แล้ว)
+คำสั่ง reproduce แต่ละ job บนเครื่อง และสิ่งที่ต้องตั้งบน GitHub: `docs/cicd.md`
+
+**ก่อน push ให้รัน lint + unit ทั้งสองฝั่งบนเครื่องให้เขียวก่อน — ห้าม debug ด้วยการ push ซ้ำ ๆ**
 
 ### API contract (`docs/openapi.yaml`)
 
