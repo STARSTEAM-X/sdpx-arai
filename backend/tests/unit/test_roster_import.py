@@ -148,7 +148,7 @@ class TestFormulaInjection:
         assert result.rows[0].group_name == f"'{trigger}cmd|'/c calc'!A1"
 
     def test_display_name_ที่ขึ้นต้นด้วยอักขระสูตรถูก_escape(self):
-        raw = "email,group_name,display_name\na@uni.ac.th,G1,=HYPERLINK(\"http://evil\")\n".encode()
+        raw = b"email,group_name,display_name\na@uni.ac.th,G1,=HYPERLINK(\"http://evil\")\n"
 
         result = parse_roster_csv(raw)
 

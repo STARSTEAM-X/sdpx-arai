@@ -13,7 +13,11 @@ from decimal import Decimal
 from psycopg import Connection
 
 from app.domain.pairing import Side
-from app.domain.scoring_service import CriterionConfig, ItemComponent, SubmittedComparison
+from app.domain.scoring_service import (
+    CriterionConfig,
+    ItemComponent,
+    SubmittedComparison,
+)
 
 
 @dataclass(frozen=True)

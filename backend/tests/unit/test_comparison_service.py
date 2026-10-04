@@ -7,7 +7,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domain.comparison_service import assert_before_deadline, assert_is_evaluator, validate_choice
+from app.domain.comparison_service import (
+    assert_before_deadline,
+    assert_is_evaluator,
+    validate_choice,
+)
 from app.domain.errors import DeadlinePassedError, NotYourPairError, ValidationError
 
 

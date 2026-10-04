@@ -16,7 +16,6 @@ from pydantic import BaseModel, Field
 from app.auth import CurrentUser
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
-from app.domain.audit import AuditAction, AuditEvent
 from app.domain.assignment_service import (
     Assignment,
     AssignmentStatus,
@@ -25,6 +24,7 @@ from app.domain.assignment_service import (
     assert_publishable,
     validate_new_assignment,
 )
+from app.domain.audit import AuditAction, AuditEvent
 from app.domain.comparison_service import assert_before_deadline
 from app.domain.errors import NotFoundError, ValidationError
 from app.domain.evaluation_service import build_my_evaluations

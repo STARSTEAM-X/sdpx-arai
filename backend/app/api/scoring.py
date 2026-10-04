@@ -16,8 +16,8 @@ from app.auth import CurrentUser
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
 from app.domain.anonymity import pseudonymize_evaluators
-from app.domain.audit import AuditAction, AuditEvent
 from app.domain.assignment_service import Assignment, AssignmentStatus
+from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import NotFoundError, ValidationError
 from app.domain.finalize_service import (
     assert_before_finalize,
@@ -26,7 +26,10 @@ from app.domain.finalize_service import (
     assert_reopenable,
 )
 from app.domain.pairing import Side
-from app.domain.scoring_service import compute_final_personal_score, compute_participation
+from app.domain.scoring_service import (
+    compute_final_personal_score,
+    compute_participation,
+)
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
@@ -212,7 +215,8 @@ def export_comparisons(assignment_id: str, user_email: CurrentUser) -> Response:
     `:export-identified` แทน ซึ่งจำกัดไว้เฉพาะ OWNER และบันทึก audit ทุกครั้ง (FR-EXPORT-04)
     """
     with transaction() as conn:
-        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        # เรียกเพื่อตรวจสิทธิ์อย่างเดียว — ถ้าไม่ใช่ผู้สอนของห้องนี้จะ raise ก่อนอ่านข้อมูล
+        _load_for_instructor(conn, assignment_id, user_email)
         rows = PgScoringRepository(conn).export_comparisons(assignment_id)
 
     pseudonyms = pseudonymize_evaluators([r.evaluator_user_id for r in rows])

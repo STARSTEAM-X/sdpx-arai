@@ -23,8 +23,8 @@ from app.api.errors import (
     validation_error_handler,
 )
 from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
-from app.db import close_pool, open_pool
 from app.daily_scoring import daily_scoring_loop
+from app.db import close_pool, open_pool
 from app.domain.errors import DomainError
 
 
