@@ -41,6 +41,11 @@ ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").strip().lower()
 
 IS_PRODUCTION: bool = ENVIRONMENT == "production"
 
+# token ที่เปิด /api/test/* บน staging (WS-07) — ให้ k6 ขอ session ของนักศึกษาได้
+# บน staging ที่อยู่บน internet · ไม่ได้ตั้ง หรือสั้นกว่า 32 ตัว = ปิดสนิท
+# ไม่มีผลกับ development/test (เปิดอยู่แล้ว) และ production (ปิดเสมอ ไม่ว่าตั้งอะไร)
+TEST_SUPPORT_TOKEN: str = os.getenv("TEST_SUPPORT_TOKEN", "")
+
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL", "postgresql://paireval:devpassword@localhost:5433/paireval"
 )

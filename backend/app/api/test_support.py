@@ -14,31 +14,54 @@ E2E ต้องเริ่มจาก state ที่รู้แน่ ไ�
 ## กันอย่างไร
 
 router ทั้งชุดนี้จะถูก **ไม่ลงทะเบียนเลย** ถ้า ENVIRONMENT เป็น production
-(ดู app/main.py) และยังมี guard ซ้ำในทุก handler เป็นชั้นที่สอง
+(ดู app/main.py) และยังมี guard ซ้ำทุก request เป็นชั้นที่สอง (`allow_test_support`)
 ค่า default ของ ENVIRONMENT คือ "production" — การลืมตั้ง env จึงเป็นการปิด ไม่ใช่เปิด
+
+**staging (WS-07)** อยู่บน internet เหมือน production แต่ k6 ต้องขอ session ได้
+จึงเปิดให้เฉพาะ request ที่แนบ `X-Test-Support-Token` ตรงกับ `TEST_SUPPORT_TOKEN`
+ไม่ผ่านตอบ 404 เหมือน route ไม่มีอยู่ — คนนอกแยกไม่ออกว่ามี endpoint ชุดนี้
 """
 
+import hmac
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth import issue_session
-from app.config import IS_PRODUCTION
+from app.config import ENVIRONMENT, TEST_SUPPORT_TOKEN
 from app.db import transaction
 from app.domain.email import normalize_email
 from app.observability import log_event, user_ref
 
 _log = logging.getLogger("paireval.test_support")
 
-router = APIRouter(prefix="/api/test", tags=["test-support"])
+MIN_TOKEN_LENGTH = 32
 
 
-def _guard() -> None:
+def allow_test_support(environment: str, *, configured: str, presented: str | None) -> bool:
+    """ตัดสินว่า request นี้ใช้ /api/test/* ได้ไหม — ไม่รู้จัก environment = ปิดไว้ก่อน"""
+    if environment in ("development", "test"):
+        return True
+    if environment == "staging":
+        if len(configured) < MIN_TOKEN_LENGTH or not presented:
+            return False
+        # compare_digest เวลาเท่ากันไม่ว่าจะผิดที่ตัวไหน — กันการเดา token ทีละตัวจากเวลาตอบ
+        return hmac.compare_digest(presented.encode(), configured.encode())
+    return False
+
+
+def _guard(x_test_support_token: str | None = Header(default=None)) -> None:
     """ชั้นป้องกันที่สอง — ต่อให้มีคนเผลอ include router นี้ใน production ก็ยังไม่ทำงาน"""
-    if IS_PRODUCTION:
+    if not allow_test_support(
+        ENVIRONMENT, configured=TEST_SUPPORT_TOKEN, presented=x_test_support_token
+    ):
         raise HTTPException(status_code=404, detail="Not found")
+
+
+# ด่านอยู่ระดับ router — endpoint ที่เพิ่มทีหลังได้ด่านนี้อัตโนมัติ ไม่มีทางลืมเรียก
+router = APIRouter(prefix="/api/test", tags=["test-support"], dependencies=[Depends(_guard)])
 
 
 class SeedUser(BaseModel):
@@ -48,6 +71,9 @@ class SeedUser(BaseModel):
 
 class SeedRequest(BaseModel):
     users: list[SeedUser] = Field(default_factory=list)
+    # False = เพิ่ม user โดยไม่ล้างของเดิม — load test บน staging ต้องไม่ลบข้อมูลที่สะสมไว้
+    # (staging ต้องมีข้อมูลมากพอให้ query สะท้อนความจริง · WS-07)
+    reset: bool = True
 
 
 class SessionRequest(BaseModel):
@@ -59,11 +85,24 @@ def seed(body: SeedRequest | None = None) -> dict:
     """ตั้ง state ตั้งต้น: ล้างของเก่าแล้วใส่ user ตัวอย่าง
 
     ล้างก่อนเสมอเพื่อให้ seed เป็น idempotent — เรียกซ้ำกี่ครั้งก็ได้ state เดิม
+    ยกเว้นส่ง `reset: false` จะเพิ่มเฉพาะ user ที่ยังไม่มี (ใช้กับ staging)
     """
-    _guard()
     users = body.users if body and body.users else [SeedUser(email="ajarn@uni.ac.th")]
+    reset = body.reset if body else True
 
     with transaction() as conn, conn.cursor() as cur:
+        if not reset:
+            for u in users:
+                cur.execute(
+                    """
+                    INSERT INTO app_user (id, email_normalized, email_raw, display_name, status)
+                    VALUES (%s, %s, %s, %s, 'ACTIVE')
+                    ON CONFLICT (email_normalized) DO NOTHING
+                    """,
+                    (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName),
+                )
+            return {"seeded": len(users), "reset": False}
+
         # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
         # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
         # ถ้าลืม test ที่ใช้ idempotency-key ซ้ำข้าม test จะได้ response ค้างจากรอบก่อน
@@ -86,7 +125,6 @@ def seed(body: SeedRequest | None = None) -> dict:
 
 @router.post("/cleanup")
 def cleanup() -> dict:
-    _guard()
     with transaction() as conn, conn.cursor() as cur:
         # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
         # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
@@ -105,7 +143,6 @@ def test_session(body: SessionRequest) -> dict:
 
     ผู้ใช้ต้องมีอยู่ใน database แล้ว (มาจาก seed) เพื่อไม่ให้กลายเป็นช่องสร้าง user ลอย ๆ
     """
-    _guard()
     email = normalize_email(str(body.email))
 
     with transaction() as conn, conn.cursor() as cur:
@@ -132,7 +169,6 @@ def dump_pairs(assignment_id: str) -> dict:
     ปิดใน production เหมือน endpoint อื่นในไฟล์นี้ เพราะเปิดเผยว่าใครประเมินอะไร
     ซึ่งเป็นข้อมูลที่ผู้ประเมินเองก็ไม่ควรเห็นของคนอื่น
     """
-    _guard()
     with transaction() as conn, conn.cursor() as cur:
         cur.execute(
             """
