@@ -40,6 +40,23 @@ env:
   PYTHON_VERSION: '3.12'
 
 jobs:
+  threshold-proof:
+    # Temporary lab evidence only: this branch is never merged or deployed.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    env:
+      BASE_URL: ${{ vars.STAGING_API_URL }}
+      P95_MS: '0.0001'
+      DURATION: 5s
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
+        with:
+          k6-version: 2.3.0
+      - name: Deliberately impossible threshold (expect exit 99)
+        run: k6 run performance/smoke.js
+
   lint-api:
     runs-on: ubuntu-latest
     timeout-minutes: 5

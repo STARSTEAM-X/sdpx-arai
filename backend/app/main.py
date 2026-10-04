@@ -167,6 +167,6 @@ def health() -> dict[str, str]:
     - ด่านตรวจว่า staging พร้อมก่อนยิง load test (WS-07)
     """
     return {
-        "status": "ok", "version": APP_VERSION,
+        "status": "intentional-gate-proof-failure", "version": APP_VERSION,
         "environment": ENVIRONMENT, "deploymentTier": DEPLOYMENT_TIER,
     }
