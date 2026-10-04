@@ -12,10 +12,9 @@ services:
     build:
       cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/frontend-test"]
       cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/frontend-test,mode=max"]
-    command: npm run test:cov -- --reporter=default --reporter=junit --outputFile.junit=/reports/unit.xml
+    command: npm run test:cov -- --reporter=default --reporter=junit --outputFile.junit=/reports/unit.xml --coverage.reportsDirectory=/reports/coverage
     volumes:
       - ./test-results/frontend:/reports
-      - ./docs/coverage/frontend:/docs/coverage/frontend
 
   integration-api:
     build:

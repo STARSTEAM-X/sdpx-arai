@@ -109,9 +109,7 @@ jobs:
       if: ${{ !cancelled() }}
       with:
         name: test-fe-${{ github.sha }}
-        path: 'test-results/frontend/
-
-          docs/coverage/frontend/'
+        path: test-results/frontend/
         retention-days: 7
     - name: Remove ephemeral test stack
       if: always()

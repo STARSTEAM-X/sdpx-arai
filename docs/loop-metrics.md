@@ -49,6 +49,9 @@ Production service/DB แยกยังไม่สร้าง; template อ�
 | PowerShell npm launcher ชี้ global npm ที่ไม่มีไฟล์ | รัน npm CLI ของ Node ที่ติดตั้งไว้; ไม่แก้ dependency |
 | Public staging test-session endpoint ขัด AGENTS | ENVIRONMENT=production; fixture CLI จาก staging credentials แทน |
 
-จำนวน push เพื่อ debug Docker CI: ยังไม่เริ่ม run ของ candidate.
+CI รอบแรก [37244218180](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244218180)
+พบ Vitest ลบ coverage directory ที่เป็น mount root ไม่ได้ (EBUSY); แก้ให้รายงานอยู่
+ใน /reports/coverage ภายใน mount เดียวกับ JUnit โดยไม่แก้ tests.
+จำนวน push เพื่อแก้ Docker CI: 1 หลัง initial PR push; รอผล run ที่แก้แล้ว.
 CI failure proof (PR merge blocked) และ performance threshold-red proof บน CI ยังรอ.
 เมื่อได้ run จริงให้บันทึก URL, job duration, slowest job และจำนวน push เพิ่มในไฟล์นี้.
