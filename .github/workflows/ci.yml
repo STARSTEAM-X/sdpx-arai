@@ -1,24 +1,323 @@
-# CI ตัวแรกของโปรเจกต์ (WS-05 homework)
-#
-# ตั้งใจให้เล็กที่สุดเท่าที่ยังพิสูจน์ได้ว่า pipeline เดินจริง — job เดียว ขั้นตอนเดียว
-# WS-06 จะต่อยอดไฟล์นี้เป็น pipeline เต็ม (lint → test → build → deploy)
-# การเริ่มจากของที่เขียวแน่ ๆ ทำให้รู้ทันทีว่าถ้ามันแดงตอนต่อยอด สาเหตุคือของที่เพิ่งเพิ่ม
+name: CI/CD Pipeline
 
-name: CI
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
 
-on: [push, pull_request]
-
-# ให้สิทธิ์น้อยที่สุดเท่าที่จำเป็น: workflow นี้แค่ checkout กับ echo จึงขอแค่ contents: read
-#
-# ถ้าไม่ประกาศบล็อกนี้ GITHUB_TOKEN จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเป็น write ทั้งชุด
-# workflow ที่รัน code จาก pull request ของคนนอกพร้อม token ที่เขียน repo ได้
-# คือช่องทางที่ใช้ยึด build pipeline กันจริง ๆ
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PYTHON_VERSION: '3.12'
+
 jobs:
-  smoke:
+  static-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: echo "Pipeline works!"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root tooling
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Lint frontend
+        run: npm run lint --prefix frontend
+
+      - name: Lint OpenAPI contract
+        run: npm run lint:api
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend lint tooling
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: Lint backend
+        run: ruff check backend/app backend/tests --select E4,E7,E9,F
+
+      - name: Check backend syntax
+        run: python -m compileall -q backend/app
+
+  typecheck-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Typecheck frontend
+        run: npm run typecheck --prefix frontend
+
+      - name: Build frontend
+        run: npm run build --prefix frontend
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run frontend unit tests with coverage and JUnit output
+        run: |
+          mkdir -p frontend/test-results
+          npm run test:cov --prefix frontend -- --reporter=junit --outputFile=test-results/vitest.xml
+
+      - name: Publish frontend test summary
+        uses: dorny/test-reporter@v3
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        with:
+          name: Frontend Tests
+          path: frontend/test-results/vitest.xml
+          reporter: jest-junit
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: frontend-coverage-${{ github.sha }}
+          path: |
+            docs/coverage/frontend/
+            frontend/test-results/vitest.xml
+          retention-days: 7
+
+  test-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: Run backend unit and API tests with coverage
+        working-directory: backend
+        run: |
+          mkdir -p test-results
+          python -m pytest --cov --cov-report=xml:coverage.xml --junitxml=test-results/pytest.xml
+
+      - name: Publish backend test summary
+        uses: dorny/test-reporter@v3
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        with:
+          name: Backend Tests
+          path: backend/test-results/pytest.xml
+          reporter: pytest
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: backend-coverage-${{ github.sha }}
+          path: |
+            backend/coverage.xml
+            backend/test-results/pytest.xml
+          retention-days: 7
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d testdb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      ENVIRONMENT: test
+      SESSION_SECRET: test-only-secret-value-that-is-long-enough-32b
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: Run integration tests
+        working-directory: backend
+        run: python -m pytest -m integration
+
+  e2e:
+    needs: [static-checks, typecheck-build, test-frontend, test-backend, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run full-stack E2E tests
+        run: >-
+          docker compose -f compose.test.yaml --profile e2e up e2e
+          --abort-on-container-exit --exit-code-from e2e
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+      - name: Tear down E2E containers
+        if: always()
+        run: docker compose -f compose.test.yaml --profile e2e down -v
+
+  deploy-staging:
+    needs: [static-checks, typecheck-build, test-frontend, test-backend, integration, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Validate staging deployment configuration
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_STAGING_API_DEPLOY_HOOK }}
+          RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_STAGING_WEB_DEPLOY_HOOK }}
+          STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+          STAGING_WEB_URL: ${{ vars.STAGING_WEB_URL }}
+        run: test -n "$RENDER_API_DEPLOY_HOOK" && test -n "$RENDER_WEB_DEPLOY_HOOK" && test -n "$STAGING_API_URL" && test -n "$STAGING_WEB_URL"
+
+      - name: Trigger Render staging API deployment
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_STAGING_API_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_API_DEPLOY_HOOK" > /dev/null
+
+      - name: Trigger Render staging web deployment
+        env:
+          RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_STAGING_WEB_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_WEB_DEPLOY_HOOK" > /dev/null
+
+      - name: Wait for staging commit and web health
+        env:
+          STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+          STAGING_WEB_URL: ${{ vars.STAGING_WEB_URL }}
+          EXPECTED_VERSION: ${{ github.sha }}
+        run: |
+          for attempt in $(seq 1 30); do
+            api_version=$(curl --fail --silent "$STAGING_API_URL/api/health" | jq -r '.version' || true)
+            if [ "$api_version" = "${EXPECTED_VERSION:0:7}" ] && curl --fail --silent "$STAGING_WEB_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Staging did not become healthy within 5 minutes."
+          exit 1
+
+  deploy-production:
+    needs: [static-checks, typecheck-build, test-frontend, test-backend, integration, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate production deployment configuration
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_PRODUCTION_API_DEPLOY_HOOK }}
+          RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_PRODUCTION_WEB_DEPLOY_HOOK }}
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+          PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+        run: test -n "$RENDER_API_DEPLOY_HOOK" && test -n "$RENDER_WEB_DEPLOY_HOOK" && test -n "$PRODUCTION_API_URL" && test -n "$PRODUCTION_WEB_URL"
+
+      - name: Trigger Render production API deployment
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_PRODUCTION_API_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_API_DEPLOY_HOOK" > /dev/null
+
+      - name: Trigger Render production web deployment
+        env:
+          RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_PRODUCTION_WEB_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_WEB_DEPLOY_HOOK" > /dev/null
+
+      - name: Wait for production commit and web health
+        env:
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+          PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+          EXPECTED_VERSION: ${{ github.sha }}
+        run: |
+          for attempt in $(seq 1 30); do
+            api_version=$(curl --fail --silent "$PRODUCTION_API_URL/api/health" | jq -r '.version' || true)
+            if [ "$api_version" = "${EXPECTED_VERSION:0:7}" ] && curl --fail --silent "$PRODUCTION_WEB_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Production did not become healthy within 5 minutes."
+          exit 1
+
+  performance:
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Validate performance test configuration
+        env:
+          BASE_URL: ${{ vars.STAGING_API_URL }}
+          PERF_ACCESS_TOKEN: ${{ secrets.PERF_ACCESS_TOKEN }}
+        run: test -n "$BASE_URL" && test -n "$PERF_ACCESS_TOKEN"
+
+      - name: Run staging performance gate
+        env:
+          BASE_URL: ${{ vars.STAGING_API_URL }}
+          PERF_ACCESS_TOKEN: ${{ secrets.PERF_ACCESS_TOKEN }}
+        run: k6 run --summary-export=performance/results.json performance/load-test.js
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: k6-results-${{ github.sha }}
+          path: performance/results.json
+          retention-days: 7

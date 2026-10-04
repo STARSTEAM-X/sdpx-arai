@@ -1,6 +1,8 @@
 """PairEval API"""
 
 import asyncio
+import re
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
@@ -26,6 +28,9 @@ from app.config import APP_VERSION, CORS_ORIGINS, ENVIRONMENT, IS_PRODUCTION
 from app.db import close_pool, open_pool
 from app.daily_scoring import daily_scoring_loop
 from app.domain.errors import DomainError
+from app.observability import log_event
+
+_REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 
 
 @asynccontextmanager
@@ -61,15 +66,32 @@ app.add_middleware(
 async def attach_request_id(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    """ให้ทุก request มี id ของตัวเอง
+    """แนบ correlation ID และบันทึก request เป็น JSON โดยไม่เก็บข้อมูลจาก URL ดิบ"""
+    incoming_id = request.headers.get("x-request-id", "")
+    request_id = (
+        incoming_id
+        if _REQUEST_ID_PATTERN.fullmatch(incoming_id)
+        else str(uuid.uuid4())
+    )
+    request.state.request_id = request_id
+    started_at = time.perf_counter()
+    status_code = 500
 
-    ใช้ตามรอย error ใน log และส่งกลับไปใน error response เพื่อให้ผู้ใช้แจ้งปัญหาได้ตรงจุด
-    จะต่อยอดเป็น structured logging เต็มรูปแบบใน WS-07
-    """
-    request.state.request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
-    response = await call_next(request)
-    response.headers["x-request-id"] = request.state.request_id
-    return response
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers["x-request-id"] = request_id
+        return response
+    finally:
+        route = request.scope.get("route")
+        log_event(
+            "http_request",
+            requestId=request_id,
+            method=request.method,
+            path=getattr(route, "path", "unmatched"),
+            statusCode=status_code,
+            duration_ms=round((time.perf_counter() - started_at) * 1000, 3),
+        )
 
 
 # error ทุกชนิดต้องออกมาในรูป ErrorEnvelope เดียวกัน ไม่งั้น client อ่านไม่ออก

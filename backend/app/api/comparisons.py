@@ -6,7 +6,7 @@ route บาง: โหลด pair แล้วตรวจสิทธิ์ส
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
@@ -19,6 +19,7 @@ from app.domain.comparison_service import (
 )
 from app.domain.errors import NotFoundError
 from app.domain.pairing import Side
+from app.observability import log_event
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_comparison_repo import PgComparisonRepository
@@ -42,7 +43,10 @@ class ComparisonOut(BaseModel):
 
 @router.put("/{pair_assignment_id}", response_model=ComparisonOut)
 def save_comparison(
-    pair_assignment_id: str, body: ComparisonSaveIn, user_email: CurrentUser
+    pair_assignment_id: str,
+    body: ComparisonSaveIn,
+    user_email: CurrentUser,
+    request: Request,
 ) -> ComparisonOut:
     """autosave — idempotent ตาม FR-API-01 เรียกซ้ำด้วย choice เดิมได้ผลเดิมเสมอ"""
     validate_choice(body.choice)
@@ -80,6 +84,7 @@ def save_comparison(
             now=datetime.now(UTC),
         )
 
+    log_event("comparison_saved", requestId=request.state.request_id)
     return ComparisonOut(
         id=saved.id,
         pairAssignmentId=saved.pair_assignment_id,

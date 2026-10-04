@@ -10,8 +10,8 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
-- **สถานะปัจจุบัน:** WS-05 — walking skeleton ครบ (login → classroom → roster → assignment → pair → ประเมิน → คะแนน)
-  และทั้ง app กับ test suite รันด้วย Docker คำสั่งเดียวได้แล้ว
+- **สถานะปัจจุบัน:** WS-07 artifacts อยู่ระหว่าง verify — WS-06/07 workflow, Render blueprint, logging และ k6 scripts อยู่ใน repo;
+   GitHub/Render setup, staging load run และหลักฐาน branch protection ยังรอทำบนบริการจริง
 
 ## Paths
 
@@ -68,6 +68,7 @@ docker compose down
 npm ci                 # ติดตั้ง dependency ตาม lockfile
 npm run dev            # dev server ที่ http://localhost:5173
 npm run build          # build production ออกที่ dist/
+npm run lint           # ESLint สำหรับ TS/TSX
 npm run typecheck      # ตรวจ type ด้วย tsc
 npm test               # vitest run — ต้องเขียวก่อน commit เสมอ
 npm run test:watch     # vitest โหมดเฝ้าไฟล์ ใช้ตอนเขียน code
@@ -90,6 +91,7 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest -m integration   # ต้องมี Postgres (docker compose up -d db)
 ./.venv/Scripts/python.exe -m pytest -m ""            # ทั้งหมด
 ./.venv/Scripts/python.exe -m pytest --cov --cov-report=html   # coverage ออกที่ docs/coverage/backend/
+./.venv/Scripts/python.exe -m ruff check app tests --select E4,E7,E9,F
 # path และ source ตั้งไว้ใน backend/.coveragerc แล้ว จึงไม่ต้องพิมพ์ --cov=app
 ```
 
@@ -102,6 +104,9 @@ cd backend && ./.venv/Scripts/python.exe -m app.migrate   # สร้างต�
 npm run e2e                                # E2E ทั้งชุด (ยก API + frontend ให้เอง)
 npx playwright test --repeat-each=3        # จับ flaky ก่อน push
 npm run e2e:report                         # เปิด HTML report
+
+# Performance (ต้องมี k6 และ staging ที่ตั้งค่า PERF_ACCESS_TOKEN แล้ว)
+k6 run --summary-export=performance/baseline.json performance/load-test.js
 ```
 
 **ENVIRONMENT ต้องเป็น `production` เสมอบน service ที่เข้าถึงได้จาก internet**

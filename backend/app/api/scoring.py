@@ -212,7 +212,7 @@ def export_comparisons(assignment_id: str, user_email: CurrentUser) -> Response:
     `:export-identified` แทน ซึ่งจำกัดไว้เฉพาะ OWNER และบันทึก audit ทุกครั้ง (FR-EXPORT-04)
     """
     with transaction() as conn:
-        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        _load_for_instructor(conn, assignment_id, user_email)
         rows = PgScoringRepository(conn).export_comparisons(assignment_id)
 
     pseudonyms = pseudonymize_evaluators([r.evaluator_user_id for r in rows])

@@ -76,6 +76,22 @@ class TestValidation:
 
 
 class TestRequestId:
+    def test_request_log_has_correlation_and_duration(self, client: TestClient, monkeypatch):
+        events = []
+        monkeypatch.setattr(
+            "app.main.log_event",
+            lambda event, **fields: events.append((event, fields)),
+        )
+        response = client.get("/api/health", headers={"x-request-id": "health-check-1"})
+
+        event_name, fields = events[-1]
+
+        assert response.status_code == 200
+        assert event_name == "http_request"
+        assert fields["requestId"] == response.headers["x-request-id"]
+        assert fields["duration_ms"] >= 0
+        assert fields["path"] == "/api/health"
+
     def test_error_พก_requestId_ที่ตรงกับ_header(self, client: TestClient):
         res = client.get("/api/classrooms", headers={"x-request-id": "test-req-123"})
 
@@ -87,3 +103,11 @@ class TestRequestId:
         err = assert_error_envelope(client.get("/api/classrooms").json())
 
         assert err["requestId"] not in ("", "unknown")
+
+    def test_requestId_ที่มีอักขระไม่ปลอดภัยถูกแทนค่า(self, client: TestClient):
+        res = client.get(
+            "/api/classrooms", headers={"x-request-id": "bad request id"}
+        )
+
+        assert res.status_code == 401
+        assert res.headers["x-request-id"] != "bad request id"
