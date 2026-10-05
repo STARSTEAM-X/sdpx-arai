@@ -10,7 +10,8 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
-- **สถานะปัจจุบัน:** walking skeleton และ Docker ครบ; WS-06/07 candidate อยู่ระหว่างตรวจ CI/deploy จริง.
+- **สถานะปัจจุบัน:** walking skeleton/Docker และ WS-06 CI staging deployment ครบ.
+  WS-07 วัด staging baseline จริงแล้ว; autosave p95 317.95ms ยังไม่ผ่านเกณฑ์ 300ms.
   สถานะและหลักฐานปัจจุบันอยู่ใน docs/loop-metrics.md และ docs/performance-report.md.
 
 ## Paths

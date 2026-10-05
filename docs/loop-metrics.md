@@ -17,9 +17,9 @@
 | API contract | ต้องไม่มี warnings | Redocly valid, 0 warnings |
 | Workflow static check | — | actionlint 1.7.12 ผ่าน; shellcheck ไม่ได้ติดตั้ง |
 | Pipeline Docker | [Sup PR #17 run เดิม](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37211760610) | [Candidate 7db9796](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244353349) ผ่านทั้ง 7 checks, 4m29s |
-| Lead time commit → staging | WS-01 web 42s (ไม่มี gate) | manual หลัง CI เขียว 690.2s; ยังไม่ใช่เวลา automated deploy job |
+| Lead time commit → staging | WS-01 web 42s (ไม่มี gate) | CI deploy 90fe6d9: 359.7s (รวม test gates); manual ก่อนหน้า 690.2s แยกไว้ด้านล่าง |
 | Deploy DB replacement | — | Render deploy 15449ab Live, 71s; migration 11 ชุด |
-| Deployment frequency | นับ push อย่างเดียวไม่ยืนยัน deploy สำเร็จ | รอนับ successful deployments หลัง gate ใช้งาน |
+| Deployment frequency | นับ push อย่างเดียวไม่ยืนยัน deploy สำเร็จ | 1 staging release ผ่าน test gates เมื่อ 2026-10-05; performance ของ release นี้ไม่ผ่าน |
 
 ผล k6 แยกใน [performance-report.md](performance-report.md); local baseline ไม่ใช่ staging baseline.
 
@@ -31,7 +31,7 @@
   block force push/deletion และ resolve conversations.
 - production environment: required reviewer STARSTEAM-X และ branch policy main.
 - secret scanning และ push protection enabled.
-- staging environment สร้างแล้ว; **ค่าลับยังไม่ตั้ง**.
+- staging environment: เจ้าของบัญชีใส่ secrets ครบ 4 ชื่อแล้ว เมื่อ 07:21–07:23; ตรวจชื่อเท่านั้น.
 - Render API/เว็บ Auto-Deploy Off, Blueprint Auto Sync No.
   ภาพอยู่ใน docs/screenshots/render-api-ci-gate-20261005.jpg และ render-web-ci-gate-20261005.jpg.
 
@@ -98,5 +98,34 @@ API health: status=ok, version=7db9796, environment=production, deploymentTier=s
 Web build-info version ตรง full SHA; OpenAPI มี /api/test/* **0 paths**.
 ภาพ [render-staging-7db9796-20261005.jpg](screenshots/render-staging-7db9796-20261005.jpg).
 Smoke 3 VUs/30s ผ่าน p95 64.22ms, 87 requests, 0 errors, exit 0.
-ยังรอ deploy hooks และ fixture credentials ใน GitHub เพื่อรัน automatic deployment
-และ staging journey หลัง merge; production resources ยังเป็น template.
+ผลรอบนี้เป็น manual verification ก่อน automatic deployment ด้านล่าง;
+production resources ยังเป็น template.
+
+## Automatic staging deployment และ performance gate
+
+PR #18 merge เข้า develop เป็น 90fe6d99e85c59c319d22048108346dad28b6900.
+[Run 37247458310](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37247458310)
+เริ่ม 07:25:20 และจบ 07:34:30 Asia/Bangkok (9m10s).
+Required checks ทั้ง 7 ผ่าน; deploy-staging ผ่าน; performance **fail** ด้วย exit 99.
+deploy-production skipped เพราะเป็น develop ตามเงื่อนไข.
+
+| Job / ตัวชี้วัด | ผลจริง |
+|---|---|
+| Required test gates | ครบใน 4m34s; E2E 118 passed |
+| Deploy verification script | 76.6s; commit-to-verified-live 359.7s |
+| Render web | deploy_hook, Live, 16.9s |
+| Render API | deploy_hook, Live, 74.2s |
+| Staging journey | 335 requests, 58 complete/0 interrupted iterations, 0 errors |
+| Autosave p95 | 317.95ms >300ms; จึงทำให้ performance gate แดงจริง |
+| Submit p95 | 393.44ms ≤800ms |
+
+ตรวจ public health: status=ok, version=90fe6d9, environment=production,
+deploymentTier=staging. Web build-info เป็น full SHA ตรงกัน; test paths ใน OpenAPI =0.
+ฐานข้อมูล migration 11 ชุด, synthetic load accounts 61 (60 นักศึกษา + 1 อาจารย์).
+CI ลบ private fixture หลังจบแม้ threshold fail แต่พบว่า k6 แนบ session ใน setup_data
+ของ summary-export. ลบ artifact รอบนี้แล้วและเจ้าของเปลี่ยน SESSION_SECRET ทั้งสองระบบ.
+baseline ใน repo นำ setup_data ออกโดยคง metrics เดิม; CI ที่แก้แล้วกรองข้อมูลก่อน upload
+และหยุด upload หากยังมีข้อมูลส่วนตัว. การหมุน key ต้อง deploy API ให้รับค่าใหม่ด้วย.
+Baseline/provenance และคอขวดอยู่ใน performance-report.md และ performance/runs/staging-provenance-90fe6d9.json.
+ภาพ [staging-ci-performance-90fe6d9.png](screenshots/staging-ci-performance-90fe6d9.png).
+ผลนี้ยืนยัน deployment ผ่าน gate ไม่ใช่ยืนยันว่า performance SLA ผ่าน.

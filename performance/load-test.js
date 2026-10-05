@@ -71,7 +71,8 @@ export function setup() {
   if (me.status !== 200) fail('Fixture authentication failed; regenerate private sessions')
   const pairs = http.get(`${BASE_URL}/api/assignments/${fixture.assignmentId}/my-evaluations?side=GROUP`, auth(fixture.students[0], 'setup'))
   if (pairs.status !== 200 || !pairs.json('items').length) fail('Fixture has no evaluation pairs')
-  return { ...fixture, ajarn: fixture.teacherToken, runId: String(Date.now()) }
+  // k6 export setup_data ลง summary ด้วย จึงคืนเฉพาะ metadata ที่เผยแพร่ได้
+  return { classroomId: fixture.classroomId, assignmentId: fixture.assignmentId, runId: String(Date.now()) }
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ export function setup() {
 // ---------------------------------------------------------------------------
 export function student(data) {
   // setup บังคับจำนวนบัญชี >= VUs รวม เพื่อไม่ให้หลาย VU ใช้บัญชีเดียวกัน
-  const token = data.students[(__VU - 1) % data.students.length]
+  const token = fixture.students[(__VU - 1) % fixture.students.length]
 
   let pairs = []
   group('เปิดแอปและเข้าห้องเรียน', () => {
@@ -145,8 +146,8 @@ export function student(data) {
 // ---------------------------------------------------------------------------
 export function instructor(data) {
   group('อาจารย์ติดตามความคืบหน้า', () => {
-    const scores = http.get(`${BASE_URL}/api/assignments/${data.assignmentId}/scores`, auth(data.ajarn, 'scores'))
-    const roster = http.get(`${BASE_URL}/api/classrooms/${data.classroomId}/roster`, auth(data.ajarn, 'roster'))
+    const scores = http.get(`${BASE_URL}/api/assignments/${data.assignmentId}/scores`, auth(fixture.teacherToken, 'scores'))
+    const roster = http.get(`${BASE_URL}/api/classrooms/${data.classroomId}/roster`, auth(fixture.teacherToken, 'roster'))
     journeyErrors.add(!(check(scores, { 'scores 200': (r) => r.status === 200 }) && check(roster, { 'roster 200': (r) => r.status === 200 })))
     sleep(5)
   })
