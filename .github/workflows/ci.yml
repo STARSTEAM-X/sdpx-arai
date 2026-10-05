@@ -290,6 +290,8 @@ jobs:
         k6-version: 2.3.0
     - name: Install existing backend runtime
       run: pip install -r backend/requirements.txt
+    - name: Remove summaries from previous runs
+      run: rm -f performance/staging-smoke.json performance/staging-baseline.json
     - name: Prepare private staging sessions (test endpoints remain closed)
       working-directory: backend
       env:
@@ -303,11 +305,15 @@ jobs:
       run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
     - name: 'Staging journey: 0 -> 5 -> 10 -> 0 VUs, PRD thresholds'
       run: k6 run --summary-export=performance/staging-baseline.json performance/load-test.js
-    - name: Upload metrics only (never sessions)
+    - name: Keep only public metric data
+      id: metrics_safe
       if: ${{ !cancelled() }}
+      run: python scripts/ci/perf_summary.py performance/staging-smoke.json performance/staging-baseline.json
+    - name: Upload metrics only (never sessions)
+      if: ${{ !cancelled() && steps.metrics_safe.outcome == 'success' }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
-        name: k6-staging-${{ github.sha }}
+        name: k6-staging-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: 'performance/staging-smoke.json
 
           performance/staging-baseline.json'

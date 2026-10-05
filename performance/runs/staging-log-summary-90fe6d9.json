@@ -1,0 +1,85 @@
+{
+  "window": {
+    "start": "2026-10-05T00:31:36Z",
+    "end": "2026-10-05T00:34:27Z"
+  },
+  "pages": 5,
+  "sampledLogEntries": 450,
+  "incomplete": false,
+  "jsonCount": 450,
+  "parseFailures": 0,
+  "rawSensitivePatternCount": 0,
+  "contextFieldsCount": 450,
+  "routes": {
+    "/api/assignments/{assignment_id}:publish": {
+      "count": 1,
+      "p50": 532.2,
+      "p95": 532.2,
+      "p99": 532.2,
+      "max": 532.2
+    },
+    "/api/health": {
+      "count": 114,
+      "p50": 0.8,
+      "p95": 2.469999999999999,
+      "p99": 3.548000000000002,
+      "max": 4.9
+    },
+    "/api/me": {
+      "count": 37,
+      "p50": 5,
+      "p95": 16.79999999999992,
+      "p99": 39.824000000000005,
+      "max": 44
+    },
+    "/api/assignments/{assignment_id}/my-evaluations": {
+      "count": 37,
+      "p50": 7.8,
+      "p95": 41.67999999999998,
+      "p99": 66.41600000000003,
+      "max": 77.9
+    },
+    "/api/assignments/{assignment_id}/scores": {
+      "count": 22,
+      "p50": 9.75,
+      "p95": 51.119999999999976,
+      "p99": 69.99599999999998,
+      "max": 74.7
+    },
+    "/api/classrooms/{classroom_id}/roster": {
+      "count": 22,
+      "p50": 7.1,
+      "p95": 40.04999999999998,
+      "p99": 66.85899999999997,
+      "max": 73.6
+    },
+    "/api/classrooms": {
+      "count": 36,
+      "p50": 4.3,
+      "p95": 11.125,
+      "p99": 13.065,
+      "max": 13.1
+    },
+    "/api/classrooms/{classroom_id}/assignments": {
+      "count": 36,
+      "p50": 5.35,
+      "p95": 10.425,
+      "p99": 11.149999999999999,
+      "max": 11.5
+    },
+    "/api/comparisons/{pair_assignment_id}": {
+      "count": 108,
+      "p50": 9.8,
+      "p95": 57.76499999999986,
+      "p99": 151.3129999999999,
+      "max": 218.5
+    },
+    "/api/assignments/{assignment_id}/submissions": {
+      "count": 36,
+      "p50": 21.549999999999997,
+      "p95": 104.975,
+      "p99": 211.73499999999987,
+      "max": 243.9
+    }
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "resourceId": "srv-da4uaijm8hqs73ar5bk0",
+  "timeRange": {
+    "start": "2026-10-05T00:31:36Z",
+    "end": "2026-10-05T00:34:27Z"
+  },
+  "metrics": [
+    {
+      "type": "cpu_usage",
+      "data": [
+        {
+          "labels": [],
+          "unit": "cpu",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 0.11169387
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 0.0046372
+            },
+            {
+              "timestamp": "2026-10-05T00:32:36Z",
+              "value": 0.0055788
+            },
+            {
+              "timestamp": "2026-10-05T00:33:06Z",
+              "value": 0.0070639667
+            },
+            {
+              "timestamp": "2026-10-05T00:33:36Z",
+              "value": 0.010366767
+            },
+            {
+              "timestamp": "2026-10-05T00:34:06Z",
+              "value": 0.0179137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cpu_limit",
+      "data": [
+        {
+          "labels": [
+            {
+              "field": "service",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "resource",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "instance",
+              "value": "srv-da4uaijm8hqs73ar5bk0-5w647"
+            }
+          ],
+          "unit": "cpu",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:32:36Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:33:06Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:33:36Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:34:06Z",
+              "value": 0.15
+            }
+          ]
+        },
+        {
+          "labels": [
+            {
+              "field": "service",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "resource",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "instance",
+              "value": "srv-da4uaijm8hqs73ar5bk0-9gbcq"
+            }
+          ],
+          "unit": "cpu",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 0.15
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 0.15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "memory_usage",
+      "data": [
+        {
+          "labels": [
+            {
+              "field": "instance",
+              "value": "srv-da4uaijm8hqs73ar5bk0-5w647"
+            },
+            {
+              "field": "service",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "resource",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            }
+          ],
+          "unit": "bytes",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 96808960
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 97361920
+            },
+            {
+              "timestamp": "2026-10-05T00:32:36Z",
+              "value": 97595390
+            },
+            {
+              "timestamp": "2026-10-05T00:33:06Z",
+              "value": 97812480
+            },
+            {
+              "timestamp": "2026-10-05T00:33:36Z",
+              "value": 98938880
+            },
+            {
+              "timestamp": "2026-10-05T00:34:06Z",
+              "value": 98951170
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "memory_limit",
+      "data": [
+        {
+          "labels": [
+            {
+              "field": "instance",
+              "value": "srv-da4uaijm8hqs73ar5bk0-5w647"
+            },
+            {
+              "field": "service",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "resource",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            }
+          ],
+          "unit": "bytes",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:32:36Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:33:06Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:33:36Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:34:06Z",
+              "value": 536870900
+            }
+          ]
+        },
+        {
+          "labels": [
+            {
+              "field": "service",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "resource",
+              "value": "srv-da4uaijm8hqs73ar5bk0"
+            },
+            {
+              "field": "instance",
+              "value": "srv-da4uaijm8hqs73ar5bk0-9gbcq"
+            }
+          ],
+          "unit": "bytes",
+          "values": [
+            {
+              "timestamp": "2026-10-05T00:31:36Z",
+              "value": 536870900
+            },
+            {
+              "timestamp": "2026-10-05T00:32:06Z",
+              "value": 536870900
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

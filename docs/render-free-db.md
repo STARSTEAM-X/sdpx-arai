@@ -21,6 +21,11 @@ health ตอบ status=ok, environment=production และ OpenAPI ไม่�
 ด้วย Dashboard แล้ว. health ยืนยัน ENVIRONMENT=production, DEPLOYMENT_TIER=staging,
 ไม่มี public test endpoints. รายละเอียดเวลาและ smoke ใน docs/loop-metrics.md.
 
+เมื่อ 07:31 วันที่เดียวกัน CI deploy commit 90fe6d9 ผ่าน deploy hooks ทั้ง API/เว็บแล้ว.
+GitHub staging secrets ถูกตั้งโดยเจ้าของบัญชีโดยตรง; fixture สร้างบัญชีจำลอง 61 บัญชี
+และ journey ยิง staging จริงได้โดยคง public test endpoints ปิดอยู่.
+Autosave threshold ไม่ผ่านตาม performance-report.md; ไม่อัปเกรด plan หรือเพิ่มค่าใช้จ่าย.
+
 ตัวเดิม `paireval-db` หมดอายุและเข้าใช้งานไม่ได้ การสร้างตัวใหม่เริ่มด้วยฐานข้อมูลว่าง
 ไม่ได้ย้ายข้อมูลเดิม และไม่ได้ลบตัวเดิมด้วยคำสั่งของ agent.
 
