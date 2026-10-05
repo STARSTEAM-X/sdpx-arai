@@ -31,3 +31,6 @@ docs/coverage/*/
 # --- misc ---
 *.log
 .DS_Store
+# เครื่องมือ/ฐานข้อมูลและ session สำหรับทดสอบบนเครื่อง — ห้าม commit
+.local/
+performance/.secrets/

@@ -10,8 +10,8 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
-- **สถานะปัจจุบัน:** WS-05 — walking skeleton ครบ (login → classroom → roster → assignment → pair → ประเมิน → คะแนน)
-  และทั้ง app กับ test suite รันด้วย Docker คำสั่งเดียวได้แล้ว
+- **สถานะปัจจุบัน:** walking skeleton และ Docker ครบ; WS-06/07 candidate อยู่ระหว่างตรวจ CI/deploy จริง.
+  สถานะและหลักฐานปัจจุบันอยู่ใน docs/loop-metrics.md และ docs/performance-report.md.
 
 ## Paths
 
@@ -72,6 +72,7 @@ npm run typecheck      # ตรวจ type ด้วย tsc
 npm test               # vitest run — ต้องเขียวก่อน commit เสมอ
 npm run test:watch     # vitest โหมดเฝ้าไฟล์ ใช้ตอนเขียน code
 npm run test:cov       # coverage ออกที่ docs/coverage/frontend/
+npm run lint           # oxlint — กฎและเหตุผลอยู่ใน .oxlintrc.json · CI แดงเมื่อมี error
 ```
 
 ### Backend (`backend/`)
@@ -90,6 +91,7 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest -m integration   # ต้องมี Postgres (docker compose up -d db)
 ./.venv/Scripts/python.exe -m pytest -m ""            # ทั้งหมด
 ./.venv/Scripts/python.exe -m pytest --cov --cov-report=html   # coverage ออกที่ docs/coverage/backend/
+./.venv/Scripts/python.exe -m ruff check .      # lint — กฎและเหตุผลอยู่ใน ruff.toml · CI แดงเมื่อเจอ
 # path และ source ตั้งไว้ใน backend/.coveragerc แล้ว จึงไม่ต้องพิมพ์ --cov=app
 ```
 
@@ -114,6 +116,35 @@ npm run e2e:report                         # เปิด HTML report
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
+### CI/CD (WS-06)
+
+`.github/workflows/ci.yml` รัน lint-api · lint-fe · test-fe · lint-be · test-be · integration-be ขนานกัน แล้วค่อย e2e
+push develop: CI สั่ง deploy API/เว็บที่ SHA เดียวกัน แล้วค่อย smoke/load test บน staging.
+Render Auto-Deploy = Off และ Blueprint Auto Sync = No; production ต้องรอ human reviewer.
+คำสั่ง reproduce แต่ละ job บนเครื่อง และสิ่งที่ต้องตั้งบน GitHub: `docs/cicd.md`
+
+**ก่อน push ให้รัน lint + unit ทั้งสองฝั่งบนเครื่องให้เขียวก่อน — ห้าม debug ด้วยการ push ซ้ำ ๆ**
+
+### Performance & logging (WS-07)
+
+```bash
+# smoke ใส่ staging (ยิงแค่ /api/health) — ไม่มี k6 บนเครื่องใช้ docker แทนได้
+docker run --rm -i -e BASE_URL=https://paireval-api.onrender.com grafana/k6:2.3.0 run - < performance/smoke.js
+
+# load test journey เต็ม — เตรียม private fixture จาก staging credentials ที่ตั้งโดยเจ้าของบัญชี
+# public staging ต้องใช้ ENVIRONMENT=production และ DEPLOYMENT_TIER=staging
+cd backend && python -m app.perf_fixture --base-url "$STAGING_API_URL" --domain "$PERF_EMAIL_DOMAIN"
+# กลับมา repo root แล้วรัน
+BASE_URL="$STAGING_API_URL" k6 run --summary-export=performance/staging-baseline.json performance/load-test.js
+# exit 99 = threshold ไม่ผ่าน; ห้าม commit/upload performance/.secrets/
+```
+
+**log ของ backend เป็น JSON ทุกบรรทัด** (`backend/app/observability.py`) — เพิ่ม log ใหม่ด้วย
+`log_event(log, "snake_case_event", field=...)` ไม่ใช่ `print` หรือ f-string
+**ห้ามส่งอีเมล / token / password เข้า log ตรง ๆ** — อ้างถึงผู้ใช้ด้วย `user_ref(email)`
+formatter มี redact เป็นตาข่ายชั้นสุดท้าย ไม่ใช่ใบอนุญาตให้ log ของอ่อนไหว
+ผลวัดและคอขวดล่าสุด: `docs/performance-report.md`
+
 ### API contract (`docs/openapi.yaml`)
 
 ```bash
@@ -127,7 +158,8 @@ npm run lint:api   # redocly lint — ต้องไม่มีทั้ง er
 **unit test ทั้งสองฝั่งรวมกันต้องเสร็จภายใน 10 วินาที** — loop ที่ช้าคือ loop ที่ไม่มีใครรัน
 รวมถึง AI agent ด้วย ถ้าเกินเมื่อไรให้ถือว่าเป็นปัญหาที่ต้องแก้ ไม่ใช่เรื่องปกติ
 
-ตัวเลขล่าสุด (2026-08-23): backend 0.65s (106 tests, ไม่รวม integration) · frontend 0.25s (5 tests) — รวม ~0.9s
+ตัวเลขล่าสุด (2026-10-05): backend 3.05s (404 tests, ไม่รวม integration) · frontend 0.311s (21 tests).
+เวลาตั้งแต่เริ่มทั้งสองคำสั่งจนจบรวม 5.86s; coverage/integration ไม่รวมใน unit loop.
 
 integration test ถูกตัดออกจากลูปนี้โดยตั้งใจ เพราะต้องยก Postgres ก่อน
 ลูปที่ต้องรอ database คือลูปที่ไม่มีใครรัน — เหตุผลเต็มอยู่ใน `backend/pytest.ini`
@@ -135,7 +167,7 @@ integration test ถูกตัดออกจากลูปนี้โดย
 ## Conventions
 
 - **Commit message:** Conventional Commits — `feat:` `fix:` `docs:` `chore:` `refactor:` `test:`
-- **Branch:** `main` = production · `develop` = staging (auto-deploy) · งานใหม่แตกจาก `develop`
+- **Branch:** `main` = production · `develop` = staging (CI สั่ง deploy หลังผ่าน gate) · งานใหม่แตกจาก `develop`
 - **ภาษา UI:** ไทย (ตาม NFR-I18N-01 ใน PRD)
 - **Config:** อ่านจาก environment variable เท่านั้น ห้าม hardcode URL, port, credential
 - **ลำดับความสำคัญของ config ฝั่ง backend:** environment variable จากภายนอก **ชนะ** `backend/.env` เสมอ

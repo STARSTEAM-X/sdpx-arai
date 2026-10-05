@@ -1,0 +1,42 @@
+# ใช้คู่กับ compose.test.yaml: test ชุดเดิม พร้อมรายงานและ BuildKit cache สำหรับ CI
+services:
+  unit-api:
+    build:
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/backend-test"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/backend-test,mode=max"]
+    command: pytest --cov --cov-report=term --cov-report=html:/reports/coverage --junitxml=/reports/unit.xml
+    volumes:
+      - ./test-results/backend:/reports
+
+  unit-web:
+    build:
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/frontend-test"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/frontend-test,mode=max"]
+    command: npm run test:cov -- --reporter=default --reporter=junit --outputFile.junit=/reports/unit.xml --coverage.reportsDirectory=/reports/coverage
+    volumes:
+      - ./test-results/frontend:/reports
+
+  integration-api:
+    build:
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/backend-integration"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/backend-integration,mode=max"]
+    command: pytest -m integration --junitxml=/reports/integration.xml
+    volumes:
+      - ./test-results/integration:/reports
+
+  api-test:
+    build:
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/api-e2e"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/api-e2e,mode=max"]
+  web-test:
+    build:
+      args:
+        APP_VERSION: ${GITHUB_SHA:-dev}
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/web-e2e"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/web-e2e,mode=max"]
+  e2e:
+    build:
+      cache_from: ["type=local,src=${BUILD_CACHE_DIR:-.local/build-cache}/playwright-e2e"]
+      cache_to: ["type=local,dest=${BUILD_CACHE_DIR:-.local/build-cache}/playwright-e2e,mode=max"]
+    environment:
+      CI: "1"

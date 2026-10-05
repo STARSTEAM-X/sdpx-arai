@@ -1,24 +1,367 @@
-# CI ตัวแรกของโปรเจกต์ (WS-05 homework)
+# CI/CD Pipeline ของ PairEval (WS-06) — Integration Loop: รวมทุก loop ให้เป็น gate เดียว
 #
-# ตั้งใจให้เล็กที่สุดเท่าที่ยังพิสูจน์ได้ว่า pipeline เดินจริง — job เดียว ขั้นตอนเดียว
-# WS-06 จะต่อยอดไฟล์นี้เป็น pipeline เต็ม (lint → test → build → deploy)
-# การเริ่มจากของที่เขียวแน่ ๆ ทำให้รู้ทันทีว่าถ้ามันแดงตอนต่อยอด สาเหตุคือของที่เพิ่งเพิ่ม
-
-name: CI
-
-on: [push, pull_request]
-
-# ให้สิทธิ์น้อยที่สุดเท่าที่จำเป็น: workflow นี้แค่ checkout กับ echo จึงขอแค่ contents: read
+# lint/typecheck/unit/integration → e2e (built web + api)
+# push develop: deploy-staging → smoke → performance journey บน staging จริง
+# push main: deploy-production ผ่าน environment ที่ต้องมีคน approve
+# Render Auto Deploy และ Blueprint Auto Sync ต้องปิด เพื่อให้ CI เป็นผู้สั่ง deploy
 #
-# ถ้าไม่ประกาศบล็อกนี้ GITHUB_TOKEN จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเป็น write ทั้งชุด
-# workflow ที่รัน code จาก pull request ของคนนอกพร้อม token ที่เขียน repo ได้
-# คือช่องทางที่ใช้ยึด build pipeline กันจริง ๆ
+# job แยกฝั่งรันขนานกัน (summary.md · WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
+# แล้วค่อยรวมที่ e2e ซึ่งแพงที่สุด — ไม่เสียเวลายก browser ถ้า lint/unit แดงตั้งแต่แรก
+#
+# reproduce บนเครื่องด้วยคำสั่งชุดเดียวกัน (ดู AGENTS.md):
+#   docker compose -f compose.test.yaml up unit-api --abort-on-container-exit --exit-code-from unit-api
+#
+# action ทุกตัว pin ด้วย commit SHA ไม่ใช่ tag — tag ย้ายไปชี้ commit อื่นได้
+# (เคยเกิดจริงกับ tj-actions/changed-files ปี 2025 ที่ tag ถูกแก้ให้ขโมย secret)
+# comment ท้ายบรรทัดบอกว่า SHA นั้นคือเวอร์ชันไหน
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+# สิทธิ์ขั้นต่ำของ GITHUB_TOKEN สำหรับทุก job — อ่าน code ได้อย่างเดียว
+# ถ้าไม่ประกาศ token จะได้สิทธิ์ตาม default ของ repo ซึ่งอาจเขียน repo ได้ทั้งชุด
+# job ที่ต้องการมากกว่านี้ (เขียน check run ของ test report) ขอเพิ่มเป็นราย job
 permissions:
   contents: read
 
+# push ซ้อนกันบน branch เดียว → ยกเลิกรอบเก่าที่ยังรันไม่จบ
+# ผลของ commit เก่าไม่มีใครสนใจแล้ว และไม่ควรมี deploy 2 รอบแข่งกันขึ้น staging
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PYTHON_VERSION: '3.12'
+
 jobs:
-  smoke:
+  lint-api:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-      - run: echo "Pipeline works!"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Lint API contract
+        run: npm run lint:api
+
+  # ===========================================================================
+  # Frontend
+  # ===========================================================================
+  lint-fe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # npm ci ไม่ใช่ npm install — ติดตั้งตาม lockfile เป๊ะ และ fail ถ้า lockfile ไม่ตรง package.json
+      - run: npm ci
+      - name: Lint (oxlint)
+        run: npm run lint
+      - name: Typecheck (tsc)
+        run: npm run typecheck
+
+  test-fe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-test-fe-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-test-fe-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build unit-web
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-web --no-build --abort-on-container-exit --exit-code-from unit-web
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: test-fe
+        path: test-results/frontend/unit.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: test-fe-${{ github.sha }}
+        path: test-results/frontend/
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
+
+  lint-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # ruff เป็น binary ตัวเดียว ไม่ต้องลง dependency ของ app ทั้งชุดเพื่อ lint
+      # เวอร์ชันอ่านจาก requirements-dev.txt ที่เดียว — CI กับเครื่อง dev จะได้ตัวเดียวกันเสมอ
+      - run: pip install "$(grep -E '^ruff' requirements-dev.txt)"
+      - name: Lint (ruff)
+        run: ruff check --output-format=github . ../scripts/ci
+      - name: Deployment safety tests (stdlib)
+        run: python -m unittest discover -s ../scripts/ci -p 'test_*.py' -v
+
+  test-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-test-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-test-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build unit-api
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-api --no-build --abort-on-container-exit --exit-code-from unit-api
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: test-be
+        path: test-results/backend/unit.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: test-be-${{ github.sha }}
+        path: test-results/backend/
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
+
+  integration-be:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-integration-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-integration-be-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml build integration-api
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml up integration-api --no-build --abort-on-container-exit --exit-code-from integration-api
+    - name: Require integration tests to execute
+      run: 'python3 - <<''PY''
+
+        import xml.etree.ElementTree as ET
+
+        root = ET.parse(''test-results/integration/integration.xml'').getroot()
+
+        suites = list(root.iter(''testsuite''))
+
+        assert sum(int(s.get(''tests'', 0)) for s in suites) > 0, ''No integration tests ran''
+
+        assert sum(int(s.get(''skipped'', 0)) for s in suites) == 0, ''Database tests were skipped''
+
+        PY'
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: integration-be
+        path: test-results/integration/integration.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: integration-be-${{ github.sha }}
+        path: test-results/integration/
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml down -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    env:
+      BUILD_CACHE_DIR: .local/build-cache
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .local/build-cache
+        key: docker-${{ runner.os }}-e2e-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-${{ github.sha }}
+        restore-keys: docker-${{ runner.os }}-e2e-${{ hashFiles('**/Dockerfile', '**/*lock.json', 'backend/requirements*.txt') }}-
+    - name: Build test containers
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e build --with-dependencies e2e
+    - name: Run tests (preserve container exit code)
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e up e2e --no-build --abort-on-container-exit --exit-code-from e2e
+    - name: Test summary
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      with:
+        name: e2e
+        path: e2e/test-results/e2e.xml
+        reporter: java-junit
+    - name: Upload test reports
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ !cancelled() }}
+      with:
+        name: e2e-${{ github.sha }}
+        path: 'e2e/test-results/
+
+          e2e/playwright-report/'
+        retention-days: 7
+    - name: Remove ephemeral test stack
+      if: always()
+      run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e down -v
+    needs:
+    - lint-api
+    - lint-fe
+    - test-fe
+    - lint-be
+    - test-be
+    - integration-be
+
+  performance:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    env:
+      BASE_URL: ${{ vars.STAGING_API_URL }}
+      PERF_FIXTURE_FILE: ./.secrets/fixture.json
+      PERF_EMAIL_DOMAIN: ${{ vars.PERF_EMAIL_DOMAIN }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
+      with:
+        k6-version: 2.3.0
+    - name: Install existing backend runtime
+      run: pip install -r backend/requirements.txt
+    - name: Prepare private staging sessions (test endpoints remain closed)
+      working-directory: backend
+      env:
+        ENVIRONMENT: production
+        DEPLOYMENT_TIER: staging
+        DATABASE_URL: ${{ secrets.PERF_DATABASE_URL }}
+        SESSION_SECRET: ${{ secrets.PERF_SESSION_SECRET }}
+        ALLOWED_EMAIL_DOMAINS: ${{ vars.PERF_EMAIL_DOMAIN }}
+      run: python -m app.perf_fixture --base-url "$BASE_URL" --domain "$PERF_EMAIL_DOMAIN"
+    - name: Smoke against deployed staging
+      run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
+    - name: 'Staging journey: 0 -> 5 -> 10 -> 0 VUs, PRD thresholds'
+      run: k6 run --summary-export=performance/staging-baseline.json performance/load-test.js
+    - name: Upload metrics only (never sessions)
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: k6-staging-${{ github.sha }}
+        path: 'performance/staging-smoke.json
+
+          performance/staging-baseline.json'
+        retention-days: 7
+    - name: Remove private fixture
+      if: always()
+      run: rm -f performance/.secrets/fixture.json
+
+  deploy-staging:
+    needs: e2e
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - name: Record commit timestamp
+      run: echo "COMMIT_TIMESTAMP=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+    - name: Deploy exact commit and verify API + frontend
+      id: deploy
+      env:
+        TARGET_TIER: staging
+        API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+        API_URL: ${{ vars.STAGING_API_URL }}
+        WEB_URL: ${{ vars.STAGING_WEB_URL }}
+      run: python scripts/ci/deploy.py
+
+  deploy-production:
+    needs: e2e
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_WEB_URL }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - name: Record commit timestamp
+      run: echo "COMMIT_TIMESTAMP=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+    - name: Deploy exact commit and verify API + frontend
+      id: deploy
+      env:
+        TARGET_TIER: production
+        API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+        API_URL: ${{ vars.PRODUCTION_API_URL }}
+        WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+      run: python scripts/ci/deploy.py

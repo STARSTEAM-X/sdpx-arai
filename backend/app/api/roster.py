@@ -4,6 +4,8 @@ route ที่นี่บาง: อ่าน input, เปิด transaction,
 การตัดสินสิทธิ์และกฎ atomic อยู่ใน RosterService ซึ่งทดสอบได้โดยไม่ต้องมี HTTP หรือ DB
 """
 
+import logging
+
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
@@ -13,7 +15,10 @@ from app.db import transaction
 from app.domain.errors import ValidationError
 from app.domain.models import RosterImportResult, RosterMember
 from app.domain.roster_service import RosterService
+from app.observability import log_event, user_ref
 from app.repositories.pg_classroom_repo import PgClassroomRepository
+
+log = logging.getLogger("paireval.roster")
 
 router = APIRouter(prefix="/api/classrooms", tags=["classrooms"])
 
@@ -108,4 +113,15 @@ async def import_roster(
             classroom_id=classroom_id, actor_email=user_email, raw=raw
         )
 
+    # จำนวนแถวพอสำหรับตรวจย้อนหลัง — รายชื่อในไฟล์เป็นอีเมลนักศึกษา ห้ามลง log
+    log_event(
+        log,
+        "roster_imported",
+        classroomId=classroom_id,
+        imported=len(result.rows),
+        groupsCreated=len(result.groups),
+        warnings=len(result.warnings),
+        bytes=len(raw),
+        user=user_ref(user_email),
+    )
     return RosterImportOut.of(result)

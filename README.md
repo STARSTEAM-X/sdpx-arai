@@ -17,7 +17,9 @@
 | หน้าเว็บ | <https://paireval-web.onrender.com> |
 | API | <https://paireval-api.onrender.com/api/health> |
 
-ทั้งสอง service deploy อัตโนมัติจาก branch `develop` ตาม [`render.yaml`](render.yaml)
+ทั้งสอง service ใช้ branch `develop`. WS-06 candidate ตั้งให้ CI สั่ง deploy หลังตรวจผ่าน
+ตาม [`render.yaml`](render.yaml); Auto-Deploy และ Blueprint Auto Sync ปิดแล้ว.
+การตั้งค่า secrets ที่ยังต้องทำอยู่ใน [`docs/cicd.md`](docs/cicd.md).
 ป้ายสถานะบนหน้าแรกแสดง commit SHA ที่ API กำลังรันอยู่ — ใช้เช็คได้ทันทีว่า deploy ตามทันหรือยัง
 
 > `paireval-api` เป็น web service บน free plan ซึ่ง Render จะพักเมื่อไม่มีคนใช้
@@ -36,8 +38,8 @@
 | WS-03 Unit Testing | ✅ | Unit harness (fake/factory/fixture) · **backend 350 tests 0.96s + frontend 21 tests 0.23s** (เพดาน 10 วิ) · integration อีก 29 · fidelity check 6 ครั้ง · coverage backend 67% |
 | WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
-| WS-06 CI/CD | ⬜ | |
-| WS-07 Performance | ⬜ | |
+| WS-06 CI/CD | 🟡 | Docker CI ผ่าน 7 checks, PR ทดลองบล็อก merge จริง, staging API/เว็บ SHA เดียวกัน 7db9796. รอ GitHub secrets สำหรับ deploy อัตโนมัติ; production มี reviewer gate และ template แยก ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
+| WS-07 Performance | 🟡 | Local journey 347 requests/0 errors, autosave p95 8.78ms, submit 15.66ms; staging smoke 3 VUs/30s p95 64.22ms. CI threshold proof exit 99; **ยังรอ staging journey** ([`docs/performance-report.md`](docs/performance-report.md)) |
 | WS-08 Code Quality & Security | ⬜ | |
 
 ### Product backlog
@@ -177,14 +179,18 @@ integration test ถูกตัดออกจาก `pytest` เปล่า �
 
 ## CI
 
-ทุก push และ pull request รัน workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-ตอนนี้เป็น smoke job (checkout + echo) พร้อม `permissions: contents: read` ขั้นต่ำ —
-WS-06 จะต่อยอดเป็น pipeline เต็ม โดยใช้คำสั่ง `docker compose -f compose.test.yaml ...` ชุดเดียวกับที่รันบนเครื่อง
+ทุก PR และ push เข้า develop/main รัน [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Lint, unit, integration และ E2E เป็น gate ก่อน deploy; test containers ใช้
+compose.test.yaml พร้อม compose.ci.yaml สำหรับ cache/JUnit/coverage.
+ผลตรวจ local ล่าสุด 2026-10-05: backend 404, frontend 21, integration 29, E2E 118 ผ่าน;
+unit loop ทั้งสองคำสั่งรวม 5.86s. ผล Docker CI ต้องอ้าง run จริงใน docs/loop-metrics.md.
 
 ## Deploy
 
-Deploy อัตโนมัติขึ้น Render ทุกครั้งที่ push เข้า `develop` — ไม่ต้องกดปุ่ม
-config อยู่ใน [`render.yaml`](render.yaml)
+CI สั่ง Render deploy หลัง gate ผ่านเมื่อ push เข้า develop; ตรวจ commit ของ API และเว็บ.
+Config staging อยู่ใน [`render.yaml`](render.yaml), production template ใน
+[`render.production.yaml`](render.production.yaml) สำหรับ workspace แยก.
+DB Free ใหม่หมดอายุ 2026-11-04; รายละเอียดใน [`docs/render-free-db.md`](docs/render-free-db.md).
 
 ## เอกสาร
 

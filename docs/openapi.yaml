@@ -1080,6 +1080,14 @@ components:
           type: string
           description: 7 ตัวแรกของ commit SHA ที่กำลังรัน
           examples: [dcec4e1]
+        environment:
+          type: string
+          description: โหมดความปลอดภัยของ application
+          examples: [production]
+        deploymentTier:
+          type: string
+          enum: [local, staging, production]
+          description: ใช้ยืนยันว่า load test กำลังยิง staging โดยคง test endpoints ปิดไว้
 
     Side:
       type: string

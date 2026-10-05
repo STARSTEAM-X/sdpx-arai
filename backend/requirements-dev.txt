@@ -11,3 +11,5 @@ pytest-cov~=7.1.0
 # TestClient ของ FastAPI ต้องมี http client — Starlette 1.6 ขึ้นไปเตือนให้ใช้ httpx2
 # ถ้าใช้ httpx ตัวเดิมจะ pass แต่มี StarletteDeprecationWarning ทุกครั้งที่รัน
 httpx2~=2.12.0
+# linter (WS-06) — กฎที่เปิดและเหตุผลอยู่ใน ruff.toml · ตัวเดียวแทน flake8 + isort + pyupgrade
+ruff~=0.14.14

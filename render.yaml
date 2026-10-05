@@ -1,5 +1,5 @@
 # Render Blueprint — Infrastructure as Code ของ PairEval
-# แก้ไฟล์นี้แล้ว push = โครงสร้าง infra เปลี่ยนตาม ตรวจได้ผ่าน code review
+# Blueprint เดิมใช้ Manual Sync หลัง review; Auto Sync ต้องปิดเพื่อไม่ข้าม CI
 #
 # วิธีใช้ครั้งแรก: Render Dashboard > New > Blueprint > เลือก repo นี้ > Apply
 # Render จะถามค่าของ env var ที่ตั้ง sync: false ไว้
@@ -11,7 +11,8 @@ services:
     runtime: static
     # static site ไม่มี region — Render เสิร์ฟผ่าน global CDN ให้อยู่แล้ว
     rootDir: frontend
-    branch: develop # auto-deploy ทุก push เข้า develop (เป็น default ของ Render)
+    branch: develop
+    autoDeployTrigger: 'off' # GitHub Actions เรียก deploy hook หลัง CI ผ่าน
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     # Google Sign-In เปิด popup แล้วคุยกลับด้วย window.postMessage
@@ -49,6 +50,7 @@ services:
     # Postgres ที่จะสร้างใน WS-03 ต้องอยู่ region เดียวกันนี้
     rootDir: backend
     branch: develop
+    autoDeployTrigger: 'off'
     buildCommand: pip install -r requirements.txt
     # migrate ก่อน uvicorn ทุกครั้ง — runner เก็บชื่อไฟล์ที่รันแล้วใน schema_migration
     # จึงข้ามของเดิมเอง การรันซ้ำทุก deploy ไม่มีผลข้างเคียง
@@ -66,6 +68,8 @@ services:
       # ห้ามเปลี่ยนค่านี้บน service ที่เข้าถึงได้จาก internet
       - key: ENVIRONMENT
         value: production
+      - key: DEPLOYMENT_TIER
+        value: staging
 
       # ใช้เซ็น session token — ต้องยาวอย่างน้อย 32 bytes (RFC 7518 §3.2)
       # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง
@@ -86,17 +90,16 @@ services:
       # ถ้าไม่ตั้ง key นี้ service จะขึ้นได้แต่ทุก endpoint ที่แตะ DB จะพัง
       - key: DATABASE_URL
         fromDatabase:
-          name: paireval-db
+          name: paireval-db-20261005
           property: connectionString
 
-# ---------- Database ----------
-# WS-01/WS-02 ยังไม่ใช้ DB จึงเว้นไว้ก่อน — ปลดล็อกตอน WS-04 ที่ journey
-# สร้างห้องเรียนต้องเขียนลง Postgres จริง ทั้ง /api/auth/session และ
-# /api/classrooms อ่านเขียนตารางใน migrations/001_init.sql
-#
-# ข้อจำกัดที่ต้องรู้: free plan ของ Render หมดอายุใน 30 วันนับจากวันสร้าง
-# พอหมดอายุ service จะยังขึ้นแต่ต่อ DB ไม่ได้ — ต้องสร้างใหม่แล้ว sync blueprint ซ้ำ
+# Free อนุญาตหนึ่งฐานข้อมูลที่ active ต่อ workspace เท่านั้น
+# ตัวนี้สร้างทดแทนของเดิมเมื่อ 2026-10-05; หมดอายุ 2026-11-04
+# Sync จะรับฐานข้อมูลที่มีชื่อนี้อยู่แล้วเข้ามาจัดการ ดู docs/render-free-db.md
 databases:
-  - name: paireval-db
+  - name: paireval-db-20261005
     plan: free
-    region: singapore # ต้อง region เดียวกับ paireval-api ไม่งั้นต่อกันไม่ได้
+    region: singapore
+    postgresMajorVersion: "18"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false

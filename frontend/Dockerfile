@@ -30,9 +30,11 @@ COPY . .
 # ตัวแปร VITE_* เป็น build-time: ค่าถูกฝังลง bundle ตอน build ไม่ได้อ่านตอน runtime
 # เปลี่ยนค่าแล้วต้อง build image ใหม่ การ restart container เฉย ๆ ไม่มีผล
 ARG VITE_API_BASE_URL=http://localhost:8000
+ARG APP_VERSION=dev
 ARG VITE_GOOGLE_CLIENT_ID=481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+    VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID \
+    APP_VERSION=$APP_VERSION
 
 RUN npm run build
 
