@@ -17,9 +17,9 @@
 | หน้าเว็บ | <https://paireval-web.onrender.com> |
 | API | <https://paireval-api.onrender.com/api/health> |
 
-ทั้งสอง service ใช้ branch `develop`. WS-06 candidate ตั้งให้ CI สั่ง deploy หลังตรวจผ่าน
+ทั้งสอง service ใช้ branch `develop`. CI สั่ง deploy หลังตรวจผ่าน
 ตาม [`render.yaml`](render.yaml); Auto-Deploy และ Blueprint Auto Sync ปิดแล้ว.
-การตั้งค่า secrets ที่ยังต้องทำอยู่ใน [`docs/cicd.md`](docs/cicd.md).
+การตั้งค่าบัญชีและชื่อ secrets ที่ใช้บันทึกอยู่ใน [`docs/cicd.md`](docs/cicd.md).
 ป้ายสถานะบนหน้าแรกแสดง commit SHA ที่ API กำลังรันอยู่ — ใช้เช็คได้ทันทีว่า deploy ตามทันหรือยัง
 
 > `paireval-api` เป็น web service บน free plan ซึ่ง Render จะพักเมื่อไม่มีคนใช้
@@ -28,8 +28,12 @@
 
 ## สถานะ
 
-ตัวเลข test / coverage / E2E วัดใหม่เมื่อ **2026-08-31** ไม่ใช่ค่าที่จดไว้ตอนทำ workshop นั้น ๆ
+ตัวเลขใน WS-01–05 เป็นประวัติที่วัดเมื่อ **2026-08-31**;
+ผลอ้างอิง WS-06–07 วัดเมื่อ **2026-10-05** ที่ commit **edba11d**.
 ส่วน commit-to-live ยังเป็นค่าที่วัดตอน WS-01 — วิธีวัดซ้ำอยู่ใน [`memory-bank/standards/tech-stack.md`](memory-bank/standards/tech-stack.md)
+
+ชุดสำหรับส่งและ present: [`docs/ws06-07-submission.md`](docs/ws06-07-submission.md)
+รวม CI ที่ผ่าน, ภาพ merge ถูกบล็อก, ตารางก่อน/หลัง และคำสั่งเดโม; **การส่ง LMS ยังไม่ยืนยัน**.
 
 | Workshop | สถานะ | ได้อะไร |
 |---|---|---|
@@ -182,8 +186,9 @@ integration test ถูกตัดออกจาก `pytest` เปล่า �
 ทุก PR และ push เข้า develop/main รัน [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 Lint, unit, integration และ E2E เป็น gate ก่อน deploy; test containers ใช้
 compose.test.yaml พร้อม compose.ci.yaml สำหรับ cache/JUnit/coverage.
-ผลตรวจ local ล่าสุด 2026-10-05: backend 404, frontend 21, integration 29, E2E 118 ผ่าน;
-unit loop ทั้งสองคำสั่งรวม 5.86s. ผล Docker CI ต้องอ้าง run จริงใน docs/loop-metrics.md.
+ผลตรวจ local unit ล่าสุด 2026-10-05: backend 404, frontend 21 ผ่าน;
+unit loop ทั้งสองคำสั่งรวม 5.42s เมื่อรันแยกจาก lint/typecheck.
+Integration 29 และ E2E 118 ผ่านในการตรวจ candidate ก่อนหน้า; ผล Docker CI อ้าง run จริงใน docs/loop-metrics.md.
 
 ## Deploy
 
@@ -196,6 +201,7 @@ DB Free ใหม่หมดอายุ 2026-11-04; รายละเอี�
 
 - [`AGENTS.md`](AGENTS.md) — กติกาสำหรับ AI agent และคำสั่งที่ใช้ได้จริง
 - [`docs/setup-steps.md`](docs/setup-steps.md) — จำนวนขั้นตอนและเวลาในการติดตั้ง ก่อน/หลังใช้ Docker
+- [`docs/ws06-07-submission.md`](docs/ws06-07-submission.md) — หลักฐานและบทเดโม WS-06/07 พร้อมข้อความสำหรับ LMS
 - [`memory-bank/standards/tech-stack.md`](memory-bank/standards/tech-stack.md) — การตัดสินใจเรื่อง stack
 - [`docs/superpowers/specs/`](docs/superpowers/specs/) — design doc ของแต่ละ workshop
 - PRD ฉบับเต็ม: `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`

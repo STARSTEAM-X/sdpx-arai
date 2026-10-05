@@ -1,5 +1,29 @@
 # Performance Report — WS-07
 
+## ผลอ้างอิงล่าสุดที่บันทึก — edba11d (2026-10-05)
+
+[CI run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
+ผ่านทั้ง pipeline; journey สูงสุด 10 student VUs + 1 instructor, 319 requests,
+HTTP/journey errors 0%, 2.32 req/s. API/เว็บตรง commit edba11d.
+
+| ตัวชี้วัด | รอบแรก 90fe6d9 (ประวัติ) | รอบยืนยัน edba11d | เกณฑ์ |
+|---|---:|---:|---|
+| Autosave p95 | 317.95ms; ไม่ผ่าน | **270.40ms; ผ่าน** | ≤300ms |
+| Submit p95 | 393.44ms; ผ่าน | **351.71ms; ผ่าน** | ≤800ms |
+| HTTP รวม p95 | 337.99ms | 340.15ms | <500ms |
+| HTTP / journey errors | 0% / 0% | 0% / 0% | <1% / <1% |
+| Throughput | 2.41 req/s | 2.32 req/s | อ่านร่วมกับ think time/profile |
+| k6 journey exit code | 99 | 0 | 0 เมื่อผ่านทุก threshold |
+
+หลักฐานล่าสุด: [journey JSON](../performance/runs/staging-baseline-edba11d.json),
+[smoke JSON](../performance/runs/staging-smoke-edba11d.json),
+[provenance/checksums](../performance/runs/staging-provenance-edba11d.json).
+รอบแรกยังอยู่ใน [baseline.json](../performance/baseline.json) ตาม artifact ที่ lab ระบุ.
+ตารางนี้เทียบสองรอบที่วัดจริง; **ไม่ใช่ผลก่อน/หลัง optimization**.
+แก้การส่งออกข้อมูลและเปลี่ยน session key โดยคง handler/profile/thresholds เดิม.
+ยังไม่ยืนยัน NFR 200 users, page latency หรือความเสถียรหลายรอบ.
+ชุดส่งและบทเดโมอยู่ใน [ws06-07-submission.md](ws06-07-submission.md).
+
 ## Hypotheses ก่อนวัด candidate นี้ (2026-10-05)
 
 - ที่ 10 student VUs บนเครื่อง: autosave p95 ≤300 ms และ submission p95 ≤800 ms.
@@ -20,7 +44,16 @@
 
 ## ผลและหลักฐาน
 
-### Local candidate — 2026-10-05 01:24–01:26 Asia/Bangkok
+### เดโม health smoke บนเครื่อง — 2026-10-05 08:42:19–08:42:51 Asia/Bangkok
+
+ซ้อม k6 2.3.0 จาก Windows ในไทย, 3 VUs/30s ยิง staging health เท่านั้น:
+87 requests, HTTP errors 0%, p95 61.35ms (ปัดจาก JSON), 2.83 req/s, exit 0.
+API/เว็บก่อนและหลังรันตรง edba11d; ENVIRONMENT=production, DEPLOYMENT_TIER=staging.
+หลักฐาน [summary](../performance/runs/staging-smoke-demo-20261005.json) และ
+[provenance](../performance/runs/staging-smoke-demo-provenance-20261005.json).
+ผลนี้ตรวจว่าคำสั่งเดโมรันได้; ไม่ใช้แทน journey หรือ NFR 200 users.
+
+### ประวัติ local candidate — 2026-10-05 01:24–01:26 Asia/Bangkok
 
 รันบน Windows, Python 3.12.14, PostgreSQL 18 ที่ 127.0.0.1:55433,
 API 127.0.0.1:8134, k6 2.3.0. Base commit c6dcab4 พร้อม working changes
@@ -49,7 +82,9 @@ Peak 10 student VUs + 1 instructor; ใช้เวลา 133.2s รวม grace
 - คาด staging ช้ากว่า local: ยืนยันจาก journey ด้านล่าง; autosave p95 317.95 เทียบ 8.78 ms.
   สภาพเครื่องและเส้นทาง network ต่างกัน จึงไม่ใช่ผลก่อน/หลังการ optimize แอป.
 
-### Staging journey ผ่าน CI — 2026-10-05 07:32:07–07:34:26 Asia/Bangkok
+### ประวัติ staging journey รอบแรก — 90fe6d9 (performance ไม่ผ่าน)
+
+วัดเมื่อ 2026-10-05 07:32:07–07:34:26 Asia/Bangkok.
 
 [Run 37247458310](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37247458310)
 รันหลัง deploy-staging ยืนยัน SHA ของ API/เว็บตรงกันแล้ว. หลักฐาน
@@ -58,8 +93,8 @@ Peak 10 student VUs + 1 instructor; ใช้เวลา 133.2s รวม grace
 
 พบว่า k6 summary-export แนบ setup_data ซึ่งมี session ของบัญชีจำลองไปใน artifact.
 ลบ artifact 11320210252 แล้ว และเจ้าของยืนยันเปลี่ยน SESSION_SECRET ทั้ง Render/GitHub
-เมื่อ 07:58–08:00. สั่ง deploy API ใหม่เพื่อรับค่าที่บันทึกไว้; การทดสอบหลัง deploy
-จะตรวจว่าค่าของทั้งสองระบบตรงกันโดยไม่อ่านค่า secret.
+เมื่อ 07:58–08:00. Deploy API ใหม่แล้ว; รอบยืนยัน edba11d ด้านล่างตรวจ
+authentication ผ่านโดยไม่อ่านค่า secret.
 แก้ setup ให้คืนเฉพาะ classroomId/assignmentId/runId และเพิ่มตัวกรองก่อน upload:
 อนุญาตเฉพาะ metrics/root_group, หยุด upload หากพบข้อมูลส่วนตัวในสองส่วนนี้.
 ผลเก่าบน working tree ผ่านตัวกรองเดียวกัน; ไม่เปลี่ยนประวัติ Git หรือผลวัด.
@@ -84,7 +119,7 @@ Smoke จาก CI: 72 requests, errors 0%, p50 239.80ms, p95 468.84ms, max 741.
 ผ่านเกณฑ์ p95<500; checks 212/216 โดย 4 ข้อที่ไม่ผ่านคือราย request ช้ากว่า 500ms.
 หลักฐาน [staging-smoke.json](../performance/staging-smoke.json).
 
-### รอบยืนยันหลังแก้ความปลอดภัย — edba11d, 2026-10-05
+### รายละเอียดผลอ้างอิงล่าสุด — edba11d, 2026-10-05
 
 [Run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
 ผ่านทั้ง pipeline: 7 test/lint gates, deploy-staging และ performance.
@@ -144,7 +179,7 @@ sampling นี้ไม่เห็น steady CPU/memory saturation แต่�
 ตาม Source WS-07 หัวข้อ “สิ่งที่จะแก้ (ยังไม่แก้ในวันนี้)” เก็บแผนสำหรับ WS-08
 และยังไม่ refactor handler เพื่อทำให้ baseline นี้เขียว.
 
-### Staging smoke — 2026-10-05 หลัง deploy 7db9796
+### ประวัติ staging smoke — 2026-10-05 หลัง deploy 7db9796
 
 ยิงจากเครื่อง Windows ในไทยไป paireval-api.onrender.com (Singapore), 3 VUs/30s,
 health เท่านั้น: 87 requests, 2.85 req/s, p50 46.45ms, p95 **64.22ms**,

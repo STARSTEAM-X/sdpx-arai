@@ -3,6 +3,10 @@
 อิง lab/homework ใน Sources/SDPX-AI-main/WS-06-RUN-cicd/ และ WS-07-RUN-perf/.
 ผลที่ตรวจจริงอยู่ใน [loop-metrics.md](loop-metrics.md).
 
+ผลอ้างอิงล่าสุดที่บันทึก: [run 37250469594 — edba11d](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
+ผ่านทั้ง test gates, deploy-staging และ performance; production skipped ตาม branch policy.
+ชุดส่งและเดโมอยู่ใน [ws06-07-submission.md](ws06-07-submission.md).
+
 ## ลำดับงาน
 
 ```text

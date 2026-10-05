@@ -160,8 +160,8 @@ npm run lint:api   # redocly lint — ต้องไม่มีทั้ง er
 **unit test ทั้งสองฝั่งรวมกันต้องเสร็จภายใน 10 วินาที** — loop ที่ช้าคือ loop ที่ไม่มีใครรัน
 รวมถึง AI agent ด้วย ถ้าเกินเมื่อไรให้ถือว่าเป็นปัญหาที่ต้องแก้ ไม่ใช่เรื่องปกติ
 
-ตัวเลขล่าสุด (2026-10-05): backend 3.05s (404 tests, ไม่รวม integration) · frontend 0.311s (21 tests).
-เวลาตั้งแต่เริ่มทั้งสองคำสั่งจนจบรวม 5.86s; coverage/integration ไม่รวมใน unit loop.
+ตัวเลขล่าสุด (2026-10-05): backend 3.19s (404 tests, ไม่รวม integration) · frontend 0.237s (21 tests).
+เวลาตั้งแต่เริ่มทั้งสองคำสั่งจนจบรวม 5.42s เมื่อรันแยกจาก lint/typecheck; coverage/integration ไม่รวมใน unit loop.
 
 integration test ถูกตัดออกจากลูปนี้โดยตั้งใจ เพราะต้องยก Postgres ก่อน
 ลูปที่ต้องรอ database คือลูปที่ไม่มีใครรัน — เหตุผลเต็มอยู่ใน `backend/pytest.ini`

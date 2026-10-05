@@ -1,6 +1,29 @@
 # Loop Metrics — WS-06
 
-## Candidate 2026-10-05
+## ผลอ้างอิงล่าสุดที่บันทึก — edba11d (2026-10-05)
+
+[Run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
+ผ่านทั้ง 7 test/lint gates, deploy-staging และ performance; API/เว็บตรง SHA เดียวกัน.
+ตรวจสถานะ run และ main protection ซ้ำจาก GitHub API เมื่อ 2026-10-05.
+
+| ตัวชี้วัด | รอบแรก 90fe6d9 (ประวัติ) | รอบยืนยัน edba11d |
+|---|---:|---:|
+| Pipeline รวม | 9m10s; performance ไม่ผ่าน | 9m05s; ผ่านทุก job ที่ต้องรัน |
+| E2E job รวม setup/report/teardown | 3m41s | 3m47s; ยังเป็น job ที่ช้าที่สุด |
+| Deploy-staging job | 1m21s | 1m20s; API/เว็บ SHA ตรงกัน |
+| Performance job | 3m11s; exit 99 | 3m07s; exit 0 |
+| Journey requests / errors | 335 / 0 | 319 / 0 |
+| Autosave p95 (เกณฑ์ ≤300ms) | 317.95ms; ไม่ผ่าน | 270.40ms; ผ่านในรอบนี้ |
+| Submit p95 (เกณฑ์ ≤800ms) | 393.44ms; ผ่าน | 351.71ms; ผ่านในรอบนี้ |
+
+เวลา job เป็นค่าจาก GitHub Actions ไม่ใช่เวลาทดสอบล้วน; รอบแรกอ้าง
+[run 37247458310, attempt 1](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37247458310/attempts/1).
+ผลต่างสองรอบไม่ใช่หลักฐานว่า optimize แอป: เปลี่ยนการส่งออกผลและ session key,
+คง handler/profile/thresholds เดิม. Profile สูงสุด 10 student VUs + 1 instructor;
+ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ.
+ชุดส่งงานและลำดับเดโมอยู่ใน [ws06-07-submission.md](ws06-07-submission.md).
+
+## ประวัติการตรวจบนเครื่องและ CI candidate — 2026-10-05
 
 วัดบน Windows ด้วย Node 24.20, Python 3.12.14 และ PostgreSQL 18 ที่แยกจาก service เดิม.
 เครื่องนี้ไม่มี Docker; native tests ด้านล่างไม่ใช้แทนหลักฐาน Docker CI.
@@ -19,7 +42,7 @@
 | Pipeline Docker | [Sup PR #17 run เดิม](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37211760610) | [Candidate 7db9796](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244353349) ผ่านทั้ง 7 checks, 4m29s |
 | Lead time commit → staging | WS-01 web 42s (ไม่มี gate) | CI deploy 90fe6d9: 359.7s (รวม test gates); manual ก่อนหน้า 690.2s แยกไว้ด้านล่าง |
 | Deploy DB replacement | — | Render deploy 15449ab Live, 71s; migration 11 ชุด |
-| Deployment frequency | นับ push อย่างเดียวไม่ยืนยัน deploy สำเร็จ | 1 staging release ผ่าน test gates เมื่อ 2026-10-05; performance ของ release นี้ไม่ผ่าน |
+| Deployment frequency | นับ push อย่างเดียวไม่ยืนยัน deploy สำเร็จ | 2 automatic staging deployments ที่บันทึกไว้: 90fe6d9 ผ่าน deploy แต่ performance ไม่ผ่าน; edba11d ผ่านทั้ง pipeline |
 
 ผล k6 แยกใน [performance-report.md](performance-report.md); local baseline ไม่ใช่ staging baseline.
 
@@ -54,7 +77,7 @@ CI รอบแรก [37244218180](https://github.com/STARSTEAM-X/sdpx-arai/act
 ใน /reports/coverage ภายใน mount เดียวกับ JUnit โดยไม่แก้ tests.
 จำนวน push เพื่อแก้ Docker CI: 1 หลัง initial PR push; รอบที่แก้แล้วเขียว.
 
-## Docker CI ที่ผ่านจริง
+## ประวัติ Docker CI บน PR — 7db9796
 
 Run 37244353349, head 7db9796, 2026-10-05 06:36:12–06:40:41 Asia/Bangkok.
 
@@ -79,6 +102,7 @@ Deploy/performance skipped บน PR ตามเงื่อนไข; ไม�
 [Run 37244411279](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37244411279):
 backend 403 passed / 1 failed, container และ compose exit 1.
 GitHub รายงาน mergeStateStatus=BLOCKED และปุ่ม Merge disabled;
+ภาพมีทั้ง required test-be ที่แดงและ approval ที่ยังขาด จึงไม่อ้างว่า test เป็น blocker เดียว.
 ภาพ [merge-blocked.png](screenshots/merge-blocked.png). ปิด PR แล้วโดยไม่ merge.
 
 ใน branch ทดลองเดียวกัน k6 smoke ยิง staging health ด้วย p95<0.0001ms;
@@ -86,7 +110,7 @@ GitHub รายงาน mergeStateStatus=BLOCKED และปุ่ม Merge d
 Job นี้ไม่เรียก Render deploy; GitHub แสดง deployment record เพราะใช้ staging environment.
 กลับ branch งานจริงที่ health=ok และเกณฑ์เดิมครบ; ไม่ merge branch ทดลอง.
 
-## Staging verification หลัง CI เขียว
+## ประวัติ staging verification ด้วย Dashboard — 7db9796
 
 2026-10-05 deploy **7db9796** ด้วย Dashboard ระบุ SHA เดียวกัน:
 เว็บ Live ใน 14.3s, API Live ใน 72.8s; script verify-only รอ 21.6s.
@@ -101,7 +125,7 @@ Smoke 3 VUs/30s ผ่าน p95 64.22ms, 87 requests, 0 errors, exit 0.
 ผลรอบนี้เป็น manual verification ก่อน automatic deployment ด้านล่าง;
 production resources ยังเป็น template.
 
-## Automatic staging deployment และ performance gate
+## ประวัติ automatic staging deployment รอบแรก — 90fe6d9 (performance ไม่ผ่าน)
 
 PR #18 merge เข้า develop เป็น 90fe6d99e85c59c319d22048108346dad28b6900.
 [Run 37247458310](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37247458310)
@@ -140,4 +164,5 @@ Performance job 187s: 319 requests/0 errors, autosave p95 270.40ms และ sub
 พบเพียง metrics/root_group ไม่มี session/email/credential patterns.
 ผลรอบแรก 317.95ms ที่ไม่ผ่านยังเก็บไว้; ไม่ได้ optimize แอปและไม่ปรับ thresholds.
 รายละเอียดและไฟล์แยกรอบอยู่ใน performance-report.md.
-ผลนี้ยืนยัน deployment ผ่าน gate ไม่ใช่ยืนยันว่า performance SLA ผ่าน.
+ผลนี้ยืนยัน deployment และ performance thresholds ของ profile นี้ผ่านในรอบยืนยัน;
+ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ.
