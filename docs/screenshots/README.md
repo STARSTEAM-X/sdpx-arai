@@ -9,5 +9,6 @@
 | `render-api-db-restored-20261005.jpg` | Deploy | API กลับมา Live หลังเชื่อมฐานข้อมูลใหม่และรัน migrations |
 | `render-staging-7db9796-20261005.jpg` | WS-06/07 | API staging deploy commit 7db9796 สำเร็จหลัง CI เขียว; JSON request logs มี requestId และ duration_ms |
 | `staging-ci-performance-90fe6d9.png` | WS-06/07 | Test gates และ deploy-staging ผ่าน; performance แดงเพราะ autosave p95 317.95ms เกินเกณฑ์จริง |
+| `staging-ci-safe-edba11d.png` | WS-06/07 | รอบยืนยันหลังเปลี่ยน signing key และแก้ export: CI, deploy-staging, performance ผ่านทั้งหมด |
 
 ห้ามใส่ภาพที่ไม่ได้ถ่ายจากระบบจริง

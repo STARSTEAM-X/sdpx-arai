@@ -11,7 +11,8 @@
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
 - **สถานะปัจจุบัน:** walking skeleton/Docker และ WS-06 CI staging deployment ครบ.
-  WS-07 วัด staging baseline จริงแล้ว; autosave p95 317.95ms ยังไม่ผ่านเกณฑ์ 300ms.
+  WS-07 วัด staging baseline สองรอบ: autosave p95 317.95ms ไม่ผ่านรอบแรก,
+  270.40ms ผ่านรอบยืนยัน edba11d; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ.
   สถานะและหลักฐานปัจจุบันอยู่ใน docs/loop-metrics.md และ docs/performance-report.md.
 
 ## Paths

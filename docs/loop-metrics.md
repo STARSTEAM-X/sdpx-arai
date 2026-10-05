@@ -128,4 +128,16 @@ baseline ใน repo นำ setup_data ออกโดยคง metrics เด�
 และหยุด upload หากยังมีข้อมูลส่วนตัว. การหมุน key ต้อง deploy API ให้รับค่าใหม่ด้วย.
 Baseline/provenance และคอขวดอยู่ใน performance-report.md และ performance/runs/staging-provenance-90fe6d9.json.
 ภาพ [staging-ci-performance-90fe6d9.png](screenshots/staging-ci-performance-90fe6d9.png).
+
+## รอบยืนยันหลังเปลี่ยน session key และแก้ export — edba11d
+
+PR #20 ผ่าน 7 ด่านแล้ว merge เข้า develop; [run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
+สำเร็จทั้ง pipeline (08:11:48–08:20:53, 9m05s).
+Deploy job 80s ยืนยัน API/เว็บตรง commit edba11d; ENVIRONMENT=production และ /api/test/* ปิด.
+Performance job 187s: 319 requests/0 errors, autosave p95 270.40ms และ submit p95 351.71ms,
+ทุก threshold ผ่าน. Authentication ผ่านด้วย signing key ที่เจ้าของเปลี่ยนแล้ว.
+ตัวกรองก่อน upload และ cleanup ผ่าน; ดาวน์โหลด artifact 11320399704 ตรวจซ้ำ
+พบเพียง metrics/root_group ไม่มี session/email/credential patterns.
+ผลรอบแรก 317.95ms ที่ไม่ผ่านยังเก็บไว้; ไม่ได้ optimize แอปและไม่ปรับ thresholds.
+รายละเอียดและไฟล์แยกรอบอยู่ใน performance-report.md.
 ผลนี้ยืนยัน deployment ผ่าน gate ไม่ใช่ยืนยันว่า performance SLA ผ่าน.

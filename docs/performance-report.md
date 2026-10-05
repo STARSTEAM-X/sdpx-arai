@@ -13,9 +13,10 @@
 - Journey: เข้าห้อง → เปิดงาน/คู่ → autosave 3 คู่ → ส่งผล; instructor อ่านคะแนน/roster.
 - Public staging คง `ENVIRONMENT=production`; `DEPLOYMENT_TIER=staging` ใช้ระบุเป้าหมาย.
 - Fixture/session อยู่ใน `performance/.secrets/`; baseline JSON ไม่เก็บ token.
-- Target staging: https://paireval-api.onrender.com; commit 90fe6d99e85c59c319d22048108346dad28b6900.
+- Target staging: https://paireval-api.onrender.com; ระบุ commit แยกในผลแต่ละรอบ.
 - รัน staging ด้วย GitHub-hosted ubuntu-latest; ไม่ได้บันทึกภูมิภาคของ runner.
-- baseline.json เป็นผล staging จริง; ผล local เดิมเก็บใน runs/local-candidate-20261005.json.
+- baseline.json เป็น staging รอบแรก 90fe6d9; รอบยืนยัน edba11d เก็บแยกใน runs/.
+  ผล local เดิมเก็บใน runs/local-candidate-20261005.json.
 
 ## ผลและหลักฐาน
 
@@ -83,7 +84,35 @@ Smoke จาก CI: 72 requests, errors 0%, p50 239.80ms, p95 468.84ms, max 741.
 ผ่านเกณฑ์ p95<500; checks 212/216 โดย 4 ข้อที่ไม่ผ่านคือราย request ช้ากว่า 500ms.
 หลักฐาน [staging-smoke.json](../performance/staging-smoke.json).
 
-### Bottleneck และ AI analysis จาก staging จริง
+### รอบยืนยันหลังแก้ความปลอดภัย — edba11d, 2026-10-05
+
+[Run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
+ผ่านทั้ง pipeline: 7 test/lint gates, deploy-staging และ performance.
+API/เว็บยืนยัน commit edba11daa41bf30d1d9a29b84992773c334a9ef4;
+ENVIRONMENT=production, DEPLOYMENT_TIER=staging, public OpenAPI ไม่มี /api/test/*.
+CLI publish assignment และ journey authentication ผ่านหลังเปลี่ยน signing key
+ยืนยันว่า PERF_SESSION_SECRET ของ GitHub ใช้งานกับ staging API ได้.
+
+| Metric | p50 (ms) | p95 (ms) | p99 (ms) | ผล |
+|---|---:|---:|---:|---|
+| HTTP รวม | 248.47 | 340.15 | 736.03 | ผ่าน p95 <500 |
+| autosave | 248.93 | **270.40** | 687.83 | ผ่าน p95 ≤300 |
+| submit | 269.11 | **351.71** | 615.24 | ผ่าน p95 ≤800 |
+
+319 requests, 2.32 req/s, HTTP/journey errors 0%, ทุก threshold ผ่าน, exit 0.
+Smoke 73 requests, errors 0%, p95 257.39ms. หลักฐาน:
+[journey](../performance/runs/staging-baseline-edba11d.json),
+[smoke](../performance/runs/staging-smoke-edba11d.json),
+[provenance](../performance/runs/staging-provenance-edba11d.json).
+ดาวน์โหลด artifact 11320399704 หลังตัวกรองผ่านแล้ว; ตรวจซ้ำทั้งสองไฟล์มีเพียง
+metrics/root_group และไม่พบ session/email/credential patterns. Cleanup fixture ผ่าน.
+
+รอบนี้แก้การส่งออกผลและบันทึกหลักฐาน ไม่ได้ optimize handler หรือปรับ thresholds.
+จึงไม่อ้างว่าความต่างจาก 317.95ms เป็นผลของ optimization.
+ทั้งสองรอบแสดงความแปรผันของสภาพแวดล้อม; รอบที่ผ่านครั้งเดียวไม่ยืนยัน NFR 200 users
+หรือความเสถียรทุกช่วงเวลา. คงผลแดงและแผนวัดเพิ่มด้านล่างไว้.
+
+### Bottleneck และ AI analysis จาก staging รอบแรก
 
 ตรวจ [request log aggregate](../performance/runs/staging-log-summary-90fe6d9.json)
 450 events และ [comparison_saved aggregate](../performance/runs/staging-business-log-summary-90fe6d9.json)

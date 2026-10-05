@@ -1,0 +1,87 @@
+{
+  "runId": 37250469594,
+  "commit": "edba11daa41bf30d1d9a29b84992773c334a9ef4",
+  "runConclusion": "success",
+  "reports": [
+    {
+      "file": "staging-baseline.json",
+      "sha256": "c686e35a45ed70b422ba51e4fd93fe3f9907780335500ba6cee2d7ba6fe09651",
+      "rootKeys": [
+        "metrics",
+        "root_group"
+      ],
+      "sensitivePatterns": 0,
+      "requests": 319,
+      "throughput": 2.3218864194753124,
+      "httpErrors": 0,
+      "journeyErrors": 0,
+      "trendsMs": {
+        "http_req_duration": {
+          "med": 248.473351,
+          "p(95)": 340.15370279999973,
+          "p(99)": 736.02995162,
+          "max": 752.378878
+        },
+        "autosave_latency": {
+          "med": 248.9266985,
+          "p(95)": 270.4012063999999,
+          "p(99)": 687.8328981499981,
+          "max": 739.124937
+        },
+        "submission_latency": {
+          "med": 269.1121855,
+          "p(95)": 351.70821744999995,
+          "p(99)": 615.2372673100006,
+          "max": 733.77541
+        }
+      },
+      "failedThresholds": {}
+    },
+    {
+      "file": "staging-smoke.json",
+      "sha256": "ca409d4982fa001cb5382b7c7ca8de7cc2aa347038ed2d52ecf273102e93adc4",
+      "rootKeys": [
+        "metrics",
+        "root_group"
+      ],
+      "sensitivePatterns": 0,
+      "requests": 73,
+      "throughput": 2.362918999701687,
+      "httpErrors": 0,
+      "journeyErrors": null,
+      "trendsMs": {
+        "http_req_duration": {
+          "med": 237.849197,
+          "p(95)": 257.3853632,
+          "p(99)": null,
+          "max": 744.589136
+        }
+      },
+      "failedThresholds": {}
+    }
+  ],
+  "runUrl": "https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594",
+  "artifactId": 11320399704,
+  "artifactName": "k6-staging-edba11daa41bf30d1d9a29b84992773c334a9ef4-attempt-1",
+  "runner": "GitHub-hosted ubuntu-latest",
+  "runnerRegion": "not recorded",
+  "profile": "0 -> 5 -> 10 -> 0 student VUs plus 1 instructor; 60 synthetic students",
+  "sessionRotationVerification": "Private fixture publish and journey authentication passed after owner rotation; signing secret values were not read",
+  "publicApiEnvironment": "production",
+  "deploymentTier": "staging",
+  "publicTestPaths": 0,
+  "createdAt": "2026-10-05T01:11:48Z",
+  "completedAt": "2026-10-05T01:20:53Z",
+  "files": [
+    {
+      "artifactFile": "staging-baseline.json",
+      "repositoryFile": "performance/runs/staging-baseline-edba11d.json",
+      "sha256": "c686e35a45ed70b422ba51e4fd93fe3f9907780335500ba6cee2d7ba6fe09651"
+    },
+    {
+      "artifactFile": "staging-smoke.json",
+      "repositoryFile": "performance/runs/staging-smoke-edba11d.json",
+      "sha256": "ca409d4982fa001cb5382b7c7ca8de7cc2aa347038ed2d52ecf273102e93adc4"
+    }
+  ]
+}
