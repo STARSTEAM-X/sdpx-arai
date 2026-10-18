@@ -27,15 +27,14 @@ from app.domain.assignment_service import (
 )
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.comparison_service import assert_before_deadline
-from app.domain.errors import NotFoundError, ValidationError
+from app.domain.errors import NotFoundError
 from app.domain.evaluation_service import build_my_evaluations
 from app.domain.pairing import (
     Side,
-    generate_group_pairs,
-    generate_individual_pairs,
     solve_group_feasibility,
     solve_individual_feasibility,
 )
+from app.domain.publication import generate_assignment_pairs
 from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
@@ -342,42 +341,10 @@ def publish_assignment(
         repo = PgAssignmentRepository(conn)
         groups = repo.groups_with_members(assignment.classroom_id)
 
-        group_plan = solve_group_feasibility(
-            groups,
-            target_coverage=assignment.target_coverage,
-            max_workload=assignment.max_workload,
-        )
-        if not group_plan.feasible:
-            # 422 ไม่ใช่ 404 — งานมีอยู่จริงและผู้เรียกมีสิทธิ์ แค่ตั้งค่าไว้แบบที่ทำไม่ได้
-            # ข้อความจาก feasibility มีตัวเลขกำกับอยู่แล้วว่าติดตรงไหน (FR-PAIR-05)
-            raise ValidationError(
-                group_plan.reason or "ตั้งค่าปัจจุบันสร้างคู่ประเมินไม่ได้", field="targetCoverage"
-            )
-
         created = 0
-        for criterion in assignment.criteria_for(Side.GROUP):
-            pairs = generate_group_pairs(
-                groups,
-                criterion_id=criterion.id,
-                coverage=group_plan.achievable_coverage,
-                workload=group_plan.workload_per_evaluator,
-                seed=chosen_seed,
-                assignment_id=assignment.id,
-            )
+        for criterion, pairs in generate_assignment_pairs(assignment, groups, seed=chosen_seed):
             repo.save_pairs(assignment.id, pairs, criterion_id=criterion.id)
             created += len(pairs)
-
-        # P10 — ปิดฝั่งบุคคลแล้วต้องไม่มี pair ฝั่งนั้นเลย
-        if assignment.has_individual_side:
-            for criterion in assignment.criteria_for(Side.INDIVIDUAL):
-                pairs = generate_individual_pairs(
-                    groups,
-                    criterion_id=criterion.id,
-                    seed=chosen_seed,
-                    assignment_id=assignment.id,
-                )
-                repo.save_pairs(assignment.id, pairs, criterion_id=criterion.id)
-                created += len(pairs)
 
         repo.mark_published(assignment.id, seed=chosen_seed, at=datetime.now(UTC))
 
