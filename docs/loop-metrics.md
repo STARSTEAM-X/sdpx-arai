@@ -1,6 +1,29 @@
-# Loop Metrics — WS-06
+# Loop Metrics — WS-06–08
 
-## ผลอ้างอิงล่าสุดที่บันทึก — edba11d (2026-10-05)
+## WS-08 local quality loop — 2026-10-18
+
+Baseline develop `c69554c`; refactor commit `ec0b7a6` ไม่แตะ tests.
+Characterization ก่อน refactor + assignment tests 28 passed (1.20s);
+หลังรวม pairing 121 passed (1.15s). เทียบ baseline/current อีก 8 สถานการณ์ตรงกัน.
+Security regression ก่อนแก้ 10 failed / 7 passed → หลังแก้ 17 passed.
+
+| ตรวจ | ผลจริง |
+|---|---|
+| Backend unit/API | 428 passed, 29 deselected, 4.50s |
+| Frontend unit | 21 passed, Vitest 441ms |
+| Unit loop สองคำสั่งต่อเนื่อง รวม startup | **8.04s** (<10s), ไม่รวม lint/coverage/DB/Docker |
+| Ruff / frontend lint / typecheck / build | exit 0; frontend lint มี 16 warning เดิม ไม่มี error |
+| API contract lint | ผ่าน ไม่มี warning/error |
+| Docker PostgreSQL integration | 29 passed, 1.24s, exit 0 |
+| Docker full E2E | 118 passed, 1.7m, exit 0 |
+| Dependency audit | npm root/frontend 0 advisories; OSV 42 installed distributions ไม่พบ advisory |
+
+CodeQL Default setup เปิดแล้วแต่ default branch ยังไม่มี app source จึงยังไม่มี analysis.
+ผล CI ของ branch ตรวจจาก [Actions](https://github.com/STARSTEAM-X/sdpx-arai/actions?query=branch%3Acodex%2Fws08-quality-security)
+แยกจากตัวเลข local นี้. ไม่ deploy หรือวัด staging/performance ใหม่จาก WS-08.
+Artifacts, reproduction และข้อจำกัดอยู่ใน [ws08-submission.md](ws08-submission.md).
+
+## ผลอ้างอิง staging — edba11d (2026-10-05)
 
 [Run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
 ผ่านทั้ง 7 test/lint gates, deploy-staging และ performance; API/เว็บตรง SHA เดียวกัน.

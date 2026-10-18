@@ -14,6 +14,11 @@
   WS-07 วัด staging baseline สองรอบ: autosave p95 317.95ms ไม่ผ่านรอบแรก,
   270.40ms ผ่านรอบยืนยัน edba11d; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ.
   สถานะและหลักฐานปัจจุบันอยู่ใน docs/loop-metrics.md และ docs/performance-report.md.
+- **WS-08 (2026-10-18):** refactor publish โดยไม่เปลี่ยน behavior; แก้ CSV formula injection
+  และ production signing fallback พร้อม regression tests; อัปเดต PyJWT/source-map-js.
+  Local backend 428 + frontend 21 ผ่านใน unit loop 8.04s, integration 29 และ E2E 118 ผ่าน.
+  CodeQL Default setup เปิดแล้ว แต่ main ยังไม่มี app source จึงยังไม่มี analysis;
+  หลักฐาน ข้อจำกัด และสิ่งที่ทีมต้องตรวจอยู่ใน docs/ws08-submission.md.
 
 ## Paths
 

@@ -44,7 +44,7 @@
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
 | WS-06 CI/CD | ✅ | Docker CI ผ่าน 7 checks, PR ทดลองบล็อก merge จริง, API/เว็บ staging SHA เดียวกัน edba11d; pipeline รอบยืนยันผ่านรวม performance. Commit-to-live รอบแรก 359.7s; production มี human reviewer gate และ template แยก ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
 | WS-07 Performance | 🟡 | Baseline/AI analysis ครบ; รอบ edba11d ผ่าน CI: 319 requests/0 errors, autosave p95 **270.40ms**, submit **351.71ms**. เก็บรอบแรกที่ autosave 317.95ms ไม่ผ่านไว้ด้วย; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ ([`docs/performance-report.md`](docs/performance-report.md)) |
-| WS-08 Code Quality & Security | ⬜ | |
+| WS-08 Code Quality & Security | 🟡 | Refactor publish 93→61 บรรทัดโดยคง behavior; แก้ CSV injection/production signing fallback และอัปเดต dependencies. Local backend 428 + frontend 21, integration 29, E2E 118 ผ่าน; unit loop 8.04s. Review/ADR/security evidence ครบ; CodeQL ตั้งค่าแล้วแต่ยังไม่มีภาษาใน main จึงยังไม่ scan และยังไม่ยืนยัน human present/LMS ([`docs/ws08-submission.md`](docs/ws08-submission.md)) |
 
 ### Product backlog
 

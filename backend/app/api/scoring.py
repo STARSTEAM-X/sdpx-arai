@@ -186,6 +186,13 @@ def reopen_assignment(
     return ReopenOut(status="CLOSED")
 
 
+def _spreadsheet_text(value: str) -> str:
+    """FR-SEC-04: escape at export too; not every text field comes from roster import."""
+    if value.startswith(("\t", "\r", "\n")) or value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def _rows_to_csv(rows: list[ComparisonExportRow], *, evaluator_column: dict[str, str]) -> str:
     """CSV ดิบของ comparison — FR-EXPORT-03
 
@@ -205,12 +212,14 @@ def _rows_to_csv(rows: list[ComparisonExportRow], *, evaluator_column: dict[str,
         writer.writerow(
             [
                 str(r.side),
-                r.criterion_name,
-                r.item_a_label,
-                r.item_b_label,
-                r.item_a_label if r.display_left_item_id == r.item_a_id else r.item_b_label,
+                _spreadsheet_text(r.criterion_name),
+                _spreadsheet_text(r.item_a_label),
+                _spreadsheet_text(r.item_b_label),
+                _spreadsheet_text(
+                    r.item_a_label if r.display_left_item_id == r.item_a_id else r.item_b_label
+                ),
                 r.choice,
-                evaluator_column[r.evaluator_user_id],
+                _spreadsheet_text(evaluator_column[r.evaluator_user_id]),
                 r.submitted_at.isoformat(),
             ]
         )

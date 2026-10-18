@@ -64,9 +64,14 @@ DATABASE_URL: str = os.getenv(
 # จึงบังคับตรวจตรงนี้แทน
 MIN_SESSION_SECRET_BYTES = 32
 
-SESSION_SECRET: str = os.getenv(
-    "SESSION_SECRET", "dev-only-secret-not-for-production-use-32b"
-)
+_DEVELOPMENT_SESSION_SECRET = "dev-only-secret-not-for-production-use-32b"
+SESSION_SECRET: str = os.getenv("SESSION_SECRET", _DEVELOPMENT_SESSION_SECRET)
+
+# A known fallback has enough bytes but cannot authenticate anyone securely.
+# Local/test stacks keep their convenience default; public services must opt in
+# with their own key, including when the development key was set explicitly.
+if IS_PRODUCTION and SESSION_SECRET == _DEVELOPMENT_SESSION_SECRET:
+    raise RuntimeError("production ต้องตั้ง SESSION_SECRET ของตัวเอง ห้ามใช้ development key")
 
 if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
     raise RuntimeError(

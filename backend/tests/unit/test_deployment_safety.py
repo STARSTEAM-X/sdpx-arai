@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,8 @@ def test_public_deployments_keep_test_endpoints_closed(tier):
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
             "PATH": os.environ.get("PATH", ""),
             "ENVIRONMENT": "production", "DEPLOYMENT_TIER": tier,
+            # Production now refuses the known development signing key (WS-08).
+            "SESSION_SECRET": secrets.token_urlsafe(48),
         },
         capture_output=True, text=True, check=True,
     )

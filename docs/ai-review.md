@@ -1,5 +1,10 @@
 # AI Review — function ที่แย่ที่สุด (WS-07 homework → แก้ใน WS-08)
 
+> **อัปเดต WS-08 — 2026-10-18:** refactor `publish_assignment` แล้วโดยแยก pure pair
+> generation; เก็บ review เดิมด้านล่างเป็นประวัติ ไม่ใช้เป็นสถานะปัจจุบัน.
+> ผลตรวจซ้ำข้อเสนอ AI อยู่ใน [refactoring-plan.md](refactoring-plan.md),
+> ก่อน/หลังและ test evidence อยู่ใน [refactoring-publish-assignment.md](refactoring-publish-assignment.md).
+
 > บันทึก review ของ branch supitcha เมื่อ 2026-10-04 ด้านล่างเป็นหลักฐานเดิม.
 > Candidate 2026-10-05 ยังเลือก publish_assignment เป็นเป้าหมาย WS-08 และยังไม่ refactor.
 > Local log ใหม่วัด publish 54.3ms ระหว่าง setup, submit p95 15.66ms ระหว่าง load;

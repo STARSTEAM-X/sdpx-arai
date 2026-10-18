@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-18",
+  "source": "Docker api-test logs from local 118-test E2E; synthetic data only",
+  "total_lines": 3595,
+  "json_lines": 3583,
+  "non_json_lines": 12,
+  "raw_email_matches": 0,
+  "raw_jwt_matches": 0,
+  "migration_cli_messages": 12,
+  "unclassified_non_json_lines": 0
+}

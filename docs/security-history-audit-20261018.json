@@ -1,0 +1,325 @@
+{
+  "date": "2026-10-18",
+  "reachable_commits": 93,
+  "text_blobs_scanned": 699,
+  "method": "Reachable named text blobs; static credential literals, provider/private-key patterns and DB URL metadata only; binary/over-2MB files and non-example env/secrets content excluded",
+  "tracked_env_paths_in_history": [
+    "backend/.env.example",
+    "frontend/.env.example"
+  ],
+  "candidates": [
+    {
+      "blob": "8b26c63318682126d4cc2fbd1c435e40e499b0e0",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lab.md",
+      "line": 102,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "8b26c63318682126d4cc2fbd1c435e40e499b0e0",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lab.md",
+      "line": 178,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "8b26c63318682126d4cc2fbd1c435e40e499b0e0",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lab.md",
+      "line": 190,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5c1833364c005ece5140d0f7be2abb703c3ee177",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lecture.md",
+      "line": 247,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5c1833364c005ece5140d0f7be2abb703c3ee177",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lecture.md",
+      "line": 263,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5c1833364c005ece5140d0f7be2abb703c3ee177",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lecture.md",
+      "line": 352,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5c1833364c005ece5140d0f7be2abb703c3ee177",
+      "path": "Sources/SDPX-AI-main/WS-05-RUN-docker/lecture.md",
+      "line": 381,
+      "kind": "database_url",
+      "key": null,
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "b2a4faec6392040087e5c099d8099d58b167340a",
+      "path": "Sources/SDPX-AI-main/WS-06-RUN-cicd/lab.md",
+      "line": 109,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5fd05df453472572f1b0d1dd1d6e82b17fa8c8a5",
+      "path": "Sources/SDPX-AI-main/WS-06-RUN-cicd/lecture.md",
+      "line": 212,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5fd05df453472572f1b0d1dd1d6e82b17fa8c8a5",
+      "path": "Sources/SDPX-AI-main/WS-06-RUN-cicd/lecture.md",
+      "line": 274,
+      "kind": "database_url",
+      "key": null,
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "8b12ea34ac6442c5e73d26b33f586cc5ac646cf9",
+      "path": "backend/app/config.py",
+      "line": 67,
+      "kind": "credential_literal",
+      "key": "_DEVELOPMENT_SESSION_SECRET",
+      "classification": "development_or_test_default"
+    },
+    {
+      "blob": "8b12ea34ac6442c5e73d26b33f586cc5ac646cf9",
+      "path": "backend/app/config.py",
+      "line": 57,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "5994581404d58c8f3d7fb7df7e7c8e3601222456",
+      "path": "backend/tests/api/test_request_logging.py",
+      "line": 99,
+      "kind": "credential_literal",
+      "key": "secret",
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "acc704816167b28d39acc30c60759dcf9069f8ca",
+      "path": "backend/tests/unit/test_perf_fixture_safety.py",
+      "line": 13,
+      "kind": "database_url",
+      "key": null,
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "acc704816167b28d39acc30c60759dcf9069f8ca",
+      "path": "backend/tests/unit/test_perf_fixture_safety.py",
+      "line": 26,
+      "kind": "database_url",
+      "key": null,
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "d795cabe0f1dfbb5bab75f12ab94dfbbcc082dae",
+      "path": "compose.test.yaml",
+      "line": 74,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "d795cabe0f1dfbb5bab75f12ab94dfbbcc082dae",
+      "path": "compose.test.yaml",
+      "line": 91,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "8d0c5b950b8ff038792072a2bbb6b7bfcab0c0bb",
+      "path": "compose.yaml",
+      "line": 53,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "dbb529ad595d25f923782df57c9c269dbc2546cf",
+      "path": "playwright.config.ts",
+      "line": 78,
+      "kind": "credential_literal",
+      "key": "SESSION_SECRET",
+      "classification": "development_or_test_default"
+    },
+    {
+      "blob": "9f2d71488a8c16c4e6827e8ed48346836d088324",
+      "path": "backend/app/config.py",
+      "line": 57,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "0b7f74e2da123ac9cde53531fe2b7fd231bb82f6",
+      "path": ".github/workflows/ci.yml",
+      "line": 173,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "7c0af10b8a4712bd282f5317a3a3d505c130ae84",
+      "path": "backend/app/config.py",
+      "line": 45,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "6b15057255772df8a518260a7b5366d49e8f2416",
+      "path": "backend/tests/unit/test_observability.py",
+      "line": 22,
+      "kind": "credential_literal",
+      "key": "accessToken",
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "8fbb547c5fb9ef014aa661e1909c3b498f6195d0",
+      "path": "playwright.config.ts",
+      "line": 73,
+      "kind": "credential_literal",
+      "key": "SESSION_SECRET",
+      "classification": "development_or_test_default"
+    },
+    {
+      "blob": "b1638df85784a6cc8014fe91cc32dee4b8e6b6e7",
+      "path": ".github/workflows/ci.yml",
+      "line": 195,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "b1638df85784a6cc8014fe91cc32dee4b8e6b6e7",
+      "path": ".github/workflows/ci.yml",
+      "line": 234,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "b1638df85784a6cc8014fe91cc32dee4b8e6b6e7",
+      "path": ".github/workflows/ci.yml",
+      "line": 325,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "690036506220aaf00a60372d5368df9fe740fa3b",
+      "path": "backend/app/config.py",
+      "line": 50,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "f8024802d8b2adf7f80c9e74a0a51920931c20b7",
+      "path": ".github/workflows/ci.yml",
+      "line": 192,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "f8024802d8b2adf7f80c9e74a0a51920931c20b7",
+      "path": ".github/workflows/ci.yml",
+      "line": 231,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "0caa4d4aaf47a542a8a255b5c553289a4f98433d",
+      "path": ".github/workflows/ci.yml",
+      "line": 192,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "0caa4d4aaf47a542a8a255b5c553289a4f98433d",
+      "path": ".github/workflows/ci.yml",
+      "line": 231,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "0caa4d4aaf47a542a8a255b5c553289a4f98433d",
+      "path": ".github/workflows/ci.yml",
+      "line": 322,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "4288333bea919869b7d58161e458fe50a62fd68f",
+      "path": ".github/workflows/ci.yml",
+      "line": 192,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "4288333bea919869b7d58161e458fe50a62fd68f",
+      "path": ".github/workflows/ci.yml",
+      "line": 231,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "6cf656b430f5e450fc1e619e7687a7da353a3efc",
+      "path": "playwright.config.ts",
+      "line": 63,
+      "kind": "credential_literal",
+      "key": "SESSION_SECRET",
+      "classification": "development_or_test_default"
+    },
+    {
+      "blob": "eb2723315769e018835be3b2f72a4d1bfe411992",
+      "path": "backend/app/config.py",
+      "line": 35,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    },
+    {
+      "blob": "e8067ee59db4ab0f994d4fde2726dd7daa5f079d",
+      "path": "backend/.env.example",
+      "line": 8,
+      "kind": "database_url",
+      "key": null,
+      "classification": "test_or_teaching"
+    },
+    {
+      "blob": "1b452faad7ce32210800ec369622fc2604caa48b",
+      "path": "backend/app/config.py",
+      "line": 35,
+      "kind": "database_url",
+      "key": null,
+      "classification": "local_database_example"
+    }
+  ],
+  "limitation": "Heuristic screening is not a proof of no secrets; review metadata and GitHub secret scanning separately."
+}
