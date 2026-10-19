@@ -19,6 +19,7 @@ import {
   setReviewerExclusion,
 } from '../lib/api'
 import { COMPARISON_SCALE } from '../lib/scale'
+import coverageHeading from '../assets/figma/coverage-heading.png'
 import reportHeading from '../assets/figma/owner-report-heading.png'
 
 // ถ้อยคำตาม Figma J28
@@ -252,7 +253,7 @@ export default function QualityPage() {
             </p>
           </div>
           <img
-            src={reportHeading}
+            src={view === 'coverage' ? coverageHeading : reportHeading}
             alt=""
             width={220}
             height={165}
@@ -559,22 +560,22 @@ export default function QualityPage() {
             event.preventDefault()
             if (!busy) close()
           }}
-          className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(26rem,100vw)] max-w-none overflow-y-auto rounded-none bg-white p-0 text-ink shadow-[-12px_0_40px_rgba(50,16,7,0.18)] backdrop:bg-ink/40"
+          className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(35rem,100vw)] max-w-none overflow-y-auto rounded-none bg-white p-0 text-ink shadow-[-12px_0_40px_rgba(50,16,7,0.18)] backdrop:bg-ink/40"
         >
           {selected && (
             <div className="flex min-h-full flex-col">
-              <div className="flex items-start gap-3 px-5 pt-5">
+              <div className="flex items-start gap-3 px-5 pt-5 sm:px-7 sm:pt-7">
                 <span
                   aria-hidden="true"
-                  className={`grid size-11 shrink-0 place-items-center rounded-full font-display text-[14px] font-semibold ${identity ? 'bg-ok-50 text-ok-700' : 'bg-sand text-ink-2'}`}
+                  className={`mt-1 grid size-12 shrink-0 place-items-center rounded-full font-display text-[16px] font-semibold ${identity ? 'bg-ok-50 text-ok-700' : 'bg-sand text-ink-2'}`}
                 >
                   {identity ? (identity.displayName ?? identity.email).slice(0, 2) : selected.label}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-[19px] font-bold">
+                  <h2 className="font-display text-[22px] leading-[33px] font-bold">
                     {identity ? (identity.displayName ?? identity.email) : `ผู้ประเมิน ${selected.label}`}
                   </h2>
-                  <p className="mt-0.5 break-all text-[12.5px] text-muted">
+                  <p className="break-all text-[14px] text-muted">
                     {identity
                       ? `${identity.email} · รหัสในรายงาน ${selected.label}`
                       : 'รหัสแทนชื่อ · ตัวตนจริงยังไม่แสดง'}
@@ -589,23 +590,23 @@ export default function QualityPage() {
                   ✕
                 </button>
               </div>
-              <div className="flex-1 px-5 pb-4">
+              <div className="flex-1 px-5 pb-4 sm:px-7">
                 {identity ? (
-                  <p className="mt-4 rounded-2xl bg-info-soft px-4 py-3 text-[12.5px] text-info-ink">
+                  <p className="mt-4.5 rounded-2xl bg-info-soft px-3.5 py-3 text-[14px] text-info-ink">
                     บันทึกการเปิดดูแล้ว · ดูได้ในบันทึกการตรวจสอบ
                   </p>
                 ) : (
-                  <p className="mt-4 rounded-2xl bg-[#f3f1ef] px-4 py-3 text-[12.5px] text-ink-2">
+                  <p className="mt-4.5 rounded-2xl bg-[#f3f1ef] px-3.5 py-3 text-[14px] text-ink-2">
                     {owner ? 'เจ้าของห้องเปิดดูตัวตนได้ทุกเมื่อ · ทุกครั้งที่เปิดดูจะถูกบันทึก audit อัตโนมัติ · ' : ''}
                     ผู้สอนร่วมและ TA ไม่เห็นตัวตน
                   </p>
                 )}
                 {selected.flags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-4.5 flex flex-wrap gap-2">
                     {selected.flags.map((flag) => (
                       <span
                         key={flag}
-                        className="rounded-full bg-accent-soft px-3 py-1 font-display text-[12px] font-semibold text-accent-ink"
+                        className="rounded-full bg-accent-soft px-2.5 py-1 font-display text-[13px] font-semibold text-accent-ink"
                       >
                         {flag} {signalLabels[flag] ?? ''}
                       </span>
@@ -614,17 +615,17 @@ export default function QualityPage() {
                 )}
                 {mode === 'answers' ? (
                   <>
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-edge">
-                      <table className="w-full text-[12.5px]">
+                    <div className="mt-4.5 overflow-hidden rounded-2xl border border-edge">
+                      <table className="w-full text-[14px]">
                         <thead className="bg-surface-cream text-left">
                           <tr>
-                            <th scope="col" className="px-3 py-2.5 font-normal">
+                            <th scope="col" className="px-3.5 py-2.5 font-normal sm:w-[234px]">
                               คู่ · เกณฑ์
                             </th>
-                            <th scope="col" className="px-3 py-2.5 font-normal">
+                            <th scope="col" className="px-3.5 py-2.5 font-normal">
                               คำตอบ
                             </th>
-                            <th scope="col" className="px-3 py-2.5 text-right font-normal">
+                            <th scope="col" className="px-3.5 py-2.5 text-right font-normal">
                               เวลา
                             </th>
                           </tr>
@@ -634,10 +635,10 @@ export default function QualityPage() {
                             const left = answer.choice <= 3
                             return (
                               <tr key={index}>
-                                <td className="px-3 py-2.5">
+                                <td className="px-3.5 py-2.5">
                                   {answer.leftLabel} – {answer.rightLabel} · {answer.criterionName}
                                 </td>
-                                <td className="px-3 py-2.5 font-semibold">
+                                <td className="px-3.5 py-2.5 font-semibold">
                                   {left ? answer.leftLabel : answer.rightLabel}{' '}
                                   {COMPARISON_SCALE.find((choice) => choice.id === answer.choice)?.label.replace(
                                     /^(ซ้าย|ขวา)/,
@@ -645,7 +646,7 @@ export default function QualityPage() {
                                   )}{' '}
                                   ({left ? 'ฝั่งซ้าย' : 'ฝั่งขวา'})
                                 </td>
-                                <td className="px-3 py-2.5 text-right">
+                                <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                                   {answer.timeOnTaskMs === null ? '—' : `${(answer.timeOnTaskMs / 1000).toFixed(1)} วิ`}
                                 </td>
                               </tr>
@@ -653,7 +654,7 @@ export default function QualityPage() {
                           })}
                         </tbody>
                       </table>
-                      <p className="border-t border-edge px-3 py-2.5 text-[11.5px] text-muted">
+                      <p className="border-t border-edge px-3.5 py-2.5 text-[13px] text-muted">
                         ส่งแล้ว {selected.submittedCount} จาก {selected.assignedCount} ข้อ · ตรวจได้{' '}
                         {selected.checkedTriples} วงสามรายการ พบวงขัดกัน {selected.cycles} วง
                       </p>
@@ -686,7 +687,7 @@ export default function QualityPage() {
                   </>
                 )}
               </div>
-              <div className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-edge bg-white px-5 py-4">
+              <div className="sticky bottom-0 grid grid-cols-2 gap-2.5 bg-white px-5 pt-4 pb-6 sm:grid-cols-[212px_212px] sm:justify-end sm:px-7">
                 {mode === 'answers' ? (
                   <>
                     {owner && !identity ? (

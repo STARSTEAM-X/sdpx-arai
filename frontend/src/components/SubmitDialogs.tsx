@@ -40,16 +40,18 @@ export function SubmitConfirmDialog({
       <dl className="mt-4 space-y-1.5 rounded-2xl bg-table-head px-4 py-3 text-[15px]">
         <div className="flex justify-between">
           <dt className="text-ink-2">ตอบแล้ว</dt>
-          <dd>{answered} คู่</dd>
+          <dd className="font-bold">{answered} ข้อ</dd>
         </div>
         <div className="flex justify-between">
           <dt className="text-ink-2">ยังไม่ตอบ</dt>
-          <dd data-testid="unanswered-count">{unanswered} คู่</dd>
+          <dd data-testid="unanswered-count" className="font-bold">
+            {unanswered} ข้อ
+          </dd>
         </div>
         {deadline && (
           <div className="flex justify-between">
             <dt className="text-ink-2">กำหนดส่ง</dt>
-            <dd>{deadline}</dd>
+            <dd className="font-bold">{deadline}</dd>
           </div>
         )}
       </dl>
@@ -75,7 +77,16 @@ export function SubmitConfirmDialog({
 }
 
 /** Figma ST23 · ส่งคำตอบสำเร็จ */
-export function SubmitSuccessDialog({ classroomId, onClose }: { classroomId: string; onClose: () => void }) {
+export function SubmitSuccessDialog({
+  classroomId,
+  editableUntil,
+  onClose,
+}: {
+  classroomId: string
+  /** วันเวลาที่ยังแก้คำตอบได้ — Figma M06 แสดงต่อท้ายบนมือถือ */
+  editableUntil?: string
+  onClose: () => void
+}) {
   const ref = useModal()
   return (
     <dialog
@@ -85,18 +96,21 @@ export function SubmitSuccessDialog({ classroomId, onClose }: { classroomId: str
       onClose={onClose}
       className="fixed inset-0 m-auto w-[calc(100vw-2rem)] max-w-246 overflow-hidden rounded-3xl bg-white p-0 text-center text-ink shadow-[0_24px_60px_rgba(50,16,7,0.2)] backdrop:bg-ink/40 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:rounded-none max-sm:bg-ground"
     >
-      <div className="relative px-6 pt-7 pb-28 max-sm:pt-34 max-sm:pb-8">
-        <img src={successArt} alt="" width={326} height={227} className="mx-auto h-auto w-64" />
+      <div className="relative px-6 pt-7 pb-28 max-sm:pt-30 max-sm:pb-8">
+        <img src={successArt} alt="" width={326} height={227} className="mx-auto h-auto w-64 max-sm:w-60" />
         <h2
           id="submit-success-title"
-          className="relative -mt-6 font-display text-[40px] leading-tight font-bold text-[#237a5c] max-sm:text-[28px]"
+          className="relative -mt-6 font-display text-[40px] leading-tight font-bold text-[#237a5c] max-sm:mt-6 max-sm:text-[28px] max-sm:leading-[43px]"
         >
           ส่งคำตอบสำเร็จแล้ว
         </h2>
-        <p className="mt-1 text-[16px] text-ink-2">รอการประกาศผลคะแนน</p>
+        <p className="mt-1 text-[16px] text-ink-2 max-sm:mt-3 max-sm:text-[15px] max-sm:leading-[21px]">
+          รอการประกาศผลคะแนน
+          {editableUntil && <span className="sm:hidden"> · แก้ไขคำตอบได้จนถึง {editableUntil}</span>}
+        </p>
         <Link
           to={`/classrooms/${classroomId}`}
-          className={btn('primary', 'md', 'relative z-10 mt-8 px-6 max-sm:mt-5 max-sm:min-h-12 max-sm:w-full')}
+          className={btn('primary', 'md', 'relative z-10 mt-8 px-6 max-sm:mt-3 max-sm:min-h-12 max-sm:w-full max-sm:text-[16px]')}
         >
           ไปหน้าห้องเรียน
         </Link>

@@ -17,7 +17,7 @@ import {
   listClassrooms,
   submitEvaluations,
 } from '../lib/api'
-import { formatDeadline } from '../lib/datetime'
+import { formatDeadline, thaiDate } from '../lib/datetime'
 import { useComparisonQueue } from '../lib/useComparisonQueue'
 import { evaluationPairs } from '../lib/evaluationPairs'
 
@@ -539,7 +539,13 @@ export default function EvaluatePage() {
           onConfirm={() => void handleSubmit()}
         />
       )}
-      {succeeded && <SubmitSuccessDialog classroomId={classroomId} onClose={() => setSucceeded(false)} />}
+      {succeeded && <SubmitSuccessDialog
+          classroomId={classroomId}
+          editableUntil={
+            current?.deadlineUtc ? thaiDate(current.deadlineUtc, { timeZone: timezone, year: false, time: true }) : undefined
+          }
+          onClose={() => setSucceeded(false)}
+        />}
     </div>
   )
 }

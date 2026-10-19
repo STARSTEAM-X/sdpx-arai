@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import classroomIllustration from '../assets/enhanced/classroom.webp'
 import welcomeIllustration from '../assets/figma/welcome.png'
 import membersArt from '../assets/figma/members-heading.png'
+import rosterEmptyArt from '../assets/figma/roster-empty-heading.png'
 import createAssignmentArt from '../assets/figma/create-assignment.png'
 import reportsArt from '../assets/figma/owner-report-heading.png'
 import { AppNav } from '../components/AppNav'
@@ -343,7 +344,8 @@ export default function ClassroomDetailPage() {
     members: {
       title: 'สมาชิกในห้องเรียน',
       subtitle: `${students.length} คน · ${groupCount} กลุ่ม · ผู้สอน ${instructors.length} คน`,
-      art: membersArt,
+      // Figma J06 ใช้ภาพรายชื่อเมื่อยังไม่มีนักศึกษา · J09 ใช้ภาพกลุ่มนักศึกษา
+      art: hasStudents ? membersArt : rosterEmptyArt,
     },
     assignments: {
       title: 'สร้างงานประเมิน',
