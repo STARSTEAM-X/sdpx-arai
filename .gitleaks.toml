@@ -1,0 +1,16 @@
+# gitleaks config ของ job security-scan (FR-SEC-07 · GAP-07)
+# ใช้กฎ default ทั้งหมด แล้วยกเว้นเฉพาะไฟล์ที่ตรวจแล้วว่าเป็น false positive — เพิ่มรายการใหม่ต้องเขียนเหตุผลกำกับ
+[extend]
+useDefault = true
+
+[allowlist]
+description = "false positive ที่ตรวจแล้ว 2026-10-20"
+paths = [
+  # SHA-256 ของไฟล์ต้นฉบับ (ใช้ตรวจว่า audit อ้างโค้ดเวอร์ชันไหน) — ไม่ใช่ key
+  '''audit-reports/source-baseline\.json''',
+  # file key ของ Figma เป็น id สาธารณะของไฟล์ออกแบบ ไม่ใช่ access token
+  '''audit-reports/figma-inventory\.json''',
+  '''audit-reports/scripts/build-figma-inventory\.cjs''',
+  # JWT ปลอม (signature = "signature") ใช้พิสูจน์ว่า token ไม่หลุดเข้า log
+  '''backend/tests/api/test_request_logging\.py''',
+]

@@ -55,6 +55,36 @@ jobs:
         run: npm run lint:api
 
   # ===========================================================================
+  # Security scan — FR-SEC-07 (GAP-07): dependency + secret scanning ทุก push
+  # ===========================================================================
+  # ไม่ขึ้นกับ job อื่น (deploy ไม่รอ job นี้) แต่แดงทันทีที่เจอช่องโหว่ระดับ high/critical หรือ secret
+  # (ผลสแกนครั้งเดียวใน docs/security-dependency-audit-20261018.json ไม่กัน dependency ใหม่หลังวันนั้น)
+  # baseline 2026-10-20 บนเครื่อง: pip-audit 0 · npm audit 0 ทั้งสองที่ · gitleaks 0 หลังยกเว้น false positive ใน .gitleaks.toml
+  security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # pip-audit อ่าน requirements.txt ตรง ๆ (ไม่ต้องติดตั้ง app) — เทียบกับฐานข้อมูล PyPI/OSV
+      - name: Python dependencies (pip-audit)
+        run: pipx run pip-audit==2.9.0 -r backend/requirements.txt
+      # npm audit อ่านจาก lockfile เท่านั้น ไม่ต้อง npm ci
+      - name: Frontend dependencies (npm audit)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: Root tooling dependencies (npm audit)
+        run: npm audit --audit-level=high
+      # --no-git สแกนไฟล์ใน working tree ปัจจุบัน · secret ใน history ให้ GitHub secret scanning ดูแล (docs/cicd.md)
+      - name: Secrets in working tree (gitleaks)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 detect --source /repo --no-git --redact --exit-code 1
+
+  # ===========================================================================
   # Frontend
   # ===========================================================================
   lint-fe:
