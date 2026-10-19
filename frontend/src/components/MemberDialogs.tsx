@@ -41,7 +41,7 @@ function RolePicker({
               value={choice.value}
               checked={checked}
               onChange={() => onChange(choice.value)}
-              className="mt-0.5 size-4.5 shrink-0 appearance-none rounded-full border-2 border-muted bg-white checked:border-info-ink checked:bg-info-ink focus:outline-none"
+              className="mt-0.5 size-6 shrink-0 appearance-none rounded-full border-2 border-muted bg-white checked:border-info-ink checked:bg-info-ink focus:outline-none"
             />
             <span>
               <span className={`block font-display text-[15px] font-semibold ${checked ? 'text-info-ink' : ''}`}>

@@ -61,7 +61,20 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // NFR-COMPAT-01 — Chrome/Edge (Chromium), Firefox, Safari (WebKit), iOS Safari, Android Chrome
+  // ค่าเริ่มต้นรันเฉพาะ chromium ให้เร็ว · BROWSERS=all เปิดทุกเบราว์เซอร์
+  // (ยังไม่มี job ใน CI และยังไม่มีผลวัดข้ามเบราว์เซอร์ — งาน #8 ที่ค้าง)
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    ...(process.env.BROWSERS === 'all'
+      ? [
+          { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+          { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+          { name: 'mobile-safari', use: { ...devices['iPhone 14'] } },
+          { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
+        ]
+      : []),
+  ],
 
   // ยกทั้ง API และ frontend ให้เอง — กันเคส "ลืมเปิด server แล้ว test แดงเพราะเหตุผลผิด ๆ"
   webServer: managesServers

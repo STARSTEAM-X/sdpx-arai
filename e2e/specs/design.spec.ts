@@ -109,7 +109,7 @@ test.describe('Figma redesign — ภาพและการใช้งาน�
     await statuses.getByRole('button', { name: /^Archive/ }).click()
     await expect(page.getByTestId('filtered-empty')).toBeVisible()
     await statuses.getByRole('button', { name: /^ใช้งานอยู่/ }).click()
-    const openCreate = page.getByRole('button', { name: 'เปิดหน้าต่างสร้างห้องเรียน', exact: true })
+    const openCreate = page.getByRole('button', { name: '+ สร้างห้องเรียน', exact: true }).first()
     await openCreate.click()
     const dialog = page.getByRole('dialog', { name: 'สร้างห้องเรียน', exact: true })
     await expect(dialog).toBeVisible()

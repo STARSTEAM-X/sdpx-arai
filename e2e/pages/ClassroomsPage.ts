@@ -28,7 +28,7 @@ export class ClassroomsPage {
     this.errorMessage = page.getByRole('alert')
     this.classroomList = page.getByTestId('classroom-list')
     this.emptyState = page.getByTestId('empty-state')
-    this.openCreateButton = page.getByRole('button', { name: 'เปิดหน้าต่างสร้างห้องเรียน', exact: true })
+    this.openCreateButton = page.getByRole('button', { name: '+ สร้างห้องเรียน', exact: true }).first()
   }
 
   async goto(): Promise<void> {

@@ -79,10 +79,10 @@ function Choice({
         checked={checked}
         disabled={disabled}
         onChange={onChange}
-        className={`grid size-4.5 shrink-0 appearance-none place-content-center border-2 bg-white ${FOCUS} ${
+        className={`grid size-6 shrink-0 appearance-none place-content-center border-2 bg-white ${FOCUS} ${
           type === 'checkbox'
-            ? "rounded-[5px] border-brand-500 checked:bg-brand-500 checked:after:block checked:after:h-2.5 checked:after:w-1.5 checked:after:-translate-y-px checked:after:rotate-45 checked:after:border-r-2 checked:after:border-b-2 checked:after:border-white checked:after:content-['']"
-            : 'rounded-full border-line-neutral checked:border-brand-600 checked:shadow-[inset_0_0_0_3px_white] checked:bg-brand-600'
+            ? "rounded-[5px] border-brand-600 checked:bg-brand-600 checked:after:block checked:after:h-3 checked:after:w-2 checked:after:-translate-y-px checked:after:rotate-45 checked:after:border-r-2 checked:after:border-b-2 checked:after:border-white checked:after:content-['']"
+            : 'rounded-full border-muted checked:border-brand-600 checked:shadow-[inset_0_0_0_3px_white] checked:bg-brand-600'
         }`}
       />
       <span className={disabled && !checked ? 'text-muted' : ''}>{children}</span>

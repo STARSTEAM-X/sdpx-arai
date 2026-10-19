@@ -73,6 +73,7 @@ export function AppNav({ context, profile }: AppNavProps) {
           <div className="ml-auto flex min-w-0 items-center gap-5 max-sm:gap-1">
             <p
               data-testid="current-user"
+              role="group"
               aria-label={`บัญชีของ ${displayName}`}
               className="flex min-w-0 items-center gap-5"
             >

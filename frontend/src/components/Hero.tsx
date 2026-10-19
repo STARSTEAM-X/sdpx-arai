@@ -28,7 +28,7 @@ export function Hero() {
           </Link>
         </div>
       </div>
-      <div data-testid="feature-placeholder" className="hero-art relative mx-auto mt-6 w-full max-w-315" aria-label="ภาพตัวอย่างการเปรียบเทียบผลงานสองชิ้น">
+      <div data-testid="feature-placeholder" className="hero-art relative mx-auto mt-6 w-full max-w-315">
         <img src={heroComparison} srcSet={`${heroComparison} 1260w, ${heroComparisonLarge} 1720w`} sizes="(min-width: 1260px) 1260px, 100vw" alt="นักศึกษาสองคนแลกเปลี่ยนความคิดเห็นและเปรียบเทียบผลงาน A กับ B" width={1260} height={669} fetchPriority="high" className="absolute inset-x-0 bottom-0 w-full" />
       </div>
       <img src={heroWave} alt="" width={1440} height={64} className="pointer-events-none absolute inset-x-0 bottom-0 z-20 w-full" />

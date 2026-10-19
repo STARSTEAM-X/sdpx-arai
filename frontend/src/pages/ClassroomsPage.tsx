@@ -126,7 +126,7 @@ export default function ClassroomsPage() {
   const createButton = (
     <button
       type="button"
-      aria-label="เปิดหน้าต่างสร้างห้องเรียน"
+      aria-haspopup="dialog"
       onClick={() => createDialog.current?.showModal()}
       className={btn('primary', 'md', 'min-h-12 px-6 text-[15px]')}
     >
@@ -204,7 +204,7 @@ export default function ClassroomsPage() {
                 </div>
                 <button
                   type="button"
-                  aria-label="เปิดหน้าต่างสร้างห้องเรียน"
+                  aria-haspopup="dialog"
                   onClick={() => createDialog.current?.showModal()}
                   className={btn('ghost', 'md', 'min-h-11 border-brand-600 px-6 text-accent-ink')}
                 >

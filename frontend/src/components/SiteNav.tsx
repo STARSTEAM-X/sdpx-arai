@@ -40,7 +40,7 @@ export function SiteNav() {
           {signedIn ? (
             // Figma ST04: หน้าแรกหลังเข้าสู่ระบบแสดงบัญชีในแถบเดียวกัน ไม่มีปุ่มห้องเรียน
             <div className="flex items-center gap-3 pr-3 max-sm:gap-1 max-sm:pr-0">
-              <p data-testid="current-user" aria-label={`บัญชีของ ${me?.displayName ?? me?.email ?? ''}`} className="flex items-center gap-3">
+              <p data-testid="current-user" role="group" aria-label={`บัญชีของ ${me?.displayName ?? me?.email ?? ''}`} className="flex items-center gap-3">
                 <span className="max-w-60 truncate text-[13px] text-muted max-md:hidden">{me?.email}</span>
                 {me && <Avatar name={me.displayName ?? me.email} small />}
               </p>

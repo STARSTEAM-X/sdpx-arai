@@ -466,7 +466,7 @@ export default function ClassroomDetailPage() {
                     event.preventDefault()
                     go('assignments')
                   }}
-                  className={`inline-flex min-h-12.5 items-center rounded-full bg-[#e35205] px-6 font-display text-[16px] font-semibold text-white hover:bg-cta ${FOCUS}`}
+                  className={`inline-flex min-h-12.5 items-center rounded-full bg-cta px-6 font-display text-[16px] font-semibold text-white hover:bg-cta-hover ${FOCUS}`}
                 >
                   {assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}
                 </a>

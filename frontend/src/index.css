@@ -55,7 +55,8 @@
   --color-ground: #fffcf7;
   --color-sand: #fff5ec;
   --color-edge: #f0e3d9;
-  --color-edge-strong: #e4ccba;
+  /* ขอบช่องกรอก — PRD FR-A11Y-03 ต้อง ≥ 3:1 กับพื้น (WCAG 1.4.11) · แบบเดิม #e4ccba ได้แค่ 1.5:1 */
+  --color-edge-strong: #9c8b80;
 
   /* สีจากแบบ Figma ที่ใช้ซ้ำหลายหน้า (เดิมเขียนเป็น hex ตรง ๆ ในแต่ละ component) */
   --color-table-head: #f6f3f0;   /* หัวตาราง · กล่องสรุปใน dialog */
@@ -107,4 +108,15 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+}
+
+/* PRD §15 FR-A11Y-04 — radio / checkbox ต้องมีพื้นที่กด ≥ 24×24 CSS px (WCAG 2.2 SC 2.5.8)
+   อยู่ใน layer base จึงแพ้ utility class (sr-only ของตัวเลือกแบบการ์ด หรือขนาดที่กำหนดเอง) */
+@layer base {
+  input[type='radio'],
+  input[type='checkbox'] {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
 }
