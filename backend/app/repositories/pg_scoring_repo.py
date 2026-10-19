@@ -77,7 +77,7 @@ class PgScoringRepository:
                 JOIN assignment a ON a.id = p.assignment_id
                 LEFT JOIN classroom_member m
                        ON m.user_id = c.evaluator_user_id AND m.classroom_id = a.classroom_id
-                WHERE p.assignment_id = %s AND p.side = %s AND c.status = 'SUBMITTED'
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s AND c.status = 'SUBMITTED' AND NOT EXISTS (SELECT 1 FROM assignment_exclusion x WHERE x.assignment_id = p.assignment_id AND x.evaluator_user_id = c.evaluator_user_id AND x.excluded)
                 """,
                 (assignment_id, str(side)),
             )
@@ -98,7 +98,7 @@ class PgScoringRepository:
     def criteria_for(self, assignment_id: str, side: Side) -> list[CriterionConfig]:
         with self._conn.cursor() as cur:
             cur.execute(
-                "SELECT id, weight_pct FROM criterion WHERE assignment_id = %s AND side = %s",
+                "SELECT id, weight_pct FROM criterion WHERE retired_at IS NULL AND assignment_id = %s AND side = %s",
                 (assignment_id, str(side)),
             )
             return [CriterionConfig(id=str(r["id"]), weight_pct=Decimal(r["weight_pct"])) for r in cur.fetchall()]
@@ -203,7 +203,7 @@ class PgScoringRepository:
                            'criteria', COALESCE((
                                SELECT jsonb_agg(to_jsonb(x) ORDER BY x.side, x.display_order)
                                FROM (SELECT id, side, name, weight_pct, display_order
-                                     FROM criterion WHERE assignment_id = a.id) x
+                                     FROM criterion WHERE retired_at IS NULL AND assignment_id = a.id) x
                            ), '[]'::jsonb),
                            'comparisons', COALESCE((
                                SELECT jsonb_agg(to_jsonb(x) ORDER BY x.pair_assignment_id)
@@ -212,13 +212,13 @@ class PgScoringRepository:
                                             c.choice, c.evaluator_user_id, c.submitted_at
                                      FROM comparison c
                                      JOIN pair_assignment p ON p.id = c.pair_assignment_id
-                                     WHERE p.assignment_id = a.id AND c.status = 'SUBMITTED') x
+                                     WHERE p.retired_at IS NULL AND p.assignment_id = a.id AND c.status = 'SUBMITTED' AND NOT EXISTS (SELECT 1 FROM assignment_exclusion x WHERE x.assignment_id = p.assignment_id AND x.evaluator_user_id = c.evaluator_user_id AND x.excluded)) x
                            ), '[]'::jsonb),
                            'scoreOverrides', COALESCE((
                                SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at)
                                FROM (SELECT side, item_id, criterion_id, original_value,
                                             override_value, reason, created_by, created_at
-                                     FROM score_override WHERE assignment_id = a.id) x
+                                     FROM score_override WHERE retired_at IS NULL AND assignment_id = a.id) x
                            ), '[]'::jsonb)
                        ),
                        jsonb_build_object(
@@ -234,7 +234,7 @@ class PgScoringRepository:
                                SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at)
                                FROM (SELECT side, item_id, criterion_id, original_value,
                                             override_value, reason, created_by, created_at
-                                     FROM score_override WHERE assignment_id = a.id) x
+                                     FROM score_override WHERE retired_at IS NULL AND assignment_id = a.id) x
                            ), '[]'::jsonb)
                        ),
                        %s
@@ -253,7 +253,7 @@ class PgScoringRepository:
                 FROM pair_assignment p
                 JOIN app_user e ON e.id = p.evaluator_user_id
                 LEFT JOIN comparison c ON c.pair_assignment_id = p.id
-                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
                 """,
                 (assignment_id, str(side), evaluator_email),
             )
@@ -266,7 +266,7 @@ class PgScoringRepository:
                 """
                 SELECT m.group_id
                 FROM classroom_member m JOIN app_user u ON u.id = m.user_id
-                WHERE m.classroom_id = %s AND u.email_normalized = %s AND m.role = 'STUDENT'
+                WHERE m.classroom_id = %s AND u.email_normalized = %s AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE'
                 """,
                 (classroom_id, email_normalized),
             )
@@ -277,10 +277,10 @@ class PgScoringRepository:
         """id ของทุก item ที่ต้องคำนวณคะแนนในฝั่งนี้ — กลุ่มทั้งหมดของห้อง หรือนักศึกษาทั้งหมด"""
         with self._conn.cursor() as cur:
             if side is Side.GROUP:
-                cur.execute("SELECT id FROM group_entity WHERE classroom_id = %s", (classroom_id,))
+                cur.execute("SELECT g.id FROM group_entity g WHERE g.classroom_id = %s AND EXISTS (SELECT 1 FROM classroom_member m WHERE m.group_id = g.id AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE')", (classroom_id,))
             else:
                 cur.execute(
-                    "SELECT user_id AS id FROM classroom_member WHERE classroom_id = %s AND role = 'STUDENT'",
+                    "SELECT user_id AS id FROM classroom_member WHERE classroom_id = %s AND role = 'STUDENT' AND enrollment_status = 'ACTIVE'",
                     (classroom_id,),
                 )
             return [str(r["id"]) for r in cur.fetchall()]
@@ -328,7 +328,7 @@ class PgScoringRepository:
             cur.execute(
                 """
                 SELECT override_value FROM score_override
-                WHERE assignment_id = %s AND side = %s AND item_id = %s
+                WHERE retired_at IS NULL AND assignment_id = %s AND side = %s AND item_id = %s
                   AND criterion_id IS NOT DISTINCT FROM %s
                 ORDER BY created_at DESC LIMIT 1
                 """,
@@ -349,7 +349,7 @@ class PgScoringRepository:
                 """
                 SELECT COALESCE(SUM(COALESCE((
                     SELECT so.override_value FROM score_override so
-                    WHERE so.assignment_id = cs.assignment_id AND so.side = cs.side
+                    WHERE so.retired_at IS NULL AND so.assignment_id = cs.assignment_id AND so.side = cs.side
                       AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
                     ORDER BY so.created_at DESC LIMIT 1
                 ), cs.weighted_score)), 0) AS total
@@ -386,6 +386,27 @@ class PgScoringRepository:
             row = cur.fetchone()
             return Decimal(row["value"]) if row and row["value"] is not None else None
 
+    def own_criterion_scores(self, assignment_id: str, side: Side, item_id: str) -> list[dict]:
+        """Final snapshot projection only; caller applies the individual anonymity gate first."""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT cr.id, cr.name, cr.weight_pct,
+                       COALESCE((SELECT so.override_value FROM score_override so
+                         WHERE so.retired_at IS NULL AND so.assignment_id = cs.assignment_id AND so.side = cs.side
+                           AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
+                         ORDER BY so.created_at DESC LIMIT 1), cs.weighted_score) AS score
+                FROM computed_score cs JOIN criterion cr ON cr.id = cs.criterion_id
+                WHERE cs.assignment_id = %s AND cs.side = %s AND cs.item_id = %s
+                  AND cs.is_final = true AND cs.computed_at = (
+                    SELECT MAX(computed_at) FROM computed_score
+                    WHERE assignment_id = %s AND is_final = true)
+                ORDER BY cr.display_order, cr.name
+                """,
+                (assignment_id, str(side), item_id, assignment_id),
+            )
+            return list(cur.fetchall())
+
     def list_computed_scores(self, assignment_id: str, *, is_final: bool) -> list["ComputedScoreRow"]:
         """สรุปคะแนนต่อ item (รวมทุกเกณฑ์แล้ว) — ให้อาจารย์เห็นก่อนตัดสินใจ finalize (US-13)
 
@@ -409,12 +430,12 @@ class PgScoringRepository:
                        COALESCE(g.name, u.display_name, u.email_normalized) AS item_label,
                        COALESCE((
                            SELECT so.override_value FROM score_override so
-                           WHERE so.assignment_id = %s AND so.side = cs.side
+                           WHERE so.retired_at IS NULL AND so.assignment_id = %s AND so.side = cs.side
                              AND so.item_id = cs.item_id AND so.criterion_id IS NULL
                            ORDER BY so.created_at DESC LIMIT 1
                        ), SUM(COALESCE((
                            SELECT so.override_value FROM score_override so
-                           WHERE so.assignment_id = %s AND so.side = cs.side
+                           WHERE so.retired_at IS NULL AND so.assignment_id = %s AND so.side = cs.side
                              AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
                            ORDER BY so.created_at DESC LIMIT 1
                        ), cs.weighted_score))) AS component,
@@ -454,8 +475,8 @@ class PgScoringRepository:
                 SELECT count(DISTINCT c.evaluator_user_id) AS n
                 FROM comparison c
                 JOIN pair_assignment p ON p.id = c.pair_assignment_id
-                WHERE p.assignment_id = %s AND p.side = %s
-                  AND c.status = 'SUBMITTED'
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s
+                  AND c.status = 'SUBMITTED' AND NOT EXISTS (SELECT 1 FROM assignment_exclusion x WHERE x.assignment_id = p.assignment_id AND x.evaluator_user_id = c.evaluator_user_id AND x.excluded)
                   AND (p.item_a_id = %s OR p.item_b_id = %s)
                 """,
                 (assignment_id, str(side), item_id, item_id),
@@ -484,7 +505,7 @@ class PgScoringRepository:
                 LEFT JOIN group_entity gb ON p.side = 'GROUP' AND gb.id = p.item_b_id
                 LEFT JOIN app_user ua ON p.side = 'INDIVIDUAL' AND ua.id = p.item_a_id
                 LEFT JOIN app_user ub ON p.side = 'INDIVIDUAL' AND ub.id = p.item_b_id
-                WHERE p.assignment_id = %s AND c.status = 'SUBMITTED'
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND c.status = 'SUBMITTED' AND NOT EXISTS (SELECT 1 FROM assignment_exclusion x WHERE x.assignment_id = p.assignment_id AND x.evaluator_user_id = c.evaluator_user_id AND x.excluded)
                 ORDER BY p.side, cr.display_order, c.submitted_at
                 """,
                 (assignment_id,),

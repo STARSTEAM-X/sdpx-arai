@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Banner, Card, CardHead, Pill, Spinner, btn } from './Ui'
+import { useMenu } from './useMenu'
 import { IconDownload, IconLock, IconTransparentScore } from './icons'
 import {
   ApiError,
@@ -34,7 +35,7 @@ function ScoresPanel({
   onOverride,
 }: {
   scores: Scores
-  onOverride: (item: Scores['items'][number]) => void
+  onOverride?: (item: Scores['items'][number]) => void
 }) {
   return (
     <div className="mt-3 w-full rounded-xl border border-edge bg-sand p-4">
@@ -60,14 +61,14 @@ function ScoresPanel({
                 </Pill>
               )}
               <span className="ml-auto font-mono tabular">{s.component}</span>
-              <button
+              {onOverride && <button
                 type="button"
                 className={btn('ghost', 'sm')}
                 onClick={() => onOverride(s)}
                 aria-label={`ปรับคะแนน ${s.itemLabel}`}
               >
                 ปรับคะแนน
-              </button>
+              </button>}
             </li>
           ))}
         </ul>
@@ -83,22 +84,29 @@ function AssignmentRow({
   onRecompute,
   onFinalize,
   onReopen,
+  readOnly = false,
 }: {
   item: AssignmentSummary
   busy: Busy
   onRecompute: (id: string) => void
   onFinalize: (id: string) => void
   onReopen: (id: string) => void
+  readOnly?: boolean
 }) {
   const isBusy = busy?.id === item.id
-  const deadlinePassed = new Date(item.groupDeadlineUtc) <= new Date()
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const deadlinePassed = Math.max(new Date(item.groupDeadlineUtc).getTime(), new Date(item.individualDeadlineUtc ?? item.groupDeadlineUtc).getTime()) <= now
   const canFinalize = ['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status)
   const [scores, setScores] = useState<Scores | null>(null)
   const [scoresError, setScoresError] = useState<string | null>(null)
   const [loadingScores, setLoadingScores] = useState(false)
   const [exporting, setExporting] = useState<'plain' | 'identified' | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const { open: exportMenuOpen, setOpen: setExportMenuOpen, rootRef, triggerRef, onKeyDown } = useMenu()
 
   const workflowHint =
     item.status === 'FINALIZED'
@@ -212,7 +220,7 @@ function AssignmentRow({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-edge pt-4">
-        {canFinalize ? (
+        {!readOnly && canFinalize ? (
           <>
             <button
               type="button"
@@ -234,7 +242,7 @@ function AssignmentRow({
               ประกาศผลคะแนน
             </button>
           </>
-        ) : item.status === 'FINALIZED' ? (
+        ) : !readOnly && item.status === 'FINALIZED' ? (
           <button
             type="button"
             disabled={busy !== null}
@@ -257,8 +265,9 @@ function AssignmentRow({
           {scores ? 'ซ่อนคะแนน' : 'ดูคะแนนที่คำนวณ'}
         </button>
 
-        <div className="relative ml-auto">
+        <div ref={rootRef} onKeyDown={onKeyDown} className="relative ml-auto">
           <button
+            ref={triggerRef}
             type="button"
             aria-expanded={exportMenuOpen}
             aria-haspopup="menu"
@@ -310,7 +319,7 @@ function AssignmentRow({
           {exportError}
         </Banner>
       )}
-      {scores && <ScoresPanel scores={scores} onOverride={(score) => void handleOverride(score)} />}
+      {scores && <ScoresPanel scores={scores} onOverride={readOnly ? undefined : (score) => void handleOverride(score)} />}
     </li>
   )
 }
@@ -320,7 +329,7 @@ function AssignmentRow({
  *  แยกจาก AssignmentPanel เพราะคนละช่วงเวลาของ workflow: อันนั้นสร้างและ publish งาน
  *  ส่วนนี้ทำงานหลัง publish ไปแล้วและอาศัยรายการ assignment ทั้งหมดของห้อง ไม่ใช่แค่ตัวที่เพิ่งสร้าง
  */
-export function AssignmentScoringCard({ classroomId }: { classroomId: string }) {
+export function AssignmentScoringCard({ classroomId, version = 0, readOnly = false }: { classroomId: string; version?: number; readOnly?: boolean }) {
   const [items, setItems] = useState<AssignmentSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -339,7 +348,7 @@ export function AssignmentScoringCard({ classroomId }: { classroomId: string }) 
       .finally(() => setLoaded(true))
   }
 
-  useEffect(refresh, [classroomId])
+  useEffect(refresh, [classroomId, version])
 
   async function handleRecompute(id: string) {
     setBusy({ id, kind: 'recompute' })
@@ -448,6 +457,7 @@ export function AssignmentScoringCard({ classroomId }: { classroomId: string }) 
               onRecompute={(id) => void handleRecompute(id)}
               onFinalize={(id) => void handleFinalize(id)}
               onReopen={(id) => void handleReopen(id)}
+              readOnly={readOnly}
             />
           ))}
         </ul>

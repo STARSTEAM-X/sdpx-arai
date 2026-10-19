@@ -34,7 +34,10 @@ from app.domain.scoring_service import (
 from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
-from app.repositories.pg_classroom_repo import PgClassroomRepository
+from app.repositories.pg_classroom_repo import (
+    PgClassroomRepository,
+    require_writable_classroom,
+)
 from app.repositories.pg_scoring_repo import ComparisonExportRow, PgScoringRepository
 from app.scoring_orchestrator import run_recompute
 
@@ -70,6 +73,7 @@ def recompute_scores(assignment_id: str, user_email: CurrentUser) -> RecomputeOu
     """
     with transaction() as conn:
         assignment = _load_for_instructor(conn, assignment_id, user_email)
+        require_writable_classroom(conn, assignment.classroom_id)
         now = datetime.now(UTC)
         has_low_confidence = run_recompute(conn, assignment, is_final=False, now=now)
 
@@ -106,9 +110,12 @@ def finalize_assignment(
         ClassroomAccess(PgClassroomRepository(conn)).require(
             assignment.classroom_id, user_email, Capability.FINALIZE_SCORES
         )
+        require_writable_classroom(conn, assignment.classroom_id)
 
         now = datetime.now(UTC)
-        assert_finalizable(now=now, deadline=assignment.group_deadline_utc, status=str(assignment.status))
+        assignment = repo.lock(assignment_id)
+        last_deadline = max(assignment.group_deadline_utc, assignment.individual_deadline_utc or assignment.group_deadline_utc)
+        assert_finalizable(now=now, deadline=last_deadline, status=str(assignment.status))
 
         has_low_confidence = run_recompute(conn, assignment, is_final=True, now=now)
         assert_before_finalize(
@@ -162,6 +169,7 @@ def reopen_assignment(
         ClassroomAccess(PgClassroomRepository(conn)).require(
             assignment.classroom_id, user_email, Capability.FINALIZE_SCORES
         )
+        require_writable_classroom(conn, assignment.classroom_id)
         assert_reopenable(status=str(assignment.status))
         reason = body.reason.strip()
         if not reason:
@@ -333,6 +341,7 @@ def create_score_override(
         ClassroomAccess(PgClassroomRepository(conn)).require(
             assignment.classroom_id, user_email, Capability.FINALIZE_SCORES
         )
+        require_writable_classroom(conn, assignment.classroom_id)
         assert_can_override(reason=body.reason)
 
         scoring_repo = PgScoringRepository(conn)
@@ -415,6 +424,15 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
     )
 
 
+class OwnCriterionScoreOut(BaseModel):
+    id: str
+    side: str
+    name: str
+    weightPct: Decimal
+    score: Decimal
+    maxScore: Decimal
+
+
 class MyScoreOut(BaseModel):
     finalized: bool
     message: str | None = None
@@ -424,6 +442,15 @@ class MyScoreOut(BaseModel):
     participationRatio: Decimal | None = None
     participationMultiplier: Decimal | None = None
     finalScore: Decimal | None = None
+    assignmentName: str | None = None
+    groupMaxScore: Decimal | None = None
+    individualMaxScore: Decimal | None = None
+    finalizedAt: datetime | None = None
+    submittedCount: int | None = None
+    assignedCount: int | None = None
+    criterionScores: list[OwnCriterionScoreOut] = Field(default_factory=list)
+    groupOverridden: bool = False
+    individualOverridden: bool = False
 
 
 @router.get("/{assignment_id}/my-score", response_model=MyScoreOut)
@@ -440,6 +467,10 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
 
         # แค่เป็นสมาชิกห้องก็เรียกได้ — คำตอบจะบอกเองว่ายังไม่ประกาศผลถ้ายังไม่ FINALIZED
         ClassroomAccess(PgClassroomRepository(conn)).require_member(assignment.classroom_id, user_email)
+        with conn.cursor() as cur:
+            cur.execute('SELECT m.enrollment_status FROM classroom_member m JOIN app_user u ON u.id = m.user_id WHERE m.classroom_id = %s AND u.email_normalized = %s', (assignment.classroom_id, user_email))
+            if cur.fetchone()['enrollment_status'] == 'WITHDRAWN':
+                return MyScoreOut(finalized=False, message='ถอนจากรายวิชานี้แล้ว จึงไม่แสดงคะแนน')
 
         if assignment.status is not AssignmentStatus.FINALIZED:
             return MyScoreOut(finalized=False, message="ยังไม่ประกาศผลคะแนน")
@@ -498,6 +529,23 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
                 participation_multiplier=m,
             )
 
+        details = []
+        group_overridden = bool(group_id and scoring_repo.latest_override_value(assignment_id, Side.GROUP, group_id, None) is not None)
+        individual_overridden = bool(not individual_hidden and assignment.has_individual_side and my_user_id and scoring_repo.latest_override_value(assignment_id, Side.INDIVIDUAL, my_user_id, None) is not None)
+        targets = [(Side.GROUP, group_id, assignment.group_max_score)]
+        if not individual_hidden and assignment.has_individual_side:
+            targets.append((Side.INDIVIDUAL, my_user_id, assignment.individual_max_score))
+        for side, item_id, maximum in targets:
+            if item_id:
+                details.extend(
+                    OwnCriterionScoreOut(
+                        id=str(row["id"]), side=str(side), name=row["name"],
+                        weightPct=row["weight_pct"], score=row["score"],
+                        maxScore=maximum * row["weight_pct"] / Decimal(100),
+                    )
+                    for row in scoring_repo.own_criterion_scores(assignment_id, side, item_id)
+                )
+
     return MyScoreOut(
         finalized=True,
         groupComponent=group_component,
@@ -506,4 +554,13 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         participationRatio=p_ratio,
         participationMultiplier=m,
         finalScore=final_score,
+        assignmentName=assignment.name,
+        groupMaxScore=assignment.group_max_score,
+        individualMaxScore=assignment.individual_max_score,
+        finalizedAt=assignment.finalized_at,
+        submittedCount=group_p.submitted + indiv_p.submitted,
+        assignedCount=group_p.assigned + indiv_p.assigned,
+        criterionScores=details,
+        groupOverridden=group_overridden,
+        individualOverridden=individual_overridden,
     )

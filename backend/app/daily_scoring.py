@@ -34,9 +34,10 @@ def run_due_recomputes(now: datetime | None = None) -> int:
             FROM assignment a
             JOIN classroom c ON c.id = a.classroom_id
             LEFT JOIN computed_score cs ON cs.assignment_id = a.id AND cs.is_final = false
-            WHERE a.status IN ('PUBLISHED', 'OPEN', 'CLOSED')
+            WHERE a.status IN ('PUBLISHED', 'OPEN', 'CLOSED') AND c.status = 'ACTIVE'
+              AND (a.opens_at_utc IS NULL OR a.opens_at_utc <= %s)
             GROUP BY a.id, c.timezone
-            """
+            """, (now,),
         )
         due_ids = [
             str(row["id"]) for row in cur.fetchall()
@@ -54,6 +55,15 @@ def run_due_recomputes(now: datetime | None = None) -> int:
                 continue
             assignment = PgAssignmentRepository(conn).get(assignment_id)
             if assignment is None:
+                continue
+            if assignment.opens_at_utc and assignment.opens_at_utc > now:
+                continue
+            # Archive/finalize may have happened after the initial due query.
+            cur.execute("SELECT status FROM classroom WHERE id = %s FOR SHARE", (assignment.classroom_id,))
+            if cur.fetchone()["status"] != "ACTIVE":
+                continue
+            cur.execute("SELECT status FROM assignment WHERE id = %s FOR SHARE", (assignment_id,))
+            if cur.fetchone()["status"] not in {"PUBLISHED", "OPEN", "CLOSED"}:
                 continue
             run_recompute(conn, assignment, is_final=False, now=now)
             completed += 1
