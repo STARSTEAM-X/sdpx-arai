@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { ApiError, type Me, getMe } from '../lib/api'
+import { type Me, getMe } from '../lib/api'
 import { clearToken, isSignedIn } from '../lib/session'
-import { Avatar } from './Ui'
+import { Avatar, FOCUS } from './Ui'
+import { useMenu } from './useMenu'
+import { NotificationBell } from './NotificationBell'
 import {
-  IconChevronDown,
   IconClassroom,
   IconLogOut,
   LogoMark,
@@ -32,9 +33,8 @@ type AppNavProps = {
  */
 export function AppNav({ context, contextTo, classroomId, profile }: AppNavProps) {
   const navigate = useNavigate()
-  const menuRef = useRef<HTMLDivElement>(null)
+  const { open, setOpen, rootRef, triggerRef, onKeyDown } = useMenu()
   const [me, setMe] = useState<Me | null>(profile ?? null)
-  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (profile !== undefined) {
@@ -48,21 +48,11 @@ export function AppNav({ context, contextTo, classroomId, profile }: AppNavProps
       .then((value) => {
         if (active) setMe(value)
       })
-      .catch((error: unknown) => {
-        if (error instanceof ApiError && error.status === 401) clearToken()
-      })
+      .catch(() => { /* apiFetch จัดการ session 401 ตาม token ของ request แล้ว */ })
     return () => {
       active = false
     }
   }, [profile])
-
-  useEffect(() => {
-    function closeOnOutsideClick(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', closeOnOutsideClick)
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
-  }, [])
 
   const membership = classroomId
     ? me?.classrooms.find((item) => item.classroomId === classroomId)
@@ -77,81 +67,66 @@ export function AppNav({ context, contextTo, classroomId, profile }: AppNavProps
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-edge bg-white/92 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-edge/50 bg-white/95 backdrop-blur">
       <nav
         data-testid="main-nav"
-        aria-label="เมนูหลัก"
-        className="mx-auto flex h-16 max-w-300 items-center gap-3 px-6 max-sm:px-4"
+        aria-label="เมนูหลัก" aria-description={context}
+        className="mx-auto flex h-16 max-w-360 items-center gap-5 px-7 sm:px-10 lg:px-14 max-sm:gap-3 max-sm:px-4"
       >
         <Link
           to="/"
-          className="flex min-h-11 shrink-0 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight"
+          aria-label="PairEval หน้าแรก"
+          className={`flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg font-display text-[24px] font-bold tracking-tight ${FOCUS}`}
         >
-          <LogoMark className="size-8" />
-          <span className="max-[420px]:hidden">PairEval</span>
+          <LogoMark className="size-9" />
+          <span>PairEval</span>
         </Link>
-
-        <Link
-          to="/classrooms"
-          className="ml-2 inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 border-brand-600 px-2 text-sm font-semibold text-ink max-sm:ml-0 max-sm:px-1"
-        >
-          <IconClassroom className="size-4" />
-          ห้องเรียน
-        </Link>
-
-        {context && (
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted max-sm:hidden">
-            <span aria-hidden="true">/</span>
-            {contextTo ? (
-              <Link to={contextTo} className="truncate transition-colors hover:text-ink">
-                {context}
-              </Link>
-            ) : (
-              <span className="truncate">{context}</span>
-            )}
-          </div>
-        )}
 
         {isSignedIn() && (
-          <div ref={menuRef} className="relative ml-auto">
+          <div className="ml-auto flex min-w-0 items-center gap-3">
+            <NotificationBell />
+          <div ref={rootRef} onKeyDown={onKeyDown} className="relative order-2 min-w-0 md:order-1">
             <button
+              ref={triggerRef}
               type="button"
               data-testid="current-user"
+              aria-label={`บัญชีของ ${displayName}`}
               aria-haspopup="menu"
               aria-expanded={open}
               onClick={() => setOpen((value) => !value)}
-              className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-left transition-colors hover:bg-sand"
+              className={`flex min-h-11 items-center gap-2.5 rounded-full px-1.5 text-left transition-colors hover:bg-accent-soft ${FOCUS}`}
             >
-              {roleLabel && (
-                <span className="rounded-full border border-edge bg-sand px-2.5 py-1 text-xs font-medium text-ink-2 max-md:hidden">
-                  {roleLabel}
-                </span>
-              )}
-              <Avatar name={displayName} />
-              <span className="max-w-36 truncate text-sm font-medium max-lg:hidden">{displayName}</span>
-              <IconChevronDown className={`size-4 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+              <span className="max-w-52 truncate text-[13px] text-muted max-md:hidden">
+                {me?.email ?? displayName}
+              </span>
+              <Avatar name={displayName} small />
             </button>
 
             {open && (
               <div
                 role="menu"
-                className="absolute top-[calc(100%+0.5rem)] right-0 w-64 overflow-hidden rounded-xl border border-edge bg-white p-1.5 shadow-[0_14px_36px_rgba(23,32,51,0.14)]"
+                className="absolute top-[calc(100%+0.75rem)] right-0 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-edge bg-white p-2 shadow-[0_12px_30px_rgba(50,16,7,0.10)]"
               >
                 <div className="border-b border-edge px-3 py-2.5">
                   <p className="truncate text-sm font-semibold">{me?.displayName ?? 'บัญชีของฉัน'}</p>
                   <p className="mt-0.5 truncate text-xs text-muted">{me?.email ?? 'กำลังโหลดข้อมูลบัญชี…'}</p>
+                  {roleLabel && <p className="mt-1 text-xs text-muted">{roleLabel}</p>}
                 </div>
+                <Link to="/classrooms" role="menuitem" onClick={() => setOpen(false)} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm hover:bg-accent-soft ${FOCUS}`}><IconClassroom className="size-4" />ห้องเรียนของฉัน</Link>
+                {contextTo && <Link to={contextTo} role="menuitem" onClick={() => setOpen(false)} className={`flex min-h-11 items-center rounded-xl px-3 text-sm hover:bg-accent-soft ${FOCUS}`}>{context ?? 'กลับหน้าห้องเรียน'}</Link>}
                 <button
                   type="button"
                   role="menuitem"
                   onClick={handleSignOut}
-                  className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-sand hover:text-ink"
+                  className={`mt-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-sm text-ink-2 transition-colors hover:bg-accent-soft hover:text-ink ${FOCUS}`}
                 >
                   <IconLogOut className="size-4" />
                   ออกจากระบบ
                 </button>
               </div>
             )}
+          </div>
+          <button type="button" aria-label="ออกจากระบบ" onClick={handleSignOut} className={`order-3 grid size-11 place-items-center rounded-full text-brand-600 hover:bg-accent-soft max-sm:hidden ${FOCUS}`}><IconLogOut className="size-5" /></button>
           </div>
         )}
       </nav>
