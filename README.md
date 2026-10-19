@@ -12,13 +12,14 @@
 
 ## Live
 
-| | URL |
-|---|---|
-| หน้าเว็บ | <https://paireval-web.onrender.com> |
-| API | <https://paireval-api.onrender.com/api/health> |
+| | Staging (`develop`) | Production (`main`) |
+|---|---|---|
+| หน้าเว็บ | <https://paireval-web.onrender.com> | <https://paireval-web-production.onrender.com> |
+| API | <https://paireval-api.onrender.com/api/health> | <https://paireval-api-production.onrender.com/api/health> |
 
-ทั้งสอง service ใช้ branch `develop`. CI สั่ง deploy หลังตรวจผ่าน
-ตาม [`render.yaml`](render.yaml); Auto-Deploy และ Blueprint Auto Sync ปิดแล้ว.
+Staging deploy จาก `develop` ทันทีที่ CI ผ่านตาม [`render.yaml`](render.yaml);
+production deploy จาก `main` ตาม [`render.production.yaml`](render.production.yaml) และต้องรอคนอนุมัติใน GitHub
+(Actions → run ของ `main` → Review deployments). Auto-Deploy และ Blueprint Auto Sync ปิดแล้วทั้งสองฝั่ง.
 การตั้งค่าบัญชีและชื่อ secrets ที่ใช้บันทึกอยู่ใน [`docs/cicd.md`](docs/cicd.md).
 `GET /api/health` ตอบ commit SHA ที่ API กำลังรันอยู่ — ใช้เช็คได้ทันทีว่า deploy ตามทันหรือยัง
 (ป้ายสถานะ API บนหน้าแรกถูกเอาออกตามแบบ Figma)
@@ -44,8 +45,17 @@
 | WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
 | WS-06 CI/CD | ✅ | Docker CI ผ่าน 7 checks, PR ทดลองบล็อก merge จริง, API/เว็บ staging SHA เดียวกัน edba11d; pipeline รอบยืนยันผ่านรวม performance. Commit-to-live รอบแรก 359.7s; production มี human reviewer gate และ template แยก ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
-| WS-07 Performance | 🟡 | Baseline/AI analysis ครบ; รอบ edba11d ผ่าน CI: 319 requests/0 errors, autosave p95 **270.40ms**, submit **351.71ms**. เก็บรอบแรกที่ autosave 317.95ms ไม่ผ่านไว้ด้วย; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ ([`docs/performance-report.md`](docs/performance-report.md)) |
-| WS-08 Code Quality & Security | 🟡 | Refactor publish 93→61 บรรทัดโดยคง behavior; แก้ CSV injection/production signing fallback และอัปเดต dependencies. Local backend 428 + frontend 21, integration 29, E2E 118 ผ่าน; unit loop 8.04s. Review/ADR/security evidence ครบ; CodeQL ตั้งค่าแล้วแต่ยังไม่มีภาษาใน main จึงยังไม่ scan และยังไม่ยืนยัน human present/LMS ([`docs/ws08-submission.md`](docs/ws08-submission.md)) |
+| WS-07 Performance | 🟡 | Baseline/AI analysis ครบ; รอบ edba11d ผ่าน CI: 319 requests/0 errors, autosave p95 **270.40ms**, submit **351.71ms**. เก็บรอบแรกที่ autosave 317.95ms ไม่ผ่านไว้ด้วย. รอบล่าสุด (d7d7b76, 2026-10-20) ตกเกณฑ์เดียวคือ `my_evaluations` p95 **450.4ms** (เกณฑ์ 400ms วัดไป-กลับจาก runner ถึง Render) ขณะที่ฝั่ง server p95 47.05ms และ autosave ฝั่ง server 37.84ms; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ ([`docs/performance-report.md`](docs/performance-report.md)) |
+| WS-08 Code Quality & Security | 🟡 | Refactor publish 93→61 บรรทัดโดยคง behavior; แก้ CSV injection/production signing fallback และอัปเดต dependencies. Review/ADR/security evidence ครบ; CodeQL scan ภาษา Python และ JavaScript/TypeScript ผ่านบน PR #24 ที่ merge เข้า `main` แล้ว; ยังไม่ยืนยัน human present/LMS ([`docs/ws08-submission.md`](docs/ws08-submission.md)) |
+
+### หลัง WS-08 (merge เข้า `main` ใน [PR #24](https://github.com/STARSTEAM-X/sdpx-arai/pull/24))
+
+- **Privacy / scoring:** k_min ไม่ต่ำกว่า 3 (GAP-01) · กลุ่ม 3 คนติด LOW_CONFIDENCE เสมอ (GAP-09) · ดาวน์โหลดสำเนาข้อมูลของตัวเอง (GAP-02)
+- **Features:** ปิดฝั่งกลุ่มด้วย groupMaxScore = 0 (GAP-11) · diff รายชื่อก่อนนำเข้า (GAP-12)
+- **Ops / quality:** backup รายวันแบบเข้ารหัสและ alert (GAP-08, GAP-10) · สแกน dependency/secret + dependabot (GAP-07) · property test ของ pairing (GAP-13) · INSERT คู่แบบ executemany (GAP-04)
+- **เข้าสู่ระบบด้วย Google:** ปุ่มสีส้มพาไปหน้า login ของ Google เอง (OIDC redirect + state/nonce) แทนการซ่อนปุ่ม GIS ที่ Google เมินคลิก
+- **UI:** ปฏิทินเลือกวันเวลาลอยเหนือการ์ด/dialog ไม่ถูกตัด
+- **Test:** integration test คะแนนทั้งห้องไม่ flaky แล้ว
 
 ### Product backlog
 
@@ -64,7 +74,10 @@ frontend/     React 19 + Vite + TypeScript + Tailwind v4
 backend/      FastAPI (Python 3.12)
 memory-bank/  context ที่ทั้งคนและ AI agent อ่าน
 docs/         design docs และเอกสารของ project
-render.yaml   Render Blueprint — infra เป็น code
+e2e/          Playwright E2E
+performance/  k6 smoke/load test
+render.yaml             Render Blueprint ของ staging — infra เป็น code
+render.production.yaml  Render Blueprint ของ production
 compose.yaml       dev environment — web + api + db ด้วยคำสั่งเดียว
 compose.test.yaml  test environment — unit / integration / e2e พร้อม db แบบ ephemeral
 Sources/      เอกสารประกอบวิชา (MIT)
@@ -191,14 +204,16 @@ integration test ถูกตัดออกจาก `pytest` เปล่า �
 ทุก PR และ push เข้า develop/main รัน [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 Lint, unit, integration และ E2E เป็น gate ก่อน deploy; test containers ใช้
 compose.test.yaml พร้อม compose.ci.yaml สำหรับ cache/JUnit/coverage.
-ผลตรวจ local unit ล่าสุด 2026-10-05: backend 404, frontend 21 ผ่าน;
-unit loop ทั้งสองคำสั่งรวม 5.42s เมื่อรันแยกจาก lint/typecheck.
-Integration 29 และ E2E 118 ผ่านในการตรวจ candidate ก่อนหน้า; ผล Docker CI อ้าง run จริงใน docs/loop-metrics.md.
+ผลตรวจบนเครื่องล่าสุด 2026-10-20 (d7d7b76): backend unit 723 (8.82s), frontend 48, integration 57
+และ E2E 149 ผ่าน — backend ตัวเดียวเข้าใกล้เพดาน 10 วิของ unit loop แล้ว.
+CI ของ d7d7b76 ผ่านทุก gate จนถึง deploy-staging; job `performance` ไม่ใช่ required check ของ `main`.
+ผล Docker CI รอบก่อน ๆ อ้าง run จริงใน docs/loop-metrics.md.
 
 ## Deploy
 
-CI สั่ง Render deploy หลัง gate ผ่านเมื่อ push เข้า develop; ตรวจ commit ของ API และเว็บ.
-Config staging อยู่ใน [`render.yaml`](render.yaml), production template ใน
+CI สั่ง Render deploy หลัง gate ผ่าน: push เข้า `develop` → staging ทันที,
+push เข้า `main` (merge release PR) → production หลังคนอนุมัติ; ตรวจ commit ของ API และเว็บด้วย `GET /api/health`.
+Config staging อยู่ใน [`render.yaml`](render.yaml), production ใน
 [`render.production.yaml`](render.production.yaml) สำหรับ workspace แยก.
 DB Free ใหม่หมดอายุ 2026-11-04; รายละเอียดใน [`docs/render-free-db.md`](docs/render-free-db.md).
 
