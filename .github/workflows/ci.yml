@@ -135,7 +135,7 @@ jobs:
         path: test-results/frontend/unit.xml
         reporter: java-junit
     - name: Upload test reports
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       if: ${{ !cancelled() }}
       with:
         name: test-fe-${{ github.sha }}
@@ -192,7 +192,7 @@ jobs:
         path: test-results/backend/unit.xml
         reporter: java-junit
     - name: Upload test reports
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       if: ${{ !cancelled() }}
       with:
         name: test-be-${{ github.sha }}
@@ -244,7 +244,7 @@ jobs:
         path: test-results/integration/integration.xml
         reporter: java-junit
     - name: Upload test reports
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       if: ${{ !cancelled() }}
       with:
         name: integration-be-${{ github.sha }}
@@ -282,7 +282,7 @@ jobs:
         path: e2e/test-results/e2e.xml
         reporter: java-junit
     - name: Upload test reports
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       if: ${{ !cancelled() }}
       with:
         name: e2e-${{ github.sha }}
@@ -344,7 +344,7 @@ jobs:
       run: python scripts/ci/perf_summary.py performance/staging-smoke.json performance/staging-baseline.json
     - name: Upload metrics only (never sessions)
       if: ${{ !cancelled() && steps.metrics_safe.outcome == 'success' }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       with:
         name: k6-staging-${{ github.sha }}-attempt-${{ github.run_attempt }}
         path: 'performance/staging-smoke.json
