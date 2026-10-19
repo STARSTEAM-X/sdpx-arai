@@ -49,6 +49,7 @@ from app.config import (
 from app.daily_scoring import daily_scoring_loop
 from app.db import close_pool, open_pool
 from app.domain.errors import DomainError
+from app.email_worker import email_loop
 from app.observability import (
     configure_logging,
     log_event,
@@ -72,7 +73,8 @@ http_log = logging.getLogger("paireval.http")
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     open_pool()
-    tasks = [asyncio.create_task(daily_scoring_loop()), asyncio.create_task(alert_loop())]
+    tasks = [asyncio.create_task(daily_scoring_loop()), asyncio.create_task(alert_loop()),
+             asyncio.create_task(email_loop())]
     try:
         yield
     finally:

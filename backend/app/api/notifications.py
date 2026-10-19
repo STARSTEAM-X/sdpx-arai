@@ -46,7 +46,7 @@ def _short_deadline(value: datetime | None, timezone: str | None) -> str:
     return f"{local.day} {_TH_MONTHS[local.month - 1]} {local:%H:%M}"
 
 
-def _text(event: dict) -> tuple[str, str]:
+def notification_text(event: dict) -> tuple[str, str]:
     """หัวข้อและบรรทัดรองของแต่ละประเภท — บอกสิ่งที่ต้องทำ ไม่มีคะแนนของใครในข้อความ"""
     kind = event["kind"]
     name = event["assignment_name"]
@@ -77,16 +77,22 @@ def _text(event: dict) -> tuple[str, str]:
     return "ผู้สอนตอบคำร้องอุทธรณ์แล้ว", f'{name} · {event["classroom_name"]}'
 
 
+def notification_href(event: dict) -> str:
+    """ลิงก์ตรงไปหน้าที่ต้องทำ (FR-NOTIF-06) — ใช้ทั้งในเว็บและในอีเมล"""
+    suffix = _HREF_SUFFIX[event["kind"]]
+    return f'/classrooms/{event["classroom_id"]}/assignments/{event["assignment_id"]}/{suffix}'.rstrip("/")
+
+
 @router.get("", response_model=NotificationList)
 def notifications(user_email: CurrentUser) -> NotificationList:
     with transaction() as conn:
         events = PgNotificationRepository(conn).list_for_user(user_email)
     items = []
     for event in events:
-        title, message = _text(event)
+        title, message = notification_text(event)
         items.append(NotificationOut(
             id=event["event_key"], title=title, message=message,
-            href=f'/classrooms/{event["classroom_id"]}/assignments/{event["assignment_id"]}/{_HREF_SUFFIX[event["kind"]]}'.rstrip("/"),
+            href=notification_href(event),
             occurredAt=event["occurred_at"], read=event["read_at"] is not None,
         ))
     return NotificationList(items=items, unreadCount=sum(not item.read for item in items))
