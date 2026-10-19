@@ -6,7 +6,11 @@ from psycopg import Connection
 
 from app.domain.assignment_service import Assignment
 from app.domain.pairing import Side
-from app.domain.scoring_service import LOW_CONFIDENCE, compute_item_component
+from app.domain.scoring_service import (
+    LOW_CONFIDENCE,
+    compute_item_component,
+    group_size_forces_low_confidence,
+)
 from app.repositories.pg_scoring_repo import PgScoringRepository
 
 
@@ -14,6 +18,11 @@ def run_recompute(conn: Connection, assignment: Assignment, *, is_final: bool, n
     scoring_repo = PgScoringRepository(conn)
     has_low_confidence = False
     sides = assignment.enabled_sides
+
+    # FR-PAIR-13 — ขนาดกลุ่มของนักศึกษาแต่ละคน ใช้บังคับธงฝั่งรายบุคคลของกลุ่ม 3 คน
+    group_sizes = (
+        scoring_repo.individual_group_sizes(assignment.classroom_id) if assignment.has_individual_side else {}
+    )
 
     for side in sides:
         comparisons = scoring_repo.submitted_comparisons(assignment.id, side)
@@ -28,6 +37,11 @@ def run_recompute(conn: Connection, assignment: Assignment, *, is_final: bool, n
                 ceiling=assignment.score_ceiling,
                 instructor_weight=assignment.instructor_weight,
                 min_comparisons=assignment.min_comparisons,
+                force_low_confidence=(
+                    side is Side.INDIVIDUAL
+                    and item_id in group_sizes
+                    and group_size_forces_low_confidence(group_sizes[item_id])
+                ),
             )
             for item_id in items
         ]

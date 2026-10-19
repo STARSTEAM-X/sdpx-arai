@@ -15,6 +15,14 @@ from app.domain.pairing import Side
 
 LOW_CONFIDENCE = "LOW_CONFIDENCE"
 
+# FR-PAIR-13 — กลุ่มที่มีสมาชิก m = 3 ฝั่งรายบุคคลได้ coverage = m - 2 = 1 จึงต้องติดธง "เสมอ"
+# แยกจากเกณฑ์ min_comparisons เพราะผู้สอนปรับค่านั้นได้ แต่ข้อนี้ PRD ไม่ให้ขึ้นกับ config (GAP-09)
+SMALL_GROUP_SIZE = 3
+
+
+def group_size_forces_low_confidence(group_size: int) -> bool:
+    return group_size <= SMALL_GROUP_SIZE
+
 # PRD §9.1 — s_left/s_right ต่อ choice หนึ่ง ๆ ห้ามแก้โดยไม่เช็คว่า label ใน scale.ts ยังตรงกัน
 _POINTS_BY_CHOICE: dict[int, tuple[Decimal, Decimal]] = {
     1: (Decimal("1.0"), Decimal("0.0")),
@@ -107,13 +115,14 @@ def compute_criterion_result(
     ceiling: Decimal,
     instructor_weight: Decimal,
     min_comparisons: int,
+    force_low_confidence: bool = False,
 ) -> CriterionResult:
     criterion_comparisons = [c for c in comparisons if c.criterion_id == criterion.id]
     relevant = [c for c in criterion_comparisons if item_id in (c.item_a_id, c.item_b_id)]
     q = compute_quality_index(criterion_comparisons, item_id, instructor_weight=instructor_weight)
 
     flags: tuple[str, ...] = ()
-    if len(relevant) < min_comparisons:
+    if force_low_confidence or len(relevant) < min_comparisons:
         # S8 — ติด flag แต่ยัง "คำนวณ" ต่อไปตามปกติถ้ามี comparison อย่างน้อย 1 ตัว
         # การมี comparison น้อยไม่ได้แปลว่าคำนวณไม่ได้ แค่ความเชื่อมั่นต่ำ (คนละเรื่องกับ S9)
         flags = (LOW_CONFIDENCE,)
@@ -177,6 +186,7 @@ def compute_item_component(
     ceiling: Decimal,
     instructor_weight: Decimal,
     min_comparisons: int,
+    force_low_confidence: bool = False,
 ) -> ItemComponent:
     results = tuple(
         compute_criterion_result(
@@ -188,6 +198,7 @@ def compute_item_component(
             ceiling=ceiling,
             instructor_weight=instructor_weight,
             min_comparisons=min_comparisons,
+            force_low_confidence=force_low_confidence,
         )
         for c in criteria
     )

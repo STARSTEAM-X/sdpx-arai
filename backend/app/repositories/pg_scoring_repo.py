@@ -285,6 +285,17 @@ class PgScoringRepository:
                 )
             return [str(r["id"]) for r in cur.fetchall()]
 
+    def individual_group_sizes(self, classroom_id: str) -> dict[str, int]:
+        """user_id ของนักศึกษา → จำนวนสมาชิก ACTIVE ในกลุ่มของเขา (FR-PAIR-13)"""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT m.user_id, COUNT(*) OVER (PARTITION BY m.group_id) AS size "
+                "FROM classroom_member m WHERE m.classroom_id = %s AND m.role = 'STUDENT' "
+                "AND m.enrollment_status = 'ACTIVE' AND m.group_id IS NOT NULL",
+                (classroom_id,),
+            )
+            return {str(r["user_id"]): int(r["size"]) for r in cur.fetchall()}
+
     # --- score override (US-13, FR-SCORE-08) ---
 
     def create_override(
