@@ -1,0 +1,630 @@
+[
+  {
+    "file": "backend/app/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "backend/app/api/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "backend/app/api/appeals.py",
+    "sha256": "af14c912abd41d49edc558af1d30c584fb1be2708118592b9fc09b0415b8faab"
+  },
+  {
+    "file": "backend/app/api/assignment_lifecycle.py",
+    "sha256": "b5f46b4c13b0dcb80f66b7eba80200074ec8620ccba7b141052eafab9cccc62a"
+  },
+  {
+    "file": "backend/app/api/assignments.py",
+    "sha256": "4a51f5c8c02617718779865f9e82a50057c11643bcdc6667c6be0f13ba8c3e36"
+  },
+  {
+    "file": "backend/app/api/auth.py",
+    "sha256": "f529c8f222fc2cdc6ed89853e75045178b01851790cb2f6056dd292702178cb4"
+  },
+  {
+    "file": "backend/app/api/classrooms.py",
+    "sha256": "e33406f53c0ee217891b4bc10f379f5b0dfabdfa1138a1b51881819a119599f1"
+  },
+  {
+    "file": "backend/app/api/comparisons.py",
+    "sha256": "6db45a6cf14ae6a41a16ef6380bac3fd392593401f39c53aba3003d4758ecf95"
+  },
+  {
+    "file": "backend/app/api/coverage.py",
+    "sha256": "efe5a5626df5ff5b6ca746ab8ce6576efc02990a7e60d8e8dc38f3a0e64dadeb"
+  },
+  {
+    "file": "backend/app/api/enrollment.py",
+    "sha256": "dd45ab2db28fd95401582179048f6e3d845b91558cc5778f42b0b0caf8d529c1"
+  },
+  {
+    "file": "backend/app/api/errors.py",
+    "sha256": "18e5cede5f80de4efbe7d28d09d9d9c8a6cfec148d9e024f6a33a36a7a404eba"
+  },
+  {
+    "file": "backend/app/api/members.py",
+    "sha256": "b17fb50a9a5de7d95f843b25f70463446c4069a4348a5bd8dabbbb6348e13155"
+  },
+  {
+    "file": "backend/app/api/notifications.py",
+    "sha256": "0cc602d4fa9141e5a8bed9b0d8a3952c4d3c7040408440bfc066747eba3e28c8"
+  },
+  {
+    "file": "backend/app/api/quality.py",
+    "sha256": "b63e41411eee7faaf2073f0075fdf3b0623ef1a4042f16e2e3a20176f7ef3fd3"
+  },
+  {
+    "file": "backend/app/api/roster.py",
+    "sha256": "dec01998042bf44b913a7f371973b6ae258b3c61505a480468bb8169767e902b"
+  },
+  {
+    "file": "backend/app/api/scoring.py",
+    "sha256": "dbd2a7c96a766c64f2a1e39035bb58cc53039e86fc3ee5dd55b83a72dd11c118"
+  },
+  {
+    "file": "backend/app/api/test_support.py",
+    "sha256": "c49e725bd2760e84b36a21a09ece3863851aac4d2ccb1f348be90e0ff60cd039"
+  },
+  {
+    "file": "backend/app/auth.py",
+    "sha256": "914019408c955f118ccc09523cfa8fdf5e90e58c19c95a88ad8deb569792ae98"
+  },
+  {
+    "file": "backend/app/config.py",
+    "sha256": "ce045af5abc42b807261d7775dfc02e7eae9bb3d1b0074185feec6eb10fa2551"
+  },
+  {
+    "file": "backend/app/coverage_orchestrator.py",
+    "sha256": "fa8ec11057a47c8ec4ee249d8f2451f2ae6cf7bdcc0a341e5a52c657a93ed76b"
+  },
+  {
+    "file": "backend/app/daily_scoring.py",
+    "sha256": "beda2c236b970da490f2682c739abab4edd66fa79ebde895a704a59fb5f463db"
+  },
+  {
+    "file": "backend/app/db.py",
+    "sha256": "5d4ee8d0ad7e99bd6320d6b5acecb9421ef66cb3edfb37dee9ed113d15d5afe7"
+  },
+  {
+    "file": "backend/app/domain/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "backend/app/domain/access.py",
+    "sha256": "1435077a2c0304790b7376bb06af51a8dba895c225d7905366b2605232d13234"
+  },
+  {
+    "file": "backend/app/domain/anonymity.py",
+    "sha256": "64d2643b74138ea2cbf0ab547618c5d848fe90281913e84d0c9ee93dfdec2c9f"
+  },
+  {
+    "file": "backend/app/domain/assignment_service.py",
+    "sha256": "a572d3ebf3e64e632df11c5f2eff408a4c0a5dfc8a81b3b3f81dcd3b228859e3"
+  },
+  {
+    "file": "backend/app/domain/audit.py",
+    "sha256": "a4e108c75f85d371958c63753490bdabc06bbafa1a50ab40b8d0539cd1fe7ac9"
+  },
+  {
+    "file": "backend/app/domain/classroom_service.py",
+    "sha256": "5273ed7d4352d0c901f870af688f3bfa9669a5027dff744218c78a4804e9eaa5"
+  },
+  {
+    "file": "backend/app/domain/comparison_service.py",
+    "sha256": "1961a283f457a097cc494e99a2d9d009e1327f120c504aef2298c5dc15d05e0a"
+  },
+  {
+    "file": "backend/app/domain/email.py",
+    "sha256": "1ae415813fed0839b8f1860c456c026f89a97bfeeb7d74c7c56eeee81385497c"
+  },
+  {
+    "file": "backend/app/domain/errors.py",
+    "sha256": "c2268520e0acc54c9c79bcf3f6b144ac52c3808d377ed42b9422fa5e186f1134"
+  },
+  {
+    "file": "backend/app/domain/evaluation_service.py",
+    "sha256": "a5b5f5b0ac7bed43176e71a429be1ee14c15a16be1ebcc23e62b0ac5d41f91ad"
+  },
+  {
+    "file": "backend/app/domain/extra_pairs.py",
+    "sha256": "ce427fe16287f10df2b0ab70e55e773d6f76715a9120a1c6464636c761749ba0"
+  },
+  {
+    "file": "backend/app/domain/finalize_service.py",
+    "sha256": "6acd90df0bc1d892e220b937b57b902dced5045db4c9d6c0ed533ffb4100bd35"
+  },
+  {
+    "file": "backend/app/domain/member_service.py",
+    "sha256": "efa6f3b417c678045842da1cb7898758f4e65f1a1fc9513f848a1d9669ea444f"
+  },
+  {
+    "file": "backend/app/domain/models.py",
+    "sha256": "ea1ccb2f3c78016d33df40cda5288b84751efcc9695452e1fb44ed0039a934b1"
+  },
+  {
+    "file": "backend/app/domain/pairing.py",
+    "sha256": "20823a531670fc0f19c4bebfb6c83457120c1c52b232f7dcbb152e45dda6e62d"
+  },
+  {
+    "file": "backend/app/domain/pending_pairs.py",
+    "sha256": "7927c5c41ef7b46bdd0def84aa22c197a3055205706a0155568ccda4781e1cb5"
+  },
+  {
+    "file": "backend/app/domain/publication.py",
+    "sha256": "54f3f33d97d8a56249e667725d752fa2f53f80fda0288d0d69c21c89fde4fce4"
+  },
+  {
+    "file": "backend/app/domain/quality.py",
+    "sha256": "66e06e2346818611628ae15451c8533eb97136ec535aa8ea38edd24e1fe41475"
+  },
+  {
+    "file": "backend/app/domain/repositories.py",
+    "sha256": "b8724ac592f3489c964b065d56841caa767de5794fbbbd4712b77d2fc685915e"
+  },
+  {
+    "file": "backend/app/domain/roster_import.py",
+    "sha256": "d6b10b3306d507c3b25337fa1c189c63b8b891ee8634501765682d8c9a10a4c5"
+  },
+  {
+    "file": "backend/app/domain/roster_service.py",
+    "sha256": "164250aa239d2931a595ca724c312e0567630c063bfe53605b99f63e333be6a5"
+  },
+  {
+    "file": "backend/app/domain/scoring_service.py",
+    "sha256": "be822b6f08235004eb0b68961c0698dbf6ab6a1d4ea39895e4a9cc24e25ae9d7"
+  },
+  {
+    "file": "backend/app/enrollment_orchestrator.py",
+    "sha256": "cafb51fd54be84e342a0702c1fd1adafb6a211e6ac7c5668734eddc220d06661"
+  },
+  {
+    "file": "backend/app/google_oidc.py",
+    "sha256": "eaede38dcfc1ca6b4ca650ea5591b66fb800692ef7de86fcb8026bc00e82204c"
+  },
+  {
+    "file": "backend/app/main.py",
+    "sha256": "ac31c4831f2fe4d4b5336ab6e6aa6a3fd25bfe2d3c57c60e24fc5cf0ffa1c6df"
+  },
+  {
+    "file": "backend/app/migrate.py",
+    "sha256": "4363191af2d10b35b1c8523fbf9c04ab7004fdc5aef8317ba2fb12ede6b33c55"
+  },
+  {
+    "file": "backend/app/observability.py",
+    "sha256": "a2c1f8cb85ea7abf2ed16ee88d94a4994bf03274721902ed27c3aef36048ca74"
+  },
+  {
+    "file": "backend/app/perf_fixture.py",
+    "sha256": "bc68658ba81a6cbea4bf863a43fd2e90b0f51b14700c7459ab049e87e22b5aba"
+  },
+  {
+    "file": "backend/app/repositories/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "backend/app/repositories/pg_assignment_repo.py",
+    "sha256": "7de86e8026c0357fa06fe3cf5c7443a574b9a222c3ba133315a57e3a30f773f6"
+  },
+  {
+    "file": "backend/app/repositories/pg_audit_repo.py",
+    "sha256": "8b9ee64ca19a9756cb44a48300acfa217999109ceafa2970fa07db7ec57fea75"
+  },
+  {
+    "file": "backend/app/repositories/pg_classroom_repo.py",
+    "sha256": "da802382ccf7b93f0678daa3a593b185c642e80162e2c7b78995514569c0159f"
+  },
+  {
+    "file": "backend/app/repositories/pg_comparison_repo.py",
+    "sha256": "1f09ac27f6c47768a2835518c2c02dc9892e680583a79f261bfb79532ddca641"
+  },
+  {
+    "file": "backend/app/repositories/pg_notification_repo.py",
+    "sha256": "269111c95cfa2a83b489c671098d7f6bff0b2c1ee9096df524384982401fab38"
+  },
+  {
+    "file": "backend/app/repositories/pg_quality_repo.py",
+    "sha256": "4fbf8381441b1e08a10cf0e7429d07eece9a8df70e7a2ddf3681f9b1c1ae4d89"
+  },
+  {
+    "file": "backend/app/repositories/pg_scoring_repo.py",
+    "sha256": "1c39b5c0b34daa808f8d54ae4a5edd8a93f361ff25a4a9d14ae65f0eabdf62e8"
+  },
+  {
+    "file": "backend/app/repositories/pg_user_repo.py",
+    "sha256": "cbbc7e36b81aca9b8b676de9339e26962836b2232614f3dc558663af308067de"
+  },
+  {
+    "file": "backend/app/scoring_orchestrator.py",
+    "sha256": "7deac4f733da56ab7a6fb396086cf6893d5f55ccccc812545f3ff50437dbd73b"
+  },
+  {
+    "file": "backend/migrations/001_init.sql",
+    "sha256": "e9deeed77acb8e3ac27e68e93b8e14c8c1835b6f5c2d411adf76d59ac78952aa"
+  },
+  {
+    "file": "backend/migrations/002_assignment_and_pairing.sql",
+    "sha256": "4684542d0abfff58493571c5d52c79e68c72dc57b361a970c2e66fa36b0b0050"
+  },
+  {
+    "file": "backend/migrations/003_audit_log.sql",
+    "sha256": "eec99356e5051ddde337f5d410d75375ebd0d17176a861e9339b8610c13c33f3"
+  },
+  {
+    "file": "backend/migrations/004_comparison.sql",
+    "sha256": "870f6996d81ccd352155ee33c4363d306a5b7d25b521c638eb1b801d232ac0c7"
+  },
+  {
+    "file": "backend/migrations/005_comparison_time_on_task.sql",
+    "sha256": "6031dd09252442fc7f3c86e631e4d828dff5e3c1ffb0e98ad270eea6e1e35faf"
+  },
+  {
+    "file": "backend/migrations/006_submissions.sql",
+    "sha256": "30052dfb77c79866cc624014bf6823da9dc670947d462263a840f38714806f1f"
+  },
+  {
+    "file": "backend/migrations/007_scoring.sql",
+    "sha256": "7a036903b5a090cca71026c21262fbcf521fc3669565056b7b7b234005fe284a"
+  },
+  {
+    "file": "backend/migrations/008_immutable_score_snapshots.sql",
+    "sha256": "6074d828b51e1457afe95b96cfd653dd2b7443cc405dff4bf38168f4adabd07d"
+  },
+  {
+    "file": "backend/migrations/009_scoped_submission_idempotency.sql",
+    "sha256": "58bb4145aafd6f613f3c431a1af9a45b6c0f5b1bf12cd1081eaa975e42124c47"
+  },
+  {
+    "file": "backend/migrations/010_protect_final_scores.sql",
+    "sha256": "4c0719d20d43dab6dc276e291ab42857016823edb4e889a0a23cbc95dd26a544"
+  },
+  {
+    "file": "backend/migrations/011_reset_application_data.sql",
+    "sha256": "4e55c2d4f3d89a25e2a84cea280b819f05d9510e6f2fdb9032080659fc89919f"
+  },
+  {
+    "file": "backend/migrations/012_criterion_questions.sql",
+    "sha256": "ff544386eff7b7ecc00d8995585e21fda3fc42694ce0e6a2e8c5a6b9398e2718"
+  },
+  {
+    "file": "backend/migrations/013_classroom_context.sql",
+    "sha256": "e4f992af839245937a482c290a345c85cd119a15e4d6a80eac07b1a1b34e7104"
+  },
+  {
+    "file": "backend/migrations/014_assignment_artifacts.sql",
+    "sha256": "c147f3decb465141c80f098f42ade921890c7eb336f809cfc1716f6505f52382"
+  },
+  {
+    "file": "backend/migrations/015_notification_reads.sql",
+    "sha256": "f51775dc06dc9933e15f597affc5bcc5685dd99dbdb46551accb74d01afab6b3"
+  },
+  {
+    "file": "backend/migrations/016_appeals.sql",
+    "sha256": "cecf2f9a05ba298544ddc49ea9cd285ea87438ee347047de8b2b211dc60a6ea5"
+  },
+  {
+    "file": "backend/migrations/017_assignment_opening.sql",
+    "sha256": "e61be3bdd9a6d81797b537b161573aa04bb2650d5fb426b797ecb6e987c7c57a"
+  },
+  {
+    "file": "backend/migrations/018_pair_history.sql",
+    "sha256": "aff253d48de0a77f7474e89e09172ffa79be039d8474ce143f2d993d86b5e206"
+  },
+  {
+    "file": "backend/migrations/019_enrollment_status.sql",
+    "sha256": "f5defa7b4a197032a2fc8a0e2def90615eccaf33ef9a330bfa0d3867a05a149f"
+  },
+  {
+    "file": "backend/migrations/020_assignment_exclusions.sql",
+    "sha256": "a845cc6374050152f6f7ddcae2326f2a7df7a4bc537f8a707081a936323a40d7"
+  },
+  {
+    "file": "frontend/src/App.tsx",
+    "sha256": "f78e611bd1b7c159511b274326779e62064c2d23d977c832627a02cddc306ca9"
+  },
+  {
+    "file": "frontend/src/assets/figma/appeal.png",
+    "sha256": "ed467e1334dfc4264504f320e1076e95dac653f8af40d404d66bc3d376786d9c"
+  },
+  {
+    "file": "frontend/src/assets/figma/back.png",
+    "sha256": "42c58af96eb63504b2c1305114e70b6694af5d1b7ce0dc888e7686381a1558d9"
+  },
+  {
+    "file": "frontend/src/assets/figma/classroom.png",
+    "sha256": "a939ca0bb3e3ddca05bbe9ae424bd0ce4d612510241cab60e264a76147f0115a"
+  },
+  {
+    "file": "frontend/src/assets/figma/create-assignment.png",
+    "sha256": "6fe4bdc55796b8801415b15a9af7a99ed239adf365f0787edfff2138d88e1463"
+  },
+  {
+    "file": "frontend/src/assets/figma/hero-comparison.png",
+    "sha256": "6a8fcbed93b6d34688289f1250310e84b69ecd7f40ee9b9ec8c46bc82331e9fd"
+  },
+  {
+    "file": "frontend/src/assets/figma/hero-rings.svg",
+    "sha256": "931cc074c468b2c32f7a83e29c2abf96b136664764d99e9a0e12d0df5cc3a8b2"
+  },
+  {
+    "file": "frontend/src/assets/figma/hero-wave.svg",
+    "sha256": "c95f5527ccb6d9f32301dd0b61a454b3518ff8f3413dbed1cc75fc48a2dd4b60"
+  },
+  {
+    "file": "frontend/src/assets/figma/hero.png",
+    "sha256": "9c38d050e7fc45e1b86143ed595cc732099b56e5fdb711647842303643a8319c"
+  },
+  {
+    "file": "frontend/src/assets/figma/logo-mark.svg",
+    "sha256": "4cf348fd061eb8e7f59071f3537965e3af3591134d423bfdf7861b85c3bfc687"
+  },
+  {
+    "file": "frontend/src/assets/figma/notification.png",
+    "sha256": "7278f574d66d7d55b655b79787ce0cb4c4a71ce857f73a019bfc1c2a4be5f3de"
+  },
+  {
+    "file": "frontend/src/assets/figma/owner-report-heading.png",
+    "sha256": "a1eba6053130f541f75a65e97e09986f31b7851defaec47f8c799434258f6b8d"
+  },
+  {
+    "file": "frontend/src/assets/figma/reports.png",
+    "sha256": "d81875b649b4e110b7c3010b3aa9419bb105234ec595066c2e9ceafe4bc05d12"
+  },
+  {
+    "file": "frontend/src/assets/figma/scores-released.png",
+    "sha256": "35ca43b0c30735d26011a52f1f0f35202c5ca6716c2c75f8761e76af13229e9c"
+  },
+  {
+    "file": "frontend/src/assets/figma/welcome.png",
+    "sha256": "bea355a4a44f284287163c713e83737c417eb0b3931c04d7f1b2e3ccd4162a5b"
+  },
+  {
+    "file": "frontend/src/components/ApiStatusBadge.tsx",
+    "sha256": "436bd51da8cd8ebd43ae19b7309ff8cf4f0ff4887ac36f796e6c3afa8a1c9985"
+  },
+  {
+    "file": "frontend/src/components/AppNav.tsx",
+    "sha256": "478c26f2087219187865e6c2d3a16277e1f1412818134f9f9a40e0e9f3557c4a"
+  },
+  {
+    "file": "frontend/src/components/AppealsPanel.tsx",
+    "sha256": "a6206c5b2ec87a3ee2ea24aa2265042fff9cc432aa7d4bf3c5e2bd9cc582620c"
+  },
+  {
+    "file": "frontend/src/components/AssignmentActions.tsx",
+    "sha256": "c2f09f66e6504abb1b25a2afa9558b7dbdd5072542939b52fb23cc9dbccfdaf5"
+  },
+  {
+    "file": "frontend/src/components/AssignmentPanel.tsx",
+    "sha256": "07f2a680591e5547305add6b5f45010630b4db06bae66b1e92d1dadfffe9ab39"
+  },
+  {
+    "file": "frontend/src/components/AssignmentScoringCard.tsx",
+    "sha256": "f99f7587c55201c1cf81a0087ddc0292ba959ec8d8d7bf974b23966fa458c7f6"
+  },
+  {
+    "file": "frontend/src/components/AssignmentsToEvaluateCard.tsx",
+    "sha256": "9dec521f3f91d6919dd5e4c5e0e95d6e0f75d0e1d6372741561954b41fcfeb16"
+  },
+  {
+    "file": "frontend/src/components/ClassroomActions.tsx",
+    "sha256": "b199ec0efb57e62fe1e1251d0b3fae928a9e794a04994d26527b19d2fe96df63"
+  },
+  {
+    "file": "frontend/src/components/ClassroomCreateForm.tsx",
+    "sha256": "70ead22497606acee861593bb47eb662c4187f7b2ed4c7b931b9fcbf18a0dad5"
+  },
+  {
+    "file": "frontend/src/components/ComparisonDemo.tsx",
+    "sha256": "ac08cc7c2f8fe14c9b827f3aab5da68d7b8119b0378eb82242147c0347e22bb4"
+  },
+  {
+    "file": "frontend/src/components/ComparisonRow.tsx",
+    "sha256": "8273f0530ef9bc07e680b376c353702b2309f9e827ae41ec7f11dc07e39e5ac1"
+  },
+  {
+    "file": "frontend/src/components/CoverageActions.tsx",
+    "sha256": "fa42221991eec35905b32ab30773fa113b99af85165dc5e4009775fe3e2c7ce6"
+  },
+  {
+    "file": "frontend/src/components/CriteriaEditor.tsx",
+    "sha256": "80e7810d86f85d68184dbb4b8ad07ce5480f8da8ea207740b329f85de09b9d02"
+  },
+  {
+    "file": "frontend/src/components/CtaBand.tsx",
+    "sha256": "f709a146fa2aebd4a67181af3fb9d95082c32594ad51592e50c35addc06e8f1a"
+  },
+  {
+    "file": "frontend/src/components/DashboardPreview.tsx",
+    "sha256": "69adf9d37c37e668e3c086cbc602e8c46cb7fdd2ee41e853ffbd51ed786d042c"
+  },
+  {
+    "file": "frontend/src/components/DeadlinePicker.tsx",
+    "sha256": "cb683f23b0309abf90d4dc2cd533d0236ed1912ac95b1db06f0ddb395d3ccc20"
+  },
+  {
+    "file": "frontend/src/components/Dropdown.tsx",
+    "sha256": "90c19871f0a34f305d72cac80cf7377c36ea46635af6368f5a62c53dc73971f1"
+  },
+  {
+    "file": "frontend/src/components/EnrollmentDialog.tsx",
+    "sha256": "b6e6c6fb43b3fa66f5a4b05f9f75fd7261a37ffccf1fd5ef2204d87d69d42de0"
+  },
+  {
+    "file": "frontend/src/components/FeatureGrid.tsx",
+    "sha256": "88ed99fdca26fa3045bff78e58ba6c62f92f5b3b2a3c5b992527f07167c19baa"
+  },
+  {
+    "file": "frontend/src/components/GoogleSignInButton.tsx",
+    "sha256": "e386ebe0e4de821d649b35049fbe6857e762eaed5887a3b4e746ccb2f3366ec4"
+  },
+  {
+    "file": "frontend/src/components/Hero.tsx",
+    "sha256": "8791df64eeaac550b733e42d7eabf47b5467addc11f629d9d45f6dbac242c5f4"
+  },
+  {
+    "file": "frontend/src/components/InstructorReport.tsx",
+    "sha256": "2571b5d38165f28163178e9c085d9eafd7e1d2451f9066a4744f5c2c3126799b"
+  },
+  {
+    "file": "frontend/src/components/MemberPanel.tsx",
+    "sha256": "926defc563584b4d31bdfcc7e323451f013696b7166efe6997800315aaf30ea2"
+  },
+  {
+    "file": "frontend/src/components/MemberRowActions.tsx",
+    "sha256": "6b6041a1bc3ae7c47328a38e0b0a84f7cd9962d77860d50db7a064359f67f714"
+  },
+  {
+    "file": "frontend/src/components/PersonaCards.tsx",
+    "sha256": "9cf756ba0cc8522a524c9bc3efc32bc569fbd1ab9c3aa6324c8518229b221aea"
+  },
+  {
+    "file": "frontend/src/components/ProcessFlow.tsx",
+    "sha256": "5c7c45db6d67548718ffad9aed16525987fca2f5acab881dee18a5112cccc77e"
+  },
+  {
+    "file": "frontend/src/components/RequireSession.tsx",
+    "sha256": "ec2c1044b0091720e3efefd7379548deb26397c37dfbc1ebd1765f475e74441c"
+  },
+  {
+    "file": "frontend/src/components/RosterImportCard.tsx",
+    "sha256": "5113249ba6cbfdf98c954f6981eee53412d0d1e316ac343d8c812732e9438152"
+  },
+  {
+    "file": "frontend/src/components/RosterTable.tsx",
+    "sha256": "f018df69797a0f7d06714cea12773086aa20dceb5b297e3c329a1b0bb85fa745"
+  },
+  {
+    "file": "frontend/src/components/SetupStepper.tsx",
+    "sha256": "a6a3712ef0fe91a34aa2b594305bf6b1becbaf8df5dc688f83ecf9f411a00704"
+  },
+  {
+    "file": "frontend/src/components/SetupSummary.tsx",
+    "sha256": "29bcda656673438b9d066833e2b315c341d8598b1dc9d3ccd59068d535c16a24"
+  },
+  {
+    "file": "frontend/src/components/SiteFooter.tsx",
+    "sha256": "9c4c2d538c976ba33654fefebd8783a14d9b16bd84cbc3fdc785980602961671"
+  },
+  {
+    "file": "frontend/src/components/SiteNav.tsx",
+    "sha256": "fab785c7308fa35aee974be8a354b7bcf095cd2db6e4d6cb52b62fd156ef0e58"
+  },
+  {
+    "file": "frontend/src/components/TrustRow.tsx",
+    "sha256": "e19f51a9f8f2f7b49b83b82d4419cfa72c094cbff502f66a92e3339cf98d48b2"
+  },
+  {
+    "file": "frontend/src/components/Ui.tsx",
+    "sha256": "4f9413e913608e4f401a77dcf760dd2bb87677ec0b605668d1a4360ba533f6a4"
+  },
+  {
+    "file": "frontend/src/components/UnpublishButton.tsx",
+    "sha256": "463128e391678e1ac20218948733fea85797997775d179dba40e011c75e4e5d9"
+  },
+  {
+    "file": "frontend/src/components/icons.tsx",
+    "sha256": "abe979a1d7ce864b89c189ad24e3bdf221aafaf1dfb2e9711f6e91a24f51b8dc"
+  },
+  {
+    "file": "frontend/src/components/useMenu.ts",
+    "sha256": "5a90c09ea17f52f6c045503fdd70512283ce12bf6812c48cb8641951f7987a0f"
+  },
+  {
+    "file": "frontend/src/index.css",
+    "sha256": "dc3977d5528d0530c12614af6542f1bacd5062bba88f6c2f40298cdec9d830d8"
+  },
+  {
+    "file": "frontend/src/lib/api.ts",
+    "sha256": "2cefc1e0631cff4f75e6eb764612b42ff5e564dae8c5015979d57944bc883e09"
+  },
+  {
+    "file": "frontend/src/lib/assignment.test.ts",
+    "sha256": "a0e2059f8a2ade6361a5d2a45ab3e9b8874a97c5eed937e3da5e1ec726581ab8"
+  },
+  {
+    "file": "frontend/src/lib/assignment.ts",
+    "sha256": "87d4e54224caa9683bab58d1e9ef2fe6d2131ba24673d372ab9dd5b26f04c847"
+  },
+  {
+    "file": "frontend/src/lib/comparisonQueue.test.ts",
+    "sha256": "d8acc0cb0b98bd848e61a31ff3959b06afef48fdd9a868e5888c7cccb88ccc0a"
+  },
+  {
+    "file": "frontend/src/lib/comparisonQueue.ts",
+    "sha256": "3e69fd44f425eb4078efbd962a4117cd7a8bbba71e62c9f424f466fee8fe183a"
+  },
+  {
+    "file": "frontend/src/lib/datetime.test.ts",
+    "sha256": "39339ed50c15ef575d5ea605c2e20d425123af30dad0320e97f0fad8c2c25a5e"
+  },
+  {
+    "file": "frontend/src/lib/datetime.ts",
+    "sha256": "a871b02a645031fd12c9469a2d5ec00125d785cc59d1f5074dabe089ccdb8448"
+  },
+  {
+    "file": "frontend/src/lib/evaluationPairs.test.ts",
+    "sha256": "72478aacbaa6f9b0723ff93c9b0daaa67e8b3c6f9beb80afcfea6441e6f00880"
+  },
+  {
+    "file": "frontend/src/lib/evaluationPairs.ts",
+    "sha256": "13f0149a3f19bedeafb137e123d91ef2446a9d6fb696bd2bbb3326561db32739"
+  },
+  {
+    "file": "frontend/src/lib/scale.test.ts",
+    "sha256": "a8af6c6a42ce4797409daf6bf3cf9989fde5854b8f7004bc324a225c25d69de8"
+  },
+  {
+    "file": "frontend/src/lib/scale.ts",
+    "sha256": "b886d275c8e45933b56723b306a02afbfc341b5269ea3e8aa0f0b489639a6d83"
+  },
+  {
+    "file": "frontend/src/lib/session.ts",
+    "sha256": "5537d2564e7aca432f0b43a05d6637016187f56b2dd06291aebbe793b6447c9a"
+  },
+  {
+    "file": "frontend/src/lib/useComparisonQueue.ts",
+    "sha256": "0e8b2d8649643f5c88aa7a5b8e1bf5725c057f62c3d145c3a306a8708f06469b"
+  },
+  {
+    "file": "frontend/src/main.tsx",
+    "sha256": "71085c5f2b96eeed450aeb36c9e8a90e237a9c16906db1555e35e3fcf874e37d"
+  },
+  {
+    "file": "frontend/src/pages/AppealPage.tsx",
+    "sha256": "2c51eeca458e22fb8bb672756047344584aa38a16fed98065d724c957d678efc"
+  },
+  {
+    "file": "frontend/src/pages/AuditPage.tsx",
+    "sha256": "4fb6d5bda030992eabfa3be387d1f33c5bf2baa8b7e579fdb0c6037c0e74206e"
+  },
+  {
+    "file": "frontend/src/pages/ClassroomDetailPage.tsx",
+    "sha256": "94e3c8058f9af6d3ff20ced5ca5f3d2758669b7ba824358936e8d202ec35735f"
+  },
+  {
+    "file": "frontend/src/pages/ClassroomsPage.tsx",
+    "sha256": "56b4421157934312bbe1f6d1a2d83a33e481e6da5d1fa8f503689f0befbcbf8f"
+  },
+  {
+    "file": "frontend/src/pages/EvaluatePage.tsx",
+    "sha256": "19201f1040a0c6842a29e2ab6a0b288d3c3103b7afe41cd0f673fe01b1a1ff98"
+  },
+  {
+    "file": "frontend/src/pages/HomePage.tsx",
+    "sha256": "356f8ce4713106a0c98df5935ff759c9d5363e45703129af992fe48f9b8411d1"
+  },
+  {
+    "file": "frontend/src/pages/NotificationsPage.tsx",
+    "sha256": "377098d9f96a64a669b4b940a6b7f1fc2791f93a762092aa09187e915c644e01"
+  },
+  {
+    "file": "frontend/src/pages/QualityPage.tsx",
+    "sha256": "dae4a0edeaa4e409c053352d1e75798336b43df3602f91a3363bfd9831ee91d2"
+  },
+  {
+    "file": "frontend/src/pages/ScorePage.tsx",
+    "sha256": "4b93aa2812ea38544e1b158936793e9188a9090fd1c9bdbb8939f7bd664b8e5f"
+  }
+]

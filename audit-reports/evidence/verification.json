@@ -1,0 +1,145 @@
+{
+  "dateLocal": "2026-10-19",
+  "timezone": "Asia/Bangkok",
+  "scope": "Audit current dirty working tree on codex/figma-frontend; no application source edits during audit",
+  "checks": [
+    {
+      "command": "docker compose -p paireval-ui-audit -f compose.test.yaml --profile e2e up e2e --build --abort-on-container-exit --exit-code-from e2e",
+      "result": "PASS",
+      "exitCode": 0,
+      "passed": 130,
+      "reportedDuration": "1.9m",
+      "scopeNote": "Existing suite: browser assertions plus API-only acceptance tests; not 130 distinct user flows"
+    },
+    {
+      "command": "npm test",
+      "cwd": "frontend",
+      "result": "PASS",
+      "exitCode": 0,
+      "passed": 21,
+      "reportedDurationMs": 290,
+      "commandWallSeconds": 1.483
+    },
+    {
+      "command": "ENVIRONMENT=test .venv/Scripts/python.exe -m pytest",
+      "cwd": "backend",
+      "result": "PASS",
+      "exitCode": 0,
+      "passed": 428,
+      "deselected": 29,
+      "reportedDurationSeconds": 4.12,
+      "commandWallSeconds": 5.4
+    },
+    {
+      "command": "npm run lint",
+      "cwd": "frontend",
+      "result": "PASS",
+      "exitCode": 0,
+      "note": "Existing React effect/purity/dependency warnings remain; PASS means no lint errors, not warning-free"
+    },
+    {
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "result": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": ".venv/Scripts/python.exe -m ruff check .",
+      "cwd": "backend",
+      "result": "PASS",
+      "exitCode": 0
+    }
+  ],
+  "successfulUnitCommandsCombinedWallSeconds": 6.883,
+  "environmentRetries": [
+    "Sandboxed Vitest could not rename temporary transform files (EPERM); rerun outside filesystem sandbox passed without code changes.",
+    "First native pytest collection used production default without a configured signing key; documented ENVIRONMENT=test was supplied for local unit tests. Sandboxed retry stalled; interrupted and rerun outside process sandbox passed. No live service environment was changed."
+  ],
+  "tools": {
+    "playwright": "1.62.1",
+    "axeCore": "4.14.0",
+    "axeLocation": ".local/audit-tools/node_modules/axe-core/axe.min.js",
+    "axeApproval": "Explicit user approval; no project manifest or lockfile change",
+    "figma": "View-only Figma browser UI; no connected Figma MCP",
+    "pixelmatch": "Bundled tool runtime; no project dependency addition"
+  },
+  "auditRuns": [
+    {
+      "suite": "runtime.spec.ts initial",
+      "uniqueDefinitions": 26,
+      "runnerPassed": 24,
+      "runnerFailed": 2,
+      "duration": "5.8m",
+      "reason": "Two EINVAL report-write instrumentation failures; three additional caught partial scenarios. These were not application failures."
+    },
+    {
+      "suite": "runtime.spec.ts targeted retry",
+      "grep": "430x932|public and protected-route guards1366x768",
+      "runnerPassed": 5,
+      "runnerFailed": 0,
+      "duration": "1.2m"
+    },
+    {
+      "suite": "runtime.spec.ts laptopTA catch-gap retry",
+      "grep": "classroom list and detail every role1366x768",
+      "runnerPassed": 1,
+      "runnerFailed": 0,
+      "duration": "26.8s"
+    },
+    {
+      "suite": "failure.spec.ts initial9",
+      "runnerPassed": 9,
+      "runnerFailed": 0,
+      "duration": "44.0s"
+    },
+    {
+      "suite": "failure.spec.ts pending/offline2",
+      "runnerPassed": 2,
+      "runnerFailed": 0,
+      "duration": "9.6s"
+    },
+    {
+      "suite": "failure.spec.ts homeanchors1",
+      "runnerPassed": 1,
+      "runnerFailed": 0,
+      "duration": "4.0s"
+    },
+    {
+      "suite": "visual.spec.ts",
+      "runnerPassed": 1,
+      "runnerFailed": 0,
+      "duration": "22.1s"
+    },
+    {
+      "suite": "visual.spec.ts keyboard review",
+      "runnerPassed": 1,
+      "runnerFailed": 0,
+      "duration": "4.8s",
+      "details": "All6Student/TA/Co-teacher×375/430 realTab/ArrowRight probes passed. Earlier singleStudent375 probe also passed in1.6s. Not new scenario definitions."
+    }
+  ],
+  "auditOutcome": {
+    "uniqueScenarioDefinitions": 40,
+    "completedDefinitionsAfterTargetedRetries": 40,
+    "runtimeStateViewportCaptures": 206,
+    "commonStates": 34,
+    "viewports": 6,
+    "extraSubmissionCaptures": 2,
+    "checks": {
+      "PASS": 242,
+      "FAIL": 58
+    },
+    "note": "A passing audit test means it successfully recorded product observations. Product failures are expected findings, not hidden by the runner pass. JSON/HTML Playwright reporter paths contain only the latest invocation for each suite; runtime.json and failure/checks.json are cumulative audit evidence.",
+    "manualKeyboardReview": {
+      "cases": 6,
+      "passed": 6,
+      "retiredIssue": "A11Y-003",
+      "scope": "Chromium nativefocus/scroll passed; otherbrowsers nottested",
+      "evidence": "evidence/visual/roster-keyboard.json"
+    }
+  },
+  "harnessVerification": {
+    "configurationListCheck": "PASS:26runtime+12failure+1visual parsed after isolated-target guard; final additional keyboard visual case verified by execution",
+    "sourceIntegrity": "PASS"
+  }
+}

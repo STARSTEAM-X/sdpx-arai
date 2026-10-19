@@ -1,0 +1,1030 @@
+{
+  "dateLocal": "2026-10-19",
+  "counts": {
+    "P0": 0,
+    "P1": 1,
+    "P2": 18,
+    "P3": 9,
+    "P4": 0
+  },
+  "definition": "28 deduplicated findings:20 observed functional/accessibility/visual findings plus8 capability gaps. A11Y-003 retired after real-keyboard verification; raw axe alert retained as reviewed false positive in Chromium. Exact unseen Figma layouts and untested flows remain Not Verified; absence of implementation is source-confirmed.",
+  "issues": [
+    {
+      "id": "EVAL-001",
+      "severity": "P1",
+      "type": "Functional Bug",
+      "page": "Evaluation",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "EvaluatePage + ComparisonRow",
+      "frames": [
+        "57:3",
+        "516:996"
+      ],
+      "expected": "คำตอบล่าสุดต้องไม่หายเมื่อส่งหรือเปลี่ยนแท็บ; เมื่อบันทึกครบแล้วไม่เตือนว่ายังไม่ตอบ",
+      "actual": "กดส่ง903msหลังเลือก: POST200 submittedCount=0 ทั้งที่ต่อมาAPIมีchoice5แต่completed=false. รอautosave3212msแล้วยังเตือนเหลือ1คู่ผิด. เปลี่ยนsideก่อน2sแล้วย้อนกลับ choice=falseและAPIchoice=null.",
+      "sources": [
+        "frontend/src/components/ComparisonRow.tsx:32",
+        "frontend/src/components/ComparisonRow.tsx:38",
+        "frontend/src/components/ComparisonRow.tsx:44",
+        "frontend/src/pages/EvaluatePage.tsx:105"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/runtime/evaluation-submit-during-debounce-1440x900-full.png",
+        "evidence/runtime/evaluation-submit-after-autosave-1440x900-full.png",
+        "evidence/failure/evaluation-pending-side-switch.png",
+        "evidence/failure/checks.json"
+      ],
+      "repro": [
+        "ใช้studentที่มีGROUP1คู่",
+        "เลือกขวาดีกว่าแล้วกดส่งก่อน2sและยอมรับconfirm",
+        "ตรวจsubmittedCount/completed; ทำซ้ำแบบรอข้อความบันทึกแล้ว",
+        "อีกครั้งเลือกแล้วสลับรายบุคคลและกลับGROUPก่อน2s"
+      ],
+      "fix": "รวมchoice/pending/save promiseไว้ในstateที่parentทราบ; flushและawaitคำตอบล่าสุดก่อนsubmit/เปลี่ยนside พร้อมกันsubmitซ้ำ; incomplete countต้องใช้stateล่าสุด และมีregression testsของทั้ง3กรณี",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ออกแบบstate/save coordinationก่อนปรับpair navigation; เพิ่มtestsที่เลือกผ่านUIจริง",
+      "complexity": "M",
+      "rootCause": "Local choice/debounceอยู่ในrow แต่parentใช้snapshotเริ่มต้น; cleanupล้างtimerตอนrowunmount"
+    },
+    {
+      "id": "EVAL-002",
+      "severity": "P2",
+      "type": "Functional Bug",
+      "page": "Evaluation",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "Deadline state",
+      "frames": [
+        "502:6592"
+      ],
+      "expected": "เมื่อdeadlineผ่านบนหน้าที่เปิดค้าง inputsต้องread-onlyและปุ่มส่งหายโดยไม่reload",
+      "actual": "หลังdeadline350ms radioยังenabledและปุ่มส่งยังแสดง; autosaveถูกBackendปฏิเสธ409. Reloadแล้วจึงdisabled/ซ่อนsubmitถูกต้อง.",
+      "sources": [
+        "frontend/src/pages/EvaluatePage.tsx:103",
+        "frontend/src/components/ComparisonRow.tsx:81"
+      ],
+      "evidence": [
+        "evidence/failure/checks.json",
+        "evidence/failure/evaluation-deadline-passed-before-reload.png",
+        "evidence/failure/evaluation-deadline-passed-after-reload.png"
+      ],
+      "repro": [
+        "สร้างงานdeadlineอีก12s",
+        "เปิดevaluateก่อนหมดเวลาและรอข้ามdeadline",
+        "เลือกคำตอบ ตรวจPUT409 แล้วreloadเปรียบเทียบ"
+      ],
+      "fix": "ตั้งclock/deadline timerจากเวลาที่อ้างอิงserver และอัปเดตreadOnly/submitทันที; อธิบาย409อย่างชัดเจน. รักษาการตรวจdeadlineฝั่งserverไว้",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "rootCause": "คำนวณDateเฉพาะตอนparentrender ไม่มีtimer"
+    },
+    {
+      "id": "FLOW-001",
+      "severity": "P2",
+      "type": "Functional Bug",
+      "page": "Classroom management",
+      "route": "/classrooms/:classroomId",
+      "component": "AssignmentPanel / assignment list / scoring",
+      "frames": [
+        "332:2834"
+      ],
+      "expected": "เผยแพร่ผ่านUIสำเร็จแล้วรายการงานและเครื่องมือคะแนนต้องอัปเดตทันที",
+      "actual": "สร้าง/ตรวจfeasibility/publishผ่านUIจริงได้201/200 และแสดงPUBLISHED แต่evaluateLink=0,scoringCard=0; GETรายการคง2requests. Reloadแล้วทั้งคู่เป็น1และGETเป็น4.",
+      "sources": [
+        "frontend/src/components/AssignmentPanel.tsx:99",
+        "frontend/src/components/AssignmentsToEvaluateCard.tsx:22",
+        "frontend/src/components/AssignmentScoringCard.tsx:323",
+        "frontend/src/pages/ClassroomDetailPage.tsx:450"
+      ],
+      "evidence": [
+        "evidence/failure/checks.json",
+        "evidence/failure/assignment-published-before-reload.png",
+        "evidence/failure/assignment-published-after-reload.png"
+      ],
+      "repro": [
+        "Ownerนำเข้าroster",
+        "กรอกงาน→กำหนดส่ง→สร้าง→ตรวจความเป็นไปได้→เผยแพร่",
+        "ตรวจรายการงานและscore toolsก่อน/หลังreload"
+      ],
+      "fix": "ยกassignment list/refresh versionไปparentหรือใช้callbackหลังmutationเพื่อinvalidate sibling lists ทั้งcreate/publish/finalize/reopen",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "M",
+      "rootCause": "siblingsfetchเฉพาะmount/classroomId; publishแก้เฉพาะstateภายในAssignmentPanel"
+    },
+    {
+      "id": "FLOW-002",
+      "severity": "P3",
+      "type": "Functional Bug",
+      "page": "Classroom management",
+      "route": "/classrooms/:classroomId",
+      "component": "SetupStepper",
+      "frames": [
+        "330:1914",
+        "332:2834"
+      ],
+      "expected": "ขั้นสร้างงานเสร็จแล้วเมื่อมีงานสร้างหรือเผยแพร่จริง",
+      "actual": "หลังpublishจริงและreloadแล้วขั้นสร้างงานยังแสดง3/กำลังทำอยู่ ทุก6ขนาดจอ",
+      "sources": [
+        "frontend/src/pages/ClassroomDetailPage.tsx:269"
+      ],
+      "evidence": [
+        "evidence/failure/checks.json",
+        "evidence/failure/assignment-published-after-reload.png"
+      ],
+      "repro": [
+        "เผยแพร่งาน",
+        "Reloadห้องเรียน",
+        "อ่านsetup stepสร้างงานประเมิน"
+      ],
+      "fix": "deriveสถานะจากassignmentที่โหลดจริง; กำหนดให้ชัดว่าdraftหรือpublishedนับเสร็จ",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "rootCause": "stepState(false,hasStudents) hardcode done=false"
+    },
+    {
+      "id": "AUTH-001",
+      "severity": "P3",
+      "type": "Navigation Bug",
+      "page": "CSV export",
+      "route": "/classrooms/:classroomId#scores",
+      "component": "downloadCsv",
+      "frames": [
+        "517:3857"
+      ],
+      "expected": "Export401ต้องใช้matching-session invalidationแบบเดียวกับJSON API",
+      "actual": "ฉีด401เฉพาะexport: แสดงerrorแต่tokenยังอยู่และprotected pageยังmount. เมื่อฉีดJSON/me401แล้วreloadจึงclearและกลับ/. Serverปฏิเสธexportอยู่เสมอ; ไม่ใช่authorization bypass.",
+      "sources": [
+        "frontend/src/lib/api.ts:63",
+        "frontend/src/lib/api.ts:508",
+        "frontend/src/lib/api.ts:518"
+      ],
+      "evidence": [
+        "evidence/failure/checks.json",
+        "evidence/failure/export-401-session-still-mounted.png",
+        "evidence/failure/later-json-401-session-cleared.png"
+      ],
+      "repro": [
+        "เปิดคะแนนด้วยsessionที่ใช้ได้",
+        "interceptเฉพาะexportให้ตอบ401",
+        "กดส่งออกและดูstorage presence/route; ต่อด้วยme401"
+      ],
+      "fix": "รวมcommon response/session handlingสำหรับJSONและdownload โดยclearเฉพาะtokenที่เป็นของrequestเดิมเพื่อรักษาrace protection",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "rootCause": "downloadCsvใช้fetchตรงข้ามapiFetch401 handler"
+    },
+    {
+      "id": "A11Y-001",
+      "severity": "P2",
+      "type": "Accessibility Issue",
+      "page": "Guest home",
+      "route": "/",
+      "component": "SiteNav brand link",
+      "frames": [
+        "175:3"
+      ],
+      "expected": "ลิงก์กลับหน้าหลักต้องมีaccessible nameที่ทุกขนาดจอ",
+      "actual": "ที่375pxซ่อนPairEvalด้วยCSS ขณะรูปaltว่าง/aria-hidden จึงมีlinkในtab orderที่ไม่มีชื่อ; axe link-name FAILทั้ง3home states. ที่430pxไม่พบปัญหานี้.",
+      "sources": [
+        "frontend/src/components/SiteNav.tsx:31",
+        "frontend/src/components/SiteNav.tsx:33",
+        "frontend/src/components/icons.tsx:8"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/runtime/home-guest-375x812-viewport.png"
+      ],
+      "repro": [
+        "เปิด/ที่375×812",
+        "ตรวจaccessible nameของlogo linkหรือรันaxe"
+      ],
+      "fix": "เพิ่มaria-labelเช่นPairEvalหน้าหลักให้Link; ห้ามอาศัยข้อความที่ถูกdisplay:none",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "2.4.4 Link Purpose / 4.1.2 Name Role Value"
+    },
+    {
+      "id": "A11Y-002",
+      "severity": "P2",
+      "type": "Accessibility Issue",
+      "page": "Home / Evaluation",
+      "route": "/ และ /classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "ApiStatusBadge / evaluation tab counts",
+      "frames": [
+        "175:3",
+        "57:3"
+      ],
+      "expected": "ข้อความ12pxต้องcontrastอย่างน้อย4.5:1ตามWCAG1.4.3",
+      "actual": "axeยืนยันready badge #238156บน#EAF7F0=4.38:1; countบนactive tab #BC693Cบน#FFF0E5=3.60:1 และinactive #9D8C84บนwhite=3.22:1. รวม62state/viewportsของruleเดียว ไม่ใช่62issues.",
+      "sources": [
+        "frontend/src/components/ApiStatusBadge.tsx:5",
+        "frontend/src/pages/EvaluatePage.tsx:183",
+        "frontend/src/index.css:26"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/runtime/home-guest-1440x900-full.png",
+        "evidence/runtime/evaluation-group-default-375x812-viewport.png"
+      ],
+      "repro": [
+        "เปิดhomeและevaluate",
+        "รันaxeพร้อมwcag2aa",
+        "ตรวจeffective foregroundหลังopacity75และพื้นหลังจริง"
+      ],
+      "fix": "ใช้success text tokenที่contrastผ่านและเลิกopacityลดcount text; ตรวจทั้งactive/inactive/hoverโดยไม่ลดความอ่านง่ายเพื่อให้เหมือนภาพ",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "--color-ok-600/#238156, --color-ok-50/#EAF7F0, opacity-75 บนtab count",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "1.4.3 Contrast Minimum"
+    },
+    {
+      "id": "A11Y-004",
+      "severity": "P3",
+      "type": "Accessibility Issue",
+      "page": "Account / export menus",
+      "route": "/classrooms/:classroomId",
+      "component": "AppNav / ExportControls",
+      "frames": [
+        "86:770"
+      ],
+      "expected": "ARIA menuเปิดแล้วEscapeปิดและคืนfocusให้trigger; มีkeyboard menu behaviorที่สอดคล้องกัน",
+      "actual": "บัญชีทั้ง4roles×6viewportsยังเปิดหลังEscape. Export menuยังเปิด aria-expanded=true และfocusไม่กลับtriggerหลังEscape.",
+      "sources": [
+        "frontend/src/components/AppNav.tsx:57",
+        "frontend/src/components/AppNav.tsx:139",
+        "frontend/src/components/AssignmentScoringCard.tsx:264"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/failure/checks.json",
+        "evidence/failure/export-menu-after-escape.png"
+      ],
+      "repro": [
+        "เปิดaccountหรือexport menu",
+        "focusmenuitem",
+        "กดEscapeแล้วดูvisibility/activeElement"
+      ],
+      "fix": "ทำshared menu keyboard/focus handling: focus itemเมื่อเปิด,Escapeคืนtrigger,Arrow navigation และoutside click",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "ARIA APG Menu Button pattern; ไม่สรุปWCAG2.1.1ล้มเหลวเพียงเพราะEscapeไม่มี หากยังใช้Tabได้"
+    },
+    {
+      "id": "A11Y-005",
+      "severity": "P3",
+      "type": "Accessibility Issue",
+      "page": "Evaluation",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "ComparisonRow radiogroup",
+      "frames": [
+        "86:615",
+        "516:996"
+      ],
+      "expected": "custom radio groupใช้one tab stopและArrow keysเปลี่ยนfocus/selectionตามAPG",
+      "actual": "ArrowRightไม่ย้ายfocusหรือเลือกค่าถัดไป ทั้งGROUP/INDIVIDUALทุก6viewports; radioทั้ง6มีtabIndex0. Tab/Spaceยังใช้ได้จึงเป็นpattern/usability defect ไม่ใช่ข้อพิสูจน์keyboardใช้ไม่ได้ทั้งหมด.",
+      "sources": [
+        "frontend/src/components/ComparisonRow.tsx:75",
+        "frontend/src/components/ComparisonRow.tsx:125"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/runtime/evaluation-group-hover-focus-1440x900-full.png"
+      ],
+      "repro": [
+        "Tabไปตัวเลือกแรก",
+        "กดArrowRight",
+        "ตรวจactiveElement/aria-checked/tabIndex"
+      ],
+      "fix": "ใช้native radioหรือroving tabindex; ArrowLeft/Right/Up/DownและSpace; คงaccessible group label",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "ARIA APG Radio Group pattern; ไม่ใช้APGแทนเกณฑ์WCAGแบบเหมารวม"
+    },
+    {
+      "id": "A11Y-006",
+      "severity": "P3",
+      "type": "Accessibility Issue",
+      "page": "Evaluation",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "Side tabs",
+      "frames": [
+        "57:3"
+      ],
+      "expected": "tablistมีArrow navigationและความสัมพันธ์tab↔tabpanelที่ถูกต้อง",
+      "actual": "ArrowRightจากGROUPยังfocus/selectedGROUPทุก6ขนาด ไม่มีtabpanel/aria-controlsเชื่อมเนื้อหา; Tab/Enterยังเปลี่ยนsideได้.",
+      "sources": [
+        "frontend/src/pages/EvaluatePage.tsx:165",
+        "frontend/src/pages/EvaluatePage.tsx:181",
+        "frontend/src/pages/EvaluatePage.tsx:199"
+      ],
+      "evidence": [
+        "runtime-summary.json",
+        "evidence/runtime/evaluation-group-default-1440x900-full.png"
+      ],
+      "repro": [
+        "focusGROUPtab",
+        "กดArrowRight",
+        "ตรวจfocus/selectionและrelationships"
+      ],
+      "fix": "เลือกautomatic/manual activationให้ชัด,rovingtabindex,Arrow/Home/Endและlabelledtabpanel",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "ARIA APG Tabs pattern; role semanticsตรวจแยกจากkeyboardoperability"
+    },
+    {
+      "id": "A11Y-007",
+      "severity": "P3",
+      "type": "Accessibility Issue",
+      "page": "Assignment deadline",
+      "route": "/classrooms/:classroomId#assignments",
+      "component": "DeadlinePicker",
+      "frames": [
+        "86:889"
+      ],
+      "expected": "ปิดdate dialogด้วยEscapeแล้วfocusต้องกลับปุ่มกำหนดส่ง",
+      "actual": "Escapeปิดdialogได้แต่focusไม่กลับtrigger. Month next/previous,cancel,tomorrow,timeและEnter applyผ่าน.",
+      "sources": [
+        "frontend/src/components/DeadlinePicker.tsx:135",
+        "frontend/src/components/DeadlinePicker.tsx:194"
+      ],
+      "evidence": [
+        "evidence/failure/checks.json",
+        "evidence/failure/calendar-after-escape.png"
+      ],
+      "repro": [
+        "เปิดpicker",
+        "focuscontrolภายในแล้วEscape",
+        "ตรวจdocument.activeElementเทียบtrigger"
+      ],
+      "fix": "เก็บtriggerrefและคืนfocusทุกclose path; ตรวจfocus order/trapตามรูปแบบdialogที่ใช้จริง",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S",
+      "wcag": "2.4.3 Focus Order / APG Dialog guidance; ไม่มีหลักฐานkeyboardtrap"
+    },
+    {
+      "id": "UI-001",
+      "severity": "P3",
+      "type": "Figma Mismatch",
+      "page": "Guest home",
+      "route": "/",
+      "component": "Hero / ProcessFlow / CtaBand / footer",
+      "frames": [
+        "175:3"
+      ],
+      "expected": "1440px guestframeสูง1870px; hero CTA raster bounds x502,y359,w208,h50 (ขอบภาพ±1px)",
+      "actual": "เว็บ1440pxสูง1948px(+78); mainCTA DOMx502,y387.156,w208,h48: ลงมา28.156pxและเตี้ย2px. Decorative rings/section rhythmและwelcome art scaleต่าง. HeaderGooglelabel/40pxเป็นuser overrideจึงไม่นับเป็นdefect.",
+      "sources": [
+        "frontend/src/components/Hero.tsx:12",
+        "frontend/src/components/ProcessFlow.tsx:17",
+        "frontend/src/components/CtaBand.tsx:36",
+        "frontend/src/components/SiteFooter.tsx:8",
+        "frontend/src/index.css:94"
+      ],
+      "evidence": [
+        "evidence/figma/home-guest-desktop-175-3.png",
+        "evidence/runtime/home-guest-1440x900-full.png",
+        "evidence/comparison/home-1440-side-by-side.png",
+        "evidence/comparison/home-1440-diff.png",
+        "evidence/comparison/home-1440.json"
+      ],
+      "repro": [
+        "เปิดguest1440×900/100%zoom",
+        "รอfontsและimages",
+        "เทียบfullpageกับfresh175:3แบบไม่resize"
+      ],
+      "fix": "ปรับhero vertical rhythm/CTAheightและsectionspacingตามframe จากนั้นexportเทียบใหม่โดยmaskส่วนuseroverrideและstatusbadgeที่เพิ่มโดยตั้งใจ",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "surface/paper #FFFCF7 verified; H1 runtime64/700/line78.08; ไม่อ้างfont tokensอื่นว่าMatchหากไม่ได้inspect",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S"
+    },
+    {
+      "id": "UI-002",
+      "severity": "P2",
+      "type": "Figma Mismatch",
+      "page": "Classroom list",
+      "route": "/classrooms",
+      "component": "Classroom header / filters / cards",
+      "frames": [
+        "349:2388",
+        "516:825"
+      ],
+      "expected": "desktopใช้หัวข้อสีขาวบนgradient,searchแบบpill,semesterfilterและcardที่สื่อcourse/instructor/group/work status; mobileStudentแสดงsearchและcardsพร้อมปุ่มเต็มความกว้างเป็นหลัก",
+      "actual": "หัวข้อสีink,searchrounded-xlและsortdropdownแทนsemester. Cardsแสดงname/slug/timezoneโดยไม่แสดงcontextงาน. ที่390นักศึกษายังเห็นarchive/create/rolefilterทั้งชุดและไม่มีภาพหัวข้อ; cardactionไม่เต็มแถว.",
+      "sources": [
+        "frontend/src/pages/ClassroomsPage.tsx:120",
+        "frontend/src/pages/ClassroomsPage.tsx:163",
+        "frontend/src/pages/ClassroomsPage.tsx:214",
+        "frontend/src/lib/api.ts:160"
+      ],
+      "evidence": [
+        "evidence/figma/owner-classrooms-desktop-349-2388.png",
+        "evidence/runtime/classrooms-owner-1440x900-full.png",
+        "evidence/figma/student-classrooms-mobile-516-825.png",
+        "evidence/visual/student-classrooms-390.png"
+      ],
+      "repro": [
+        "เปิดclassroomsOwner1440และStudent390",
+        "เทียบheader,controlorderและcardsemantics; ไม่นับจำนวนห้อง/ชื่อfixtureที่ต่าง"
+      ],
+      "fix": "แยกrole-specific composition,ปรับsearch/card/button layout; เพิ่มmetadataผ่านAPIที่มีข้อมูลจริงก่อนแสดงterm/course/instructor/worksummary",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "paper #FFFCF7; search pill/radius; hero foregroundwhiteเทียบruntimeink",
+      "dependencies": "Backend list/viewmodel สำหรับsemester/course/worksummary; ตกลงนักศึกษามีสิทธิ์สร้างห้องในproductหรือเพียงไม่แสดงปุ่มตามFigma",
+      "complexity": "M"
+    },
+    {
+      "id": "UI-003",
+      "severity": "P2",
+      "type": "Figma Mismatch",
+      "page": "Instructor classroom",
+      "route": "/classrooms/:classroomId",
+      "component": "Classroom dashboard / section navigation",
+      "frames": [
+        "330:1914",
+        "330:1057"
+      ],
+      "expected": "Owneroverviewมีroomnameเป็นheading,3primaryactions,setupcallout,4statsและassignmentoverview; membersเป็นfocusedworkspaceพร้อมrolefilters/rowmenu",
+      "actual": "แม้hasmembers/noassignmentตรงstateแล้ว เว็บยังเป็นlongpage3608pxเทียบJ12 896px: genericheading,hashpills,3stats,roster+memberform+assignmentformพร้อมกัน. ตัวเลข14/4เทียบ12/3มาจากfixtureไม่ใช่bug.",
+      "sources": [
+        "frontend/src/pages/ClassroomDetailPage.tsx:294",
+        "frontend/src/pages/ClassroomDetailPage.tsx:307",
+        "frontend/src/pages/ClassroomDetailPage.tsx:385",
+        "frontend/src/pages/ClassroomDetailPage.tsx:425",
+        "frontend/src/components/RosterTable.tsx:156"
+      ],
+      "evidence": [
+        "evidence/figma/owner-classroom-desktop-330-1914.png",
+        "evidence/figma/owner-members-desktop-330-1057.png",
+        "evidence/visual/owner-members-no-assignment-1440.png",
+        "evidence/comparison/owner-overview-desktop-side-by-side.png"
+      ],
+      "repro": [
+        "Ownerนำเข้าrosterแต่ยังไม่มีassignment",
+        "เปิดoverview1440px",
+        "เทียบองค์ประกอบ/primaryactions ไม่เทียบdynamiccounts"
+      ],
+      "fix": "แยกoverview,members,assignmentauthoring,reportเป็นworkspace statesตามFigma; ใช้routeหรือstateก็ได้ แต่ต้องรักษาback/deeplink/rolepermissions",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ต้องกำหนดURL/state mapตาม191framesก่อนrefactor; แก้FLOW-001/002ควบคู่",
+      "complexity": "L"
+    },
+    {
+      "id": "UI-004",
+      "severity": "P2",
+      "type": "Figma Mismatch",
+      "page": "Student classroom",
+      "route": "/classrooms/:classroomId",
+      "component": "StudentDashboard / assignments",
+      "frames": [
+        "268:6135",
+        "516:923"
+      ],
+      "expected": "M03มีroomcontext+group/instructor,งานfilterทั้งหมด/ยังไม่ได้ประเมิน/ออกคะแนนแล้ว,assignmentcardsพร้อมdeadline/progress,statusและปุ่มเต็มแถว",
+      "actual": "ที่390แสดงgenericwelcome/privacycardขนาดใหญ่และrosterเป็นส่วนหลัก,assignmentเป็นแถวเล็กและไม่มีfilters/assignmenthistory/deadlineต่อcard. หน้าเว็บ2257pxเทียบM03 1238px; dataจำนวนงานต่างจึงไม่ใช้heightเป็นcompliance metric.",
+      "sources": [
+        "frontend/src/pages/ClassroomDetailPage.tsx:95",
+        "frontend/src/pages/ClassroomDetailPage.tsx:466",
+        "frontend/src/components/AssignmentsToEvaluateCard.tsx:22"
+      ],
+      "evidence": [
+        "evidence/figma/student-classroom-mobile-516-923.png",
+        "evidence/visual/student-classroom-390.png",
+        "evidence/comparison/student-classroom-mobile-side-by-side.png"
+      ],
+      "repro": [
+        "Studentเปิดห้องที่มีpublishedworkที่390px",
+        "ตรวจcontentorder/filter/cardstatus",
+        "เทียบM03"
+      ],
+      "fix": "ให้studentassignmentdashboardเป็นmaincontentและแยกroster/groupinfoไปstateรอง; ใช้assignmentstatus/deadline/ownprogressจริง",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "เสริมsummaryAPIสำหรับownprogress/historyและroomgroupcontextหากcontractปัจจุบันไม่มี",
+      "complexity": "M"
+    },
+    {
+      "id": "UI-005",
+      "severity": "P2",
+      "type": "Figma Mismatch",
+      "page": "Evaluation desktop",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "Pair presentation / criterion cards / navigation",
+      "frames": [
+        "57:3"
+      ],
+      "expected": "ST20สื่อpairเดียวพร้อมA/Bartifactcards,criterionquestion+weight,บันทึกต่อเกณฑ์ และprevious/nextpair workflow",
+      "actual": "เว็บแสดงทุกcomparisonแยกภายในcriterion,ไม่มีglobalA/Bartifactcards/criterionweight/questionหรือprevious/nextpair; footerเป็นส่งคำตอบทันที. สร้างfixture3GROUPcriteria+2INDIVIDUALเพื่อตรวจแล้วจึงไม่อธิบายช่องว่างนี้ด้วยจำนวนcriteriaต่างกัน.",
+      "sources": [
+        "frontend/src/pages/EvaluatePage.tsx:37",
+        "frontend/src/pages/EvaluatePage.tsx:240",
+        "frontend/src/pages/EvaluatePage.tsx:266",
+        "frontend/src/pages/EvaluatePage.tsx:304",
+        "frontend/src/lib/api.ts:294",
+        "backend/app/api/assignments.py:152"
+      ],
+      "evidence": [
+        "evidence/figma/student-evaluation-desktop-57-3.png",
+        "evidence/visual/evaluation-three-criteria-1440.png",
+        "evidence/visual/conditions.json"
+      ],
+      "repro": [
+        "เปิดevaluateที่มีGROUP3criteria",
+        "เทียบST20ที่1440",
+        "ตรวจabsenceของartifactA/B,weight,questionและpairnavigation"
+      ],
+      "fix": "กำหนดpair-centric state/navigationและsave lifecycleก่อนจัดlayout; ขยายAPIด้วยcriteria metadata/artifact peritemจากข้อมูลจริง. อย่าปลอมURLสองฝั่งด้วยassignmentURLเดียว",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "แก้EVAL-001ก่อน; ปัจจุบันartifactUrlเป็นค่าเดียวทั้งassignment ไม่ใช่ต่อitem; ตรวจpair-generation semanticsก่อนบังคับpairเดียวข้ามcriteria",
+      "complexity": "L"
+    },
+    {
+      "id": "UI-006",
+      "severity": "P2",
+      "type": "Responsive Bug",
+      "page": "Evaluation mobile",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "Comparison scale",
+      "frames": [
+        "516:996"
+      ],
+      "expected": "M04ที่390pxใช้6ตัวเลือกเรียงแนวตั้งเต็มแถว พร้อมชื่อฝั่งในแต่ละคำตอบ/selectedcheck และfixedactions",
+      "actual": "เว็บ390pxยังเป็นgrid3คอลัมน์×2แถว(min-h128แต่ละตัว), labelยาวแตกบรรทัด; ใช้genericซ้าย/ขวาแทนชื่อในlabel. ไม่พบdocumenthorizontaloverflowแต่compositionต่างชัดเจน.",
+      "sources": [
+        "frontend/src/components/ComparisonRow.tsx:69",
+        "frontend/src/components/ComparisonRow.tsx:82",
+        "frontend/src/components/ComparisonRow.tsx:127"
+      ],
+      "evidence": [
+        "evidence/figma/student-evaluation-mobile-516-996.png",
+        "evidence/visual/evaluation-three-criteria-390.png",
+        "evidence/comparison/evaluation-mobile-side-by-side.png",
+        "evidence/runtime/evaluation-group-default-375x812-viewport.png"
+      ],
+      "repro": [
+        "เปิดevaluate390×844และ375×812",
+        "เทียบ6optionslayoutกับM04",
+        "แยกstickyfooterในfullPagescreenshotออกจากoverlapbug"
+      ],
+      "fix": "ใช้singlecolumnmobileoptionsและaria-labelที่มีชื่อpair+ระดับ; selectedtext/checkชัดเจน,desktopคง6columns",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "mobilelayout=1column expected/current3columns; currentscale sizes24/36/48px",
+      "dependencies": "ควบคู่A11Y-005และUI-005",
+      "complexity": "M"
+    },
+    {
+      "id": "UI-007",
+      "severity": "P2",
+      "type": "Missing Component",
+      "page": "Own score",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/score",
+      "component": "ScoreStep / score context / participation",
+      "frames": [
+        "60:437",
+        "516:1322"
+      ],
+      "expected": "ST30/M07แสดงassignment+group,คะแนนรวม/เต็มและวันประกาศ,criteria rows+weights+score/max,จำนวนคู่ส่งแล้ว/ทั้งหมดและp/M",
+      "actual": "แม้fixtureมี3+2criteriaและ15+5เต็มจริง หน้าเว็บยังแสดงเฉพาะgroup/individualaggregatesและraw4decimals,ไม่มีmax/date/criterionrows/ส่งแล้วNต่อทั้งหมด. Privacyhiddenทำงานถูกต้องและห้ามแก้ให้เปิดคะแนนที่ถูกซ่อน.",
+      "sources": [
+        "frontend/src/pages/ScorePage.tsx:17",
+        "frontend/src/pages/ScorePage.tsx:114",
+        "frontend/src/pages/ScorePage.tsx:153",
+        "frontend/src/pages/ScorePage.tsx:197",
+        "frontend/src/lib/api.ts:559",
+        "backend/app/api/scoring.py:418"
+      ],
+      "evidence": [
+        "evidence/figma/student-score-desktop-60-437.png",
+        "evidence/figma/student-score-mobile-516-1322.png",
+        "evidence/visual/score-three-two-criteria-1440.png",
+        "evidence/visual/score-three-two-criteria-390.png",
+        "evidence/comparison/score-desktop-side-by-side.png"
+      ],
+      "repro": [
+        "Finalizeงานจริงที่มี3+2criteriaและscoremax15+5",
+        "เปิดmy-score1440/390",
+        "เทียบmetadata/detailpresence ไม่เทียบค่าคะแนนfixture"
+      ],
+      "fix": "ขยายMyScoreOut/OpenAPIให้คืนownscorebreakdown/max/finalizedAt/submissioncountsที่ผ่านprivacyfilter แล้วrenderrows/formatตามแบบ",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backendcontract+privacy regression testsจำเป็น; finalScore/individualHiddenเดิมต้องคงถูกต้อง",
+      "complexity": "L"
+    },
+    {
+      "id": "UI-008",
+      "severity": "P3",
+      "type": "Figma Mismatch",
+      "page": "Own score",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/score",
+      "component": "Score hero illustration",
+      "frames": [
+        "60:437"
+      ],
+      "expected": "ST30ใช้ภาพรายงานคะแนนที่มีshield/checkตามfreshframe",
+      "actual": "เว็บใช้reports.pngภาพหน้าต่างกราฟ/แว่นขยาย ซึ่งเป็นคนละภาพในlibrary แม้โหลดไฟล์สำเร็จ.",
+      "sources": [
+        "frontend/src/pages/ScorePage.tsx:4",
+        "frontend/src/pages/ScorePage.tsx:97",
+        "frontend/src/assets/figma/README.md:15"
+      ],
+      "evidence": [
+        "evidence/figma/student-score-desktop-60-437.png",
+        "evidence/visual/score-three-two-criteria-1440.png"
+      ],
+      "repro": [
+        "เปิดscore1440",
+        "เทียบheroartกับST30"
+      ],
+      "fix": "หาและexportassetของST30จากFigmaโดยตรงพร้อมnodeprovenance; อย่าใช้ภาพreportsทั่วไปแทน",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "S"
+    },
+    {
+      "id": "UI-009",
+      "severity": "P3",
+      "type": "Figma Mismatch",
+      "page": "Authenticated shell",
+      "route": "ทุกprotected route",
+      "component": "AppNav",
+      "frames": [
+        "86:770",
+        "516:825",
+        "516:923",
+        "60:437"
+      ],
+      "expected": "Freshscreensแสดงlogo+PairEvalwordmarkบนมือถือและuser/avatar/bell/logoutตามroleheader",
+      "actual": "AppNavซ่อนwordmark≤420px เพิ่มroomlink/breadcrumbและรวมlogoutไว้ในaccountmenu; จึงจัดheaderต่างจากFigmaทุกprotectedpage. การไม่มีnotificationcapabilityแยกGAP-001 ไม่คิดซ้ำ.",
+      "sources": [
+        "frontend/src/components/AppNav.tsx:83",
+        "frontend/src/components/AppNav.tsx:90",
+        "frontend/src/components/AppNav.tsx:95",
+        "frontend/src/components/AppNav.tsx:139"
+      ],
+      "evidence": [
+        "evidence/figma/student-classrooms-mobile-516-825.png",
+        "evidence/visual/student-classrooms-390.png",
+        "evidence/runtime/classrooms-owner-1440x900-viewport.png"
+      ],
+      "repro": [
+        "เปิดprotectedpage1440และ390",
+        "เทียบheadercompositionและwordmark"
+      ],
+      "fix": "สร้างresponsiveAppNavvariantsตามrole/screen และกำหนดว่าส่วนaccountmenuใดเป็นintentionaldeviation; คงaccessiblelabelsและrealpermissions",
+      "status": "FAIL",
+      "verification": "Confirmed runtime/source or fresh visual comparison",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "ไม่มี dependency package ใหม่ที่จำเป็นต่อการแก้ที่แนะนำ",
+      "complexity": "M"
+    },
+    {
+      "id": "GAP-001",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Notifications",
+      "route": null,
+      "component": "Notification center / badge",
+      "frames": [
+        "502:6515",
+        "516:870"
+      ],
+      "expected": "FigmaST12/M02มีnotificationและdeeplinkโดยไม่ใส่คะแนนในข้อความ",
+      "actual": "ไม่มีnotificationroute/component/APIหรือreadstate; authenticatedheaderไม่มีbell. layoutภายในframeยังNotVerified.",
+      "sources": [
+        "frontend/src/App.tsx:10",
+        "frontend/src/components/AppNav.tsx:33",
+        "backend/app/main.py:16"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "FIGMA_SCREEN_INVENTORY.md",
+        "evidence/figma/student-classrooms-mobile-516-825.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "กำหนดnotificationevents/recipient/privacy/deeplink/readstateและAPIก่อนเพิ่มdesktopmenu/mobilepage",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backendevent/storage/API+permissions; ห้ามส่งคะแนนในnotificationpayloadตามชื่อframe",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-002",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Score appeals",
+      "route": null,
+      "component": "Appeal entry / form / receipt / teacher response",
+      "frames": [
+        "318:10237",
+        "318:10377",
+        "516:1393",
+        "516:1440",
+        "334:4844",
+        "483:7516"
+      ],
+      "expected": "ST30/M07มีปุ่มยื่นอุทธรณ์และST33/34,M08/09มีform/success;ผู้สอนมีqueue/response",
+      "actual": "ไม่มีappealentrypointในscore,ไม่มีform/receipt/teacherqueue/API. FreshM09ยืนยันsuccessscreenที่ยังไม่มีในเว็บ.",
+      "sources": [
+        "frontend/src/pages/ScorePage.tsx:114",
+        "frontend/src/App.tsx:10",
+        "backend/app/api/scoring.py:418"
+      ],
+      "evidence": [
+        "evidence/figma/student-score-mobile-516-1322.png",
+        "evidence/figma/student-appeal-success-mobile-516-1440.png",
+        "evidence/visual/score-three-two-criteria-390.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "เพิ่มappealmodel/state/submit/respondAPI+audit+rolepermissions แล้วเชื่อมscore→form→receipt→notification",
+      "status": "FAIL",
+      "verification": "Missing implementation confirmed; score-entry and success references visually inspected. Form layout details Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backend/schema/OpenAPI; scoreidentity/privacy; notificationGAP-001",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-003",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Room lifecycle",
+      "route": "/classrooms",
+      "component": "Archive / delete / restore controls",
+      "frames": [
+        "432:2495",
+        "432:2575",
+        "432:2651",
+        "349:2530"
+      ],
+      "expected": "FrameinventoryมีArchive,ลบห้องว่างและข้อห้ามเมื่อมีข้อมูล",
+      "actual": "มีarchivedfilterแต่ไม่มีarchive/delete/restoremutationหรือownercardmenu; ไม่ได้แปลว่าfilterเป็นdeadcontrol หากมีarchiveddataจากภายนอก.",
+      "sources": [
+        "frontend/src/pages/ClassroomsPage.tsx:163",
+        "frontend/src/lib/api.ts:178",
+        "backend/app/api/classrooms.py:55"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "evidence/figma/owner-classrooms-desktop-349-2388.png",
+        "evidence/runtime/classrooms-owner-1440x900-full.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "ตกลงarchive/restore/deletepolicyและowner-onlyAPIพร้อมdataexistenceguards ก่อนเพิ่มcardmenu/confirmstates",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backendlifecycle/schema/audit/permission; ห้ามนำtestdeleteไปใช้ข้อมูลจริง",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-004",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Roster advanced management",
+      "route": "/classrooms/:classroomId#members",
+      "component": "Import preview / change role / withdraw",
+      "frames": [
+        "405:2748",
+        "432:2901",
+        "468:2963",
+        "441:3909",
+        "344:1266"
+      ],
+      "expected": "Figmaมีpreviewchangesก่อนนำเข้าซ้ำ,เปลี่ยนroleและwithdrawcourseแทนลบเมื่องานมีข้อมูล",
+      "actual": "ปัจจุบันimportทันทีผ่านatomicvalidation; rolepanelเพิ่ม/ถอดได้แต่ไม่มีroleedit/withdrawworkflow. การimport/search/pagination/ถอดก่อนpublishที่มีอยู่ทดสอบผ่าน.",
+      "sources": [
+        "frontend/src/components/RosterImportCard.tsx:11",
+        "frontend/src/components/RosterTable.tsx:173",
+        "frontend/src/components/MemberPanel.tsx:15",
+        "backend/app/api/roster.py:86",
+        "backend/app/api/members.py:40"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "evidence/figma/owner-members-desktop-330-1057.png",
+        "evidence/failure/roster-removed-confirmed.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "เพิ่มpreview→confirmprotocol,rolemutationและwithdrawdomainrulesพร้อมpairreassignment/lockedstates; reconcileFigmaกับpermissionsปัจจุบันก่อนเปลี่ยนสิทธิ์",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backendtransaction/state/schema+pairingregressions; อย่าลดsecurityตามvisualframeโดยไม่ทบทวนPRD",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-005",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Assignment authoring",
+      "route": "/classrooms/:classroomId#assignments",
+      "component": "Editable multiple criteria / artifact metadata",
+      "frames": [
+        "332:1712",
+        "332:2128",
+        "441:4225",
+        "441:4645"
+      ],
+      "expected": "Figmaauthoringมีหลายเกณฑ์/weight validationและข้อมูลผลงานที่นำไปแสดงในevaluation",
+      "actual": "UItoCreateInputhardcodeGROUPคุณภาพงาน1เกณฑ์และINDการมีส่วนร่วม1เกณฑ์. Backendรองรับcriteriaarray/PUTcriteriaอยู่แล้ว แต่UIไม่มีadd/edit/removecriteriaหรือartifactURLinput.",
+      "sources": [
+        "frontend/src/lib/assignment.ts:91",
+        "frontend/src/lib/assignment.ts:103",
+        "frontend/src/components/AssignmentPanel.tsx:147",
+        "frontend/src/lib/api.ts:263",
+        "backend/app/api/assignments.py:251"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "evidence/visual/owner-members-no-assignment-1440.png",
+        "evidence/failure/assignment-published-before-reload.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "เพิ่มeditablecriterialist/description/weight/errorstatesและใช้backendcontractที่มี; validate100%ต่อsideและdraft-onlyupdates; ต้องอ่านfullauthoringframesก่อนเก็บรายละเอียดlayout",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Frontendสามารถใช้criteriaAPIเดิม; artifactperitemยังต้องdomain/APIเพิ่มตามUI-005",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-006",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Assignment lifecycle",
+      "route": "/classrooms/:classroomId#assignments",
+      "component": "Schedule / unpublish / extend / copy",
+      "frames": [
+        "491:6320",
+        "493:3243",
+        "493:3408",
+        "399:2041",
+        "399:2144",
+        "405:2621"
+      ],
+      "expected": "Frameinventoryมีตั้งเวลาเปิดรับ,รอเปิด,ยกเลิกเผยแพร่,ขยายdeadlineและcopyassignment",
+      "actual": "API/UIรองรับcreate→publish→recompute/finalize/reopen แต่ไม่มีscheduledopening/unpublish/deadlineupdate/duplicateworkflow. Publishไม่ใช่deadbutton; basicflowผ่าน.",
+      "sources": [
+        "frontend/src/components/AssignmentPanel.tsx:99",
+        "frontend/src/lib/api.ts:263",
+        "backend/app/api/assignments.py:208",
+        "backend/app/api/assignments.py:322"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "discovery.json",
+        "evidence/failure/assignment-published-after-reload.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "กำหนดstatemachineและผลกระทบต่อanswers/deadlinesให้ชัด แล้วเพิ่มcommands/permissions/auditและUIconfirmstates",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backenddomain/schema/clock/schedulerอาจจำเป็น; พิจารณาarchitectureก่อนเพิ่มpackage/service",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-007",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Instructor reporting and interventions",
+      "route": "/classrooms/:classroomId#scores",
+      "component": "Coverage / quality / response exclusion / identity audit",
+      "frames": [
+        "334:2042",
+        "334:2250",
+        "382:1863",
+        "382:2049",
+        "334:5219",
+        "441:6566",
+        "441:6941"
+      ],
+      "expected": "Figmaแยกรายงานคะแนน/coverage/qualityQS01–07,ตรวจresponseรหัสแฝง,excludeพร้อมเหตุผลและauditviewer",
+      "actual": "มีbasiccomputedscoretable,override,reopenและCSVexport; ไม่มีรายงาน/interactionที่กล่าวมาในเว็บ. Classroom auditAPIมีอยู่แล้วแต่ยังไม่มีviewer. IdentifiedCSVAPIไม่เท่ากับรายงานเปิดตัวตนรายresponse.",
+      "sources": [
+        "frontend/src/components/AssignmentScoringCard.tsx:323",
+        "frontend/src/components/InstructorReport.tsx:1",
+        "backend/app/api/scoring.py:389",
+        "backend/app/api/members.py:130"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "discovery.json",
+        "evidence/runtime/classroom-owner-1440x900-full.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "แยกรายงานตามcapabilityและใช้ข้อมูลquality/coverageที่คำนวณจริง;เพิ่มintervention+exclusion+auditcontractsเมื่อdomainพร้อม; อย่าเอาunusedInstructorReportที่มีตัวอย่างข้อมูลมารับรองว่ามีflowแล้ว",
+      "status": "FAIL",
+      "verification": "Implementation absence confirmed from source and Figma frame inventory; exact unexported frame layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "Backendqualitymetrics/intervention/privacy/auditAPI; owner/co-teacher/TApermissionregressions",
+      "complexity": "L"
+    },
+    {
+      "id": "GAP-008",
+      "severity": "P2",
+      "type": "Missing Page / Component",
+      "page": "Offline evaluation",
+      "route": "/classrooms/:classroomId/assignments/:assignmentId/evaluate",
+      "component": "Durable pending answers / recovery",
+      "frames": [
+        "472:558"
+      ],
+      "expected": "ST24ระบุออฟไลน์ · คำตอบเก็บไว้ในเครื่อง",
+      "actual": "ฉีดPUT internetdisconnected:มีerrorแต่ไม่persistqueue. คืนnetworkแล้วรอ2.5s APIchoiceยังnull; reloadแล้วselected=false. Basicretryโดยเลือกใหม่อาจทำได้ แต่durability/automaticrecoveryตามframeไม่มี.",
+      "sources": [
+        "frontend/src/components/ComparisonRow.tsx:32",
+        "frontend/src/components/ComparisonRow.tsx:52",
+        "frontend/src/components/ComparisonRow.tsx:59"
+      ],
+      "evidence": [
+        "figma-inventory.json",
+        "evidence/failure/checks.json",
+        "evidence/failure/autosave-offline-error.png",
+        "evidence/failure/autosave-offline-choice-lost-after-reload.png"
+      ],
+      "repro": [
+        "เปิดframeตามnodeIDและดูชื่อflowที่ระบุ",
+        "ตรวจroute/API/componentinventoryและentrypointในเว็บ",
+        "ไม่พบcapabilityดังกล่าว; ขั้นตอนภายในที่ยังไม่มีimplementationเป็นBLOCKED"
+      ],
+      "fix": "เพิ่มsession-scopedpendingqueue/durablelocalstorageพร้อมrecovery/retryและexpireddeadlinehandling; แยกหน้าตาoffline/errorและบอกสถานะไม่อ้างว่าบันทึกแล้วก่อนserverack",
+      "status": "FAIL",
+      "verification": "Runtime loss/recovery failure confirmed under injected network outage; Figma offline capability title verified, fullST24 visual layout Not Verified",
+      "token": "ไม่ใช่ token-only issue",
+      "dependencies": "แก้EVAL-001savecoordinationก่อน; ต้องแยกuser/session,logoutcleanupและdeadline/privacytests",
+      "complexity": "M"
+    }
+  ]
+}

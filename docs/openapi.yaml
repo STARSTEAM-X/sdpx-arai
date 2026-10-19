@@ -2,15 +2,16 @@ openapi: 3.1.0
 
 info:
   title: PairEval API
-  version: 0.1.0-M1
+  version: 0.2.0-redesign
   license:
     name: MIT
     identifier: MIT
   description: |
     API ของระบบประเมินผลงานนักศึกษาแบบ pairwise comparison
 
-    **ขอบเขตของเอกสารนี้คือ M1 Walking Skeleton** — ทุก endpoint ที่นี่สืบกลับไปหา
-    user story ใน `docs/backlog.md` ได้ และทุก story ใน Sprint 1 มี endpoint รองรับ
+    ครอบคลุม walking skeleton และ frontend redesign: การแจ้งเตือน อุทธรณ์
+    วงจรงานประเมิน การถอนรายวิชา รายงานคุณภาพ และการประเมินเพิ่มเติม
+    ทุกการเปลี่ยนข้อมูลตรวจสิทธิ์และสถานะจริงที่ server พร้อมเก็บประวัติ
 
     หลักที่ยึดทั้งไฟล์
     - ทุก endpoint ยกเว้น `/api/health` ต้องมี bearer token
@@ -30,6 +31,10 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: appeals
+    description: คำร้องอุทธรณ์คะแนนส่วนตัวและการตอบโดยผู้สอน
+  - name: notifications
+    description: การแจ้งเตือนในระบบและสถานะการอ่านของผู้ใช้เอง
   - name: health
     description: ตรวจสถานะระบบ
   - name: auth
@@ -44,6 +49,598 @@ tags:
     description: คำนวณ ประกาศ และดูคะแนน (US-13, US-15, US-16)
 
 paths:
+  "/api/assignments/{assignment_id}/additional-evaluations":
+    "post":
+      "tags": ["evaluation"]
+      "summary": "Assign Additional"
+      "operationId": "assign_additional_api_assignments__assignment_id__additional_evaluations_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ExtraIn"
+      "responses":
+        "201":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CoverageActionOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/instructor-comparisons":
+    "post":
+      "tags": ["evaluation"]
+      "summary": "Instructor Comparison"
+      "operationId": "instructor_comparison_api_assignments__assignment_id__instructor_comparisons_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/InstructorComparisonIn"
+      "responses":
+        "201":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CoverageActionOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}:extend-deadline":
+    "post":
+      "tags": ["assignments"]
+      "summary": "Extend Deadline"
+      "operationId": "extend_deadline_api_assignments__assignment_id__extend_deadline_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ExtendIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Assignment"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}:copy":
+    "post":
+      "tags": ["assignments"]
+      "summary": "Copy Assignment"
+      "operationId": "copy_assignment_api_assignments__assignment_id__copy_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CopyIn"
+      "responses":
+        "201":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Assignment"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}:unpublish":
+    "post":
+      "tags": ["assignments"]
+      "summary": "Unpublish Assignment"
+      "operationId": "unpublish_assignment_api_assignments__assignment_id__unpublish_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/UnpublishIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Assignment"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/unpublish-impact":
+    "get":
+      "tags": ["assignments"]
+      "summary": "Unpublish Impact"
+      "operationId": "unpublish_impact_api_assignments__assignment_id__unpublish_impact_get"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/UnpublishImpact"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/classrooms/{classroom_id}/members/{member_id}/enrollment":
+    "patch":
+      "tags": ["classrooms"]
+      "summary": "Change Enrollment"
+      "operationId": "change_enrollment_api_classrooms__classroom_id__members__member_id__enrollment_patch"
+      "parameters": [{"name":"classroom_id","in":"path","required":true,"schema":{"type":"string","title":"Classroom Id"}},{"name":"member_id","in":"path","required":true,"schema":{"type":"string","title":"Member Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/EnrollmentIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/EnrollmentOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/quality":
+    "get":
+      "tags": ["scoring"]
+      "summary": "Quality Report"
+      "operationId": "quality_report_api_assignments__assignment_id__quality_get"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/QualityOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/quality/{reviewer_key}:identity":
+    "post":
+      "tags": ["scoring"]
+      "summary": "Reveal Identity"
+      "operationId": "reveal_identity_api_assignments__assignment_id__quality__reviewer_key__identity_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}},{"name":"reviewer_key","in":"path","required":true,"schema":{"type":"string","title":"Reviewer Key"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ReasonIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/IdentityOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/quality/{reviewer_key}:exclusion":
+    "post":
+      "tags": ["scoring"]
+      "summary": "Set Exclusion"
+      "operationId": "set_exclusion_api_assignments__assignment_id__quality__reviewer_key__exclusion_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}},{"name":"reviewer_key","in":"path","required":true,"schema":{"type":"string","title":"Reviewer Key"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ExclusionIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ExclusionOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "สถานะข้อมูลไม่อนุญาตให้ดำเนินการ"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/assignments/{assignment_id}/appeals":
+    "post":
+      "tags": ["appeals"]
+      "summary": "Create Appeal"
+      "operationId": "create_appeal_api_assignments__assignment_id__appeals_post"
+      "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AppealIn"
+      "responses":
+        "201":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AppealOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/classrooms/{classroom_id}/appeals":
+    "get":
+      "tags": ["appeals"]
+      "summary": "List Appeals"
+      "operationId": "list_appeals_api_classrooms__classroom_id__appeals_get"
+      "parameters": [{"name":"classroom_id","in":"path","required":true,"schema":{"type":"string","title":"Classroom Id"}}]
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AppealsOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/classrooms/{classroom_id}/appeals/{appeal_id}:resolve":
+    "post":
+      "tags": ["appeals"]
+      "summary": "Resolve Appeal"
+      "operationId": "resolve_appeal_api_classrooms__classroom_id__appeals__appeal_id__resolve_post"
+      "parameters": [{"name":"classroom_id","in":"path","required":true,"schema":{"type":"string","title":"Classroom Id"}},{"name":"appeal_id","in":"path","required":true,"schema":{"type":"string","title":"Appeal Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ResolutionIn"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/AppealOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  "/api/classrooms/{classroom_id}/roster:preview":
+    "post":
+      "tags": ["classrooms"]
+      "summary": "Preview Roster"
+      "operationId": "preview_roster_api_classrooms__classroom_id__roster_preview_post"
+      "parameters": [{"name":"classroom_id","in":"path","required":true,"schema":{"type":"string","title":"Classroom Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "multipart/form-data":
+            "schema":
+              "$ref": "#/components/schemas/Body_preview_roster_api_classrooms__classroom_id__roster_preview_post"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/RosterPreviewOut"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
+  /api/classrooms/{classroomId}:archive:
+    post:
+      operationId: archiveClassroom
+      tags: [classrooms]
+      summary: เก็บห้องเรียนเข้าคลัง อ่านได้อย่างเดียว เฉพาะเจ้าของห้อง
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: สถานะห้องเรียนหลังเปลี่ยน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Classroom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/classrooms/{classroomId}:restore:
+    post:
+      operationId: restoreClassroom
+      tags: [classrooms]
+      summary: คืนห้องเรียนจากคลัง เฉพาะเจ้าของห้อง
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: สถานะห้องเรียนหลังเปลี่ยน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Classroom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/classrooms/{classroomId}:
+    delete:
+      operationId: deleteEmptyClassroom
+      tags: [classrooms]
+      summary: ลบเฉพาะห้องว่างที่ไม่มีสมาชิกเพิ่มเติม งาน กลุ่ม หรือประวัติการใช้งาน
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '204':
+          description: ลบแล้ว โดยเก็บบันทึก audit การลบไว้
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: ห้องมีข้อมูลแล้ว ให้ใช้ Archive แทน
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: การแจ้งเตือนของผู้ใช้เอง ไม่มีตัวเลขคะแนนในข้อความ
+      responses:
+        '200':
+          description: รายการเปิดงานและประกาศผลจากห้องที่เป็นสมาชิก
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unreadCount]
+                properties:
+                  unreadCount:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/notifications/{notificationId}:read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: ทำเครื่องหมายอ่านแล้ว เฉพาะการแจ้งเตือนของตนเอง
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: อ่านแล้ว
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/health:
     get:
       tags: [health]
@@ -230,6 +827,44 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
 
   /api/classrooms/{classroomId}/members/{memberId}:
+    patch:
+      operationId: changeInstructorRole
+      tags: [classrooms]
+      summary: เจ้าของห้องเปลี่ยนบทบาทผู้สอนร่วมและ TA พร้อมเหตุผล
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, reason]
+              properties:
+                role: { type: string, enum: [CO_TEACHER, TA] }
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: บทบาทที่บันทึกแล้ว
+          content:
+            application/json:
+              schema: { type: object, properties: { memberId: { type: string }, email: { type: string }, role: { type: string } } }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: บทบาทหรือเหตุผลไม่ถูกต้อง
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
     delete:
       tags: [classrooms]
       summary: ถอดสมาชิกออกจากห้องเรียน
@@ -433,6 +1068,39 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
 
   /api/assignments/{assignmentId}:
+    "put":
+      "tags": ["assignments"]
+      "summary": "Update Assignment"
+      "operationId": "update_assignment_api_assignments__assignment_id__put"
+      "parameters": [{"name":"assignmentId","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AssignmentCreate"
+      "responses":
+        "200":
+          "description": "Successful Response"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Assignment"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "description": "แก้ไขได้เฉพาะฉบับร่างในห้องที่ยังไม่เก็บเข้าคลัง"
+        "422":
+          "description": "Validation Error"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ErrorEnvelope"
+      "security": [{"bearerAuth":[]}]
     get:
       tags: [assignments]
       summary: ดูงานประเมินหนึ่งงานพร้อมเกณฑ์
@@ -1168,6 +1836,27 @@ components:
           type: string
           format: date-time
 
+        courseCode:
+          type: [string, 'null']
+          maxLength: 100
+        semester:
+          type: [string, 'null']
+          maxLength: 100
+
+        instructorName:
+          type: [string, 'null']
+        groupName:
+          type: [string, 'null']
+        studentCount:
+          type: integer
+        groupCount:
+          type: integer
+        assignmentCount:
+          type: integer
+        pendingAssignmentCount:
+          type: integer
+          description: จำนวนงานที่ผู้ใช้คนนี้ยังมีคำตอบไม่ส่งและยังส่งทันกำหนด นับเฉพาะสมาชิกนักศึกษาที่ยังเรียนอยู่
+
     ClassroomCreate:
       type: object
       required: [name, timezone]
@@ -1184,6 +1873,13 @@ components:
           description: ระบบ production บังคับใช้ kmitl.ac.th และไม่ยอมให้ client เปิดรับ domain อื่น
           items:
             type: string
+
+        courseCode:
+          type: [string, 'null']
+          maxLength: 100
+        semester:
+          type: [string, 'null']
+          maxLength: 100
 
     AuditEntry:
       type: object
@@ -1218,6 +1914,10 @@ components:
       type: object
       required: [memberId, userId, email, role, status]
       properties:
+        enrollmentStatus:
+          type: string
+          enum: [ACTIVE, WITHDRAWN]
+          description: สถานะเฉพาะห้องเรียน แยกจากสถานะบัญชี
         memberId:
           type: string
           format: uuid
@@ -1278,6 +1978,10 @@ components:
         displayOrder:
           type: integer
 
+        question:
+          type: [string, 'null']
+          maxLength: 2000
+
     AssignmentCreate:
       type: object
       required:
@@ -1288,6 +1992,15 @@ components:
         - groupDeadlineUtc
         - criteria
       properties:
+        opensAtUtc:
+          type: [string, 'null']
+          format: date-time
+          description: เวลาที่เริ่มรับคำตอบ ต้องมาก่อนกำหนดส่งของทุกฝั่ง
+        instructorWeight: { type: number, minimum: 0, maximum: 10, default: 1 }
+        minComparisons: { type: integer, minimum: 1, maximum: 100, default: 3 }
+        scoreFloor: { type: number, minimum: 0, maximum: 1, default: 0.6 }
+        scoreCeiling: { type: number, minimum: 0, maximum: 1, default: 1, description: ต้องมากกว่า scoreFloor }
+        completionThreshold: { type: number, exclusiveMinimum: 0, maximum: 1, default: 0.9 }
         classroomId:
           type: string
           format: uuid
@@ -1328,14 +2041,109 @@ components:
           items:
             $ref: '#/components/schemas/CriterionCreate'
 
-    Assignment:
+        groupArtifactUrls:
+          type: object
+          description: ลิงก์ผลงานตามชื่อกลุ่มจริงในห้องเรียน
+          additionalProperties:
+            type: string
+            format: uri
+
+    "Assignment":
+      "properties":
+        "id":
+          "type": "string"
+          "title": "Id"
+        "classroomId":
+          "type": "string"
+          "title": "Classroomid"
+        "name":
+          "type": "string"
+          "title": "Name"
+        "status":
+          "type": "string"
+          "title": "Status"
+          "enum": ["DRAFT","PUBLISHED","OPEN","CLOSED","FINALIZED","ARCHIVED"]
+        "groupDeadlineUtc":
+          "type": "string"
+          "format": "date-time"
+          "title": "Groupdeadlineutc"
+        "individualDeadlineUtc":
+          "anyOf": [{"type":"string","format":"date-time"},{"type":"null"}]
+          "title": "Individualdeadlineutc"
+        "criteria":
+          "items":
+            "$ref": "#/components/schemas/Criterion"
+          "type": "array"
+          "title": "Criteria"
+        "opensAtUtc":
+          "anyOf": [{"type":"string","format":"date-time"},{"type":"null"}]
+          "title": "Opensatutc"
+        "description":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+          "title": "Description"
+        "artifactUrl":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+          "title": "Artifacturl"
+        "groupArtifactUrls":
+          "additionalProperties":
+            "type": "string"
+          "type": "object"
+          "title": "Groupartifacturls"
+        "groupMaxScore":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Groupmaxscore"
+          "default": "15"
+        "individualMaxScore":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Individualmaxscore"
+          "default": "5"
+        "targetCoverage":
+          "type": "integer"
+          "title": "Targetcoverage"
+          "default": 5
+        "maxWorkload":
+          "type": "integer"
+          "title": "Maxworkload"
+          "default": 8
+        "instructorWeight":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Instructorweight"
+          "default": "1"
+        "minComparisons":
+          "type": "integer"
+          "title": "Mincomparisons"
+          "default": 3
+        "scoreFloor":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Scorefloor"
+          "default": "0.6"
+        "scoreCeiling":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Scoreceiling"
+          "default": "1"
+        "completionThreshold":
+          "type": "string"
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+          "title": "Completionthreshold"
+          "default": "0.9"
+      "type": "object"
+      "required": ["id","classroomId","name","status","groupDeadlineUtc","individualDeadlineUtc","criteria"]
+      "title": "AssignmentOut"
+    AssignmentSummary:
       type: object
-      required: [id, classroomId, name, status, criteria]
+      description: รูปย่อของ Assignment สำหรับหน้ารายการ — ไม่มี criteria เพราะหน้ารายการไม่ใช้
+      required: [id, name, status, groupDeadlineUtc]
       properties:
+        opensAtUtc:
+          type: [string, 'null']
+          format: date-time
+          description: เวลาที่เริ่มรับคำตอบ ต้องมาก่อนกำหนดส่งของทุกฝั่ง
         id:
-          type: string
-          format: uuid
-        classroomId:
           type: string
           format: uuid
         name:
@@ -1349,28 +2157,14 @@ components:
         individualDeadlineUtc:
           type: [string, 'null']
           format: date-time
-        criteria:
-          type: array
-          items:
-            $ref: '#/components/schemas/Criterion'
 
-    AssignmentSummary:
-      type: object
-      description: รูปย่อของ Assignment สำหรับหน้ารายการ — ไม่มี criteria เพราะหน้ารายการไม่ใช้
-      required: [id, name, status, groupDeadlineUtc]
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        status:
-          type: string
-          enum: [DRAFT, PUBLISHED, OPEN, CLOSED, FINALIZED, ARCHIVED]
-        groupDeadlineUtc:
-          type: string
-          format: date-time
-        individualDeadlineUtc:
+        assignedCount:
+          type: integer
+        answeredCount:
+          type: integer
+        submittedCount:
+          type: integer
+        submittedAt:
           type: [string, 'null']
           format: date-time
 
@@ -1389,6 +2183,10 @@ components:
           type: number
         displayOrder:
           type: integer
+
+        question:
+          type: [string, 'null']
+          maxLength: 2000
 
     Feasibility:
       type: object
@@ -1439,7 +2237,7 @@ components:
       type: object
       description: |
         คู่หนึ่งที่ต้องประเมิน — left/right แบนราบตามตำแหน่งจริงที่สุ่มไว้ตอน publish (D8/FR-PAIR-08)
-        ไม่มี artifactUrl ต่อ item เพราะ assignment มี artifact_url ช่องเดียว (ดู MyEvaluations)
+        รองรับลิงก์ผลงานรายกลุ่มเพิ่มเติมจาก artifactUrl รวมของงาน
       required:
         - pairAssignmentId
         - criterionId
@@ -1482,6 +2280,17 @@ components:
             ค่าที่เคยเลือกไว้ (DRAFT หรือ SUBMITTED) — null ถ้ายังไม่เคยตอบ
             ต้องส่งกลับเพื่อให้ปิด browser กลางคันแล้วเปิดใหม่ยังเห็นคำตอบเดิม (FR-EVAL-04)
 
+        weightPct:
+          type: number
+        question:
+          type: [string, 'null']
+        leftArtifactUrl:
+          type: [string, 'null']
+          format: uri
+        rightArtifactUrl:
+          type: [string, 'null']
+          format: uri
+
     MyEvaluations:
       type: object
       required:
@@ -1494,11 +2303,18 @@ components:
         - totalCount
         - items
       properties:
+        opensAtUtc:
+          type: [string, 'null']
+          format: date-time
+          description: เวลาที่เริ่มรับคำตอบ ต้องมาก่อนกำหนดส่งของทุกฝั่ง
+        readOnly:
+          type: boolean
+          description: งานประกาศผลหรือเก็บเข้าคลัง อ่านคำตอบได้แต่ส่งเพิ่มไม่ได้
         side:
           $ref: '#/components/schemas/Side'
         opened:
           type: boolean
-          description: 'false เมื่อ assignment ยังเป็น DRAFT — items จะว่างเสมอตอนนั้น'
+          description: 'false เมื่อยังเป็น DRAFT หรือยังไม่ถึง opensAtUtc โดย items จะว่าง'
         message:
           type: [string, 'null']
           description: อธิบายเหตุผลเมื่อ opened = false หรือเมื่อฝั่งนี้ไม่มีการประเมิน (individualMaxScore = 0)
@@ -1518,6 +2334,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EvaluationItem'
+
+        assignmentName:
+          type: string
 
     ComparisonSave:
       type: object
@@ -1646,6 +2465,11 @@ components:
       type: object
       required: [finalized, individualHidden]
       properties:
+        groupOverridden: { type: boolean, default: false }
+        individualOverridden:
+          type: boolean
+          default: false
+          description: ไม่เปิดเผยเมื่อคะแนนรายบุคคลยังถูกปิดด้วย privacy gate
         finalized:
           type: boolean
         message:
@@ -1674,3 +2498,398 @@ components:
             (groupComponent + individualComponent) × participationMultiplier
             เป็น null ถ้ายังไม่ finalize หรือ individualHidden เป็น true — ไม่แสดงคะแนนรวม
             บางส่วนที่อาจเผยให้เดาย้อนกลับไปถึงคะแนนรายบุคคลที่ถูกซ่อนไว้ได้
+
+        assignmentName:
+          type: [string, 'null']
+        groupMaxScore:
+          type: [number, 'null']
+        individualMaxScore:
+          type: [number, 'null']
+        finalizedAt:
+          type: [string, 'null']
+          format: date-time
+        submittedCount:
+          type: [integer, 'null']
+        assignedCount:
+          type: [integer, 'null']
+        criterionScores:
+          type: array
+          description: คะแนนรายเกณฑ์จาก snapshot ประกาศล่าสุด รายบุคคลถูกกรองด้วย k-anonymity ก่อนเสมอ
+          items:
+            type: object
+            required: [id, side, name, weightPct, score, maxScore]
+            properties:
+              id:
+                type: string
+                format: uuid
+              side:
+                $ref: '#/components/schemas/Side'
+              name:
+                type: string
+              weightPct:
+                type: number
+              score:
+                type: number
+              maxScore:
+                type: number
+
+    Notification:
+      type: object
+      required: [id, title, message, href, occurredAt, read]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        href:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+    "AppealIn":
+      "properties":
+        "message":
+          "type": "string"
+          "maxLength": 5000
+          "minLength": 30
+          "title": "Message"
+      "type": "object"
+      "required": ["message"]
+      "title": "AppealIn"
+    "AppealOut":
+      "properties":
+        "id":
+          "type": "string"
+          "title": "Id"
+        "assignmentId":
+          "type": "string"
+          "title": "Assignmentid"
+        "assignmentName":
+          "type": "string"
+          "title": "Assignmentname"
+        "studentName":
+          "type": "string"
+          "title": "Studentname"
+        "message":
+          "type": "string"
+          "title": "Message"
+        "status":
+          "type": "string"
+          "title": "Status"
+        "resolution":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+          "title": "Resolution"
+        "createdAt":
+          "type": "string"
+          "format": "date-time"
+          "title": "Createdat"
+        "resolvedAt":
+          "anyOf": [{"type":"string","format":"date-time"},{"type":"null"}]
+          "title": "Resolvedat"
+      "type": "object"
+      "required": ["id","assignmentId","assignmentName","studentName","message","status","resolution","createdAt","resolvedAt"]
+      "title": "AppealOut"
+    "AppealsOut":
+      "properties":
+        "items":
+          "items":
+            "$ref": "#/components/schemas/AppealOut"
+          "type": "array"
+          "title": "Items"
+      "type": "object"
+      "required": ["items"]
+      "title": "AppealsOut"
+    "ResolutionIn":
+      "properties":
+        "status":
+          "type": "string"
+          "title": "Status"
+        "resolution":
+          "type": "string"
+          "maxLength": 5000
+          "minLength": 1
+          "title": "Resolution"
+      "type": "object"
+      "required": ["status","resolution"]
+      "title": "ResolutionIn"
+    "Body_preview_roster_api_classrooms__classroom_id__roster_preview_post":
+      "properties":
+        "file":
+          "type": "string"
+          "contentMediaType": "application/octet-stream"
+          "title": "File"
+      "type": "object"
+      "required": ["file"]
+      "title": "Body_preview_roster_api_classrooms__classroom_id__roster_preview_post"
+    "RosterPreviewOut":
+      "properties":
+        "imported":
+          "type": "integer"
+          "title": "Imported"
+        "groupsCreated":
+          "type": "integer"
+          "title": "Groupscreated"
+        "warnings":
+          "items":
+            "$ref": "#/components/schemas/RosterWarningOut"
+          "type": "array"
+          "title": "Warnings"
+        "rows":
+          "items":
+            "$ref": "#/components/schemas/RosterPreviewRow"
+          "type": "array"
+          "title": "Rows"
+      "type": "object"
+      "required": ["imported","groupsCreated","warnings","rows"]
+      "title": "RosterPreviewOut"
+    "RosterWarningOut":
+      "properties":
+        "type":
+          "type": "string"
+          "title": "Type"
+        "message":
+          "type": "string"
+          "title": "Message"
+      "type": "object"
+      "required": ["type","message"]
+      "title": "RosterWarningOut"
+    "RosterPreviewRow":
+      "properties":
+        "email":
+          "type": "string"
+          "title": "Email"
+        "displayName":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+          "title": "Displayname"
+        "groupName":
+          "type": "string"
+          "title": "Groupname"
+      "type": "object"
+      "required": ["email","displayName","groupName"]
+      "title": "RosterPreviewRow"
+    "ExtendIn":
+      "properties":
+        "groupDeadlineUtc":
+          "type": "string"
+          "format": "date-time"
+          "title": "Groupdeadlineutc"
+        "individualDeadlineUtc":
+          "anyOf": [{"type":"string","format":"date-time"},{"type":"null"}]
+          "title": "Individualdeadlineutc"
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+      "type": "object"
+      "required": ["groupDeadlineUtc","reason"]
+      "title": "ExtendIn"
+    "CopyIn":
+      "properties":
+        "name":
+          "type": "string"
+          "maxLength": 200
+          "minLength": 1
+          "title": "Name"
+        "groupDeadlineUtc":
+          "type": "string"
+          "format": "date-time"
+          "title": "Groupdeadlineutc"
+        "individualDeadlineUtc":
+          "anyOf": [{"type":"string","format":"date-time"},{"type":"null"}]
+          "title": "Individualdeadlineutc"
+      "type": "object"
+      "required": ["name","groupDeadlineUtc"]
+      "title": "CopyIn"
+    "UnpublishIn":
+      "properties":
+        "confirmInvalidate":
+          "type": "boolean"
+          "title": "Confirminvalidate"
+          "default": false
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+      "type": "object"
+      "required": ["reason"]
+      "title": "UnpublishIn"
+    "UnpublishImpact":
+      "properties":
+        "submittedEvaluators":
+          "type": "integer"
+          "title": "Submittedevaluators"
+        "submittedComparisons":
+          "type": "integer"
+          "title": "Submittedcomparisons"
+        "assignedComparisons":
+          "type": "integer"
+          "title": "Assignedcomparisons"
+      "type": "object"
+      "required": ["submittedEvaluators","submittedComparisons","assignedComparisons"]
+      "title": "UnpublishImpact"
+    "EnrollmentIn":
+      "properties":
+        "withdrawn":
+          "type": "boolean"
+          "title": "Withdrawn"
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+      "type": "object"
+      "required": ["withdrawn","reason"]
+      "title": "EnrollmentIn"
+    "EnrollmentOut":
+      "properties":
+        "enrollmentStatus":
+          "type": "string"
+          "title": "Enrollmentstatus"
+        "repairs":
+          "items":
+            "additionalProperties": true
+            "type": "object"
+          "type": "array"
+          "title": "Repairs"
+      "type": "object"
+      "required": ["enrollmentStatus","repairs"]
+      "title": "EnrollmentOut"
+    "QualityOut":
+      "properties":
+        "evaluators":
+          "items":
+            "additionalProperties": true
+            "type": "object"
+          "type": "array"
+          "title": "Evaluators"
+        "coverage":
+          "items":
+            "additionalProperties": true
+            "type": "object"
+          "type": "array"
+          "title": "Coverage"
+        "limitations":
+          "items":
+            "type": "string"
+          "type": "array"
+          "title": "Limitations"
+        "pairCoverage":
+          "items":
+            "additionalProperties": true
+            "type": "object"
+          "type": "array"
+          "title": "Paircoverage"
+      "type": "object"
+      "required": ["evaluators","coverage","limitations","pairCoverage"]
+      "title": "QualityOut"
+    "ReasonIn":
+      "properties":
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+      "type": "object"
+      "required": ["reason"]
+      "title": "ReasonIn"
+    "IdentityOut":
+      "properties":
+        "displayName":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+          "title": "Displayname"
+        "email":
+          "type": "string"
+          "title": "Email"
+      "type": "object"
+      "required": ["displayName","email"]
+      "title": "IdentityOut"
+    "ExclusionIn":
+      "properties":
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+        "excluded":
+          "type": "boolean"
+          "title": "Excluded"
+      "type": "object"
+      "required": ["reason","excluded"]
+      "title": "ExclusionIn"
+    "ExclusionOut":
+      "properties":
+        "excluded":
+          "type": "boolean"
+          "title": "Excluded"
+        "computedAt":
+          "type": "string"
+          "format": "date-time"
+          "title": "Computedat"
+      "type": "object"
+      "required": ["excluded","computedAt"]
+      "title": "ExclusionOut"
+    "ExtraIn":
+      "properties":
+        "criterionId":
+          "type": "string"
+          "title": "Criterionid"
+        "itemAId":
+          "type": "string"
+          "title": "Itemaid"
+        "itemBId":
+          "type": "string"
+          "title": "Itembid"
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+        "count":
+          "type": "integer"
+          "maximum": 20
+          "minimum": 1
+          "title": "Count"
+      "type": "object"
+      "required": ["criterionId","itemAId","itemBId","reason","count"]
+      "title": "ExtraIn"
+    "CoverageActionOut":
+      "properties":
+        "pairsAdded":
+          "type": "integer"
+          "title": "Pairsadded"
+      "type": "object"
+      "required": ["pairsAdded"]
+      "title": "CoverageActionOut"
+    "InstructorComparisonIn":
+      "properties":
+        "criterionId":
+          "type": "string"
+          "title": "Criterionid"
+        "itemAId":
+          "type": "string"
+          "title": "Itemaid"
+        "itemBId":
+          "type": "string"
+          "title": "Itembid"
+        "reason":
+          "type": "string"
+          "maxLength": 2000
+          "minLength": 1
+          "title": "Reason"
+        "choice":
+          "type": "integer"
+          "maximum": 6
+          "minimum": 1
+          "title": "Choice"
+        "timeOnTaskMs":
+          "anyOf": [{"type":"integer","minimum":0},{"type":"null"}]
+          "title": "Timeontaskms"
+      "type": "object"
+      "required": ["criterionId","itemAId","itemBId","reason","choice"]
+      "title": "InstructorComparisonIn"

@@ -1,0 +1,317 @@
+[
+  {
+    "tag": "TABLE",
+    "class": "w-full min-w-160 text-left text-sm",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "THEAD",
+    "class": "border-y border-edge bg-white",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TR",
+    "class": "",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TH",
+    "class": "px-5 py-4",
+    "width": 80.578125,
+    "right": 438.984375,
+    "client": 81,
+    "scroll": 81,
+    "position": "static"
+  },
+  {
+    "tag": "TH",
+    "class": "px-5 py-4",
+    "width": 116,
+    "right": 554.984375,
+    "client": 116,
+    "scroll": 116,
+    "position": "static"
+  },
+  {
+    "tag": "TH",
+    "class": "px-5 py-4",
+    "width": 102.015625,
+    "right": 657,
+    "client": 102,
+    "scroll": 102,
+    "position": "static"
+  },
+  {
+    "tag": "TBODY",
+    "class": "",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TR",
+    "class": "border-b border-edge",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 80.578125,
+    "right": 438.984375,
+    "client": 81,
+    "scroll": 81,
+    "position": "static"
+  },
+  {
+    "tag": "P",
+    "class": "mt-1 text-xs text-muted",
+    "width": 40.578125,
+    "right": 418.984375,
+    "client": 41,
+    "scroll": 41,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 116,
+    "right": 554.984375,
+    "client": 116,
+    "scroll": 116,
+    "position": "static"
+  },
+  {
+    "tag": "SPAN",
+    "class": "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-[12.5px] font-semibold border-ok-line bg-ok-50 text-ok-700 ",
+    "width": 76,
+    "right": 534.984375,
+    "client": 74,
+    "scroll": 74,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 102.015625,
+    "right": 657,
+    "client": 102,
+    "scroll": 102,
+    "position": "static"
+  },
+  {
+    "tag": "BUTTON",
+    "class": "relative inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 min-h-11 px-3.5 text-[13.5px] border border-reference-border bg-white enabled:hover:border-muted enabled:hover:bg-sand ",
+    "width": 62.015625,
+    "right": 637,
+    "client": 60,
+    "scroll": 60,
+    "position": "relative"
+  },
+  {
+    "tag": "SPAN",
+    "class": "sr-only",
+    "width": 1,
+    "right": 606.484375,
+    "client": 1,
+    "scroll": 16,
+    "position": "absolute"
+  },
+  {
+    "tag": "TR",
+    "class": "border-b border-edge",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 80.578125,
+    "right": 438.984375,
+    "client": 81,
+    "scroll": 81,
+    "position": "static"
+  },
+  {
+    "tag": "P",
+    "class": "mt-1 text-xs text-muted",
+    "width": 40.578125,
+    "right": 418.984375,
+    "client": 41,
+    "scroll": 41,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 116,
+    "right": 554.984375,
+    "client": 116,
+    "scroll": 116,
+    "position": "static"
+  },
+  {
+    "tag": "SPAN",
+    "class": "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-[12.5px] font-semibold border-ok-line bg-ok-50 text-ok-700 ",
+    "width": 76,
+    "right": 534.984375,
+    "client": 74,
+    "scroll": 74,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 102.015625,
+    "right": 657,
+    "client": 102,
+    "scroll": 102,
+    "position": "static"
+  },
+  {
+    "tag": "BUTTON",
+    "class": "relative inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 min-h-11 px-3.5 text-[13.5px] border border-reference-border bg-white enabled:hover:border-muted enabled:hover:bg-sand ",
+    "width": 62.015625,
+    "right": 637,
+    "client": 60,
+    "scroll": 60,
+    "position": "relative"
+  },
+  {
+    "tag": "SPAN",
+    "class": "sr-only",
+    "width": 1,
+    "right": 606.484375,
+    "client": 1,
+    "scroll": 16,
+    "position": "absolute"
+  },
+  {
+    "tag": "TR",
+    "class": "border-b border-edge",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 80.578125,
+    "right": 438.984375,
+    "client": 81,
+    "scroll": 81,
+    "position": "static"
+  },
+  {
+    "tag": "P",
+    "class": "mt-1 text-xs text-muted",
+    "width": 40.578125,
+    "right": 418.984375,
+    "client": 41,
+    "scroll": 41,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 116,
+    "right": 554.984375,
+    "client": 116,
+    "scroll": 116,
+    "position": "static"
+  },
+  {
+    "tag": "SPAN",
+    "class": "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-[12.5px] font-semibold border-ok-line bg-ok-50 text-ok-700 ",
+    "width": 76,
+    "right": 534.984375,
+    "client": 74,
+    "scroll": 74,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 102.015625,
+    "right": 657,
+    "client": 102,
+    "scroll": 102,
+    "position": "static"
+  },
+  {
+    "tag": "BUTTON",
+    "class": "relative inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 min-h-11 px-3.5 text-[13.5px] border border-reference-border bg-white enabled:hover:border-muted enabled:hover:bg-sand ",
+    "width": 62.015625,
+    "right": 637,
+    "client": 60,
+    "scroll": 60,
+    "position": "relative"
+  },
+  {
+    "tag": "SPAN",
+    "class": "sr-only",
+    "width": 1,
+    "right": 606.484375,
+    "client": 1,
+    "scroll": 16,
+    "position": "absolute"
+  },
+  {
+    "tag": "TR",
+    "class": "border-b border-edge",
+    "width": 640,
+    "right": 657,
+    "client": 640,
+    "scroll": 640,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 80.578125,
+    "right": 438.984375,
+    "client": 81,
+    "scroll": 81,
+    "position": "static"
+  },
+  {
+    "tag": "P",
+    "class": "mt-1 text-xs text-muted",
+    "width": 40.578125,
+    "right": 418.984375,
+    "client": 41,
+    "scroll": 41,
+    "position": "static"
+  },
+  {
+    "tag": "TD",
+    "class": "px-5 py-4",
+    "width": 116,
+    "right": 554.984375,
+    "client": 116,
+    "scroll": 116,
+    "position": "static"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "syntheticData": true,
+  "groupCriteria": 3,
+  "individualCriteria": 2,
+  "groupMaxScore": 15,
+  "individualMaxScore": 5,
+  "exactFigmaMobileWidth": 390,
+  "note": "Values/names/counts differ from Figma fixture. Compare structure, presence, styling and behavior; do not treat all pixel differences as bugs.",
+  "screenshots": [
+    "evaluation-three-criteria-1440.png",
+    "evaluation-three-criteria-390.png",
+    "owner-members-no-assignment-1440.png",
+    "score-three-two-criteria-1440.png",
+    "score-three-two-criteria-390.png",
+    "student-classroom-390.png",
+    "student-classrooms-390.png"
+  ]
+}
