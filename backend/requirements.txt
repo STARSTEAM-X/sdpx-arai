@@ -10,7 +10,7 @@ psycopg[binary,pool]~=3.3.4
 pyjwt[crypto]~=2.15.0
 
 # pydantic EmailStr ต้องใช้
-email-validator~=2.2.0
+email-validator~=2.3.0
 
 # โหลด backend/.env ตอน dev — บน Render ค่ามาจาก render.yaml ซึ่งชนะไฟล์นี้เสมอ
 python-dotenv~=1.2.3
