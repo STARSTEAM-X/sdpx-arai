@@ -1,0 +1,86 @@
+# วัด NFR-PERF-01/04/05 บน staging จริงที่ขนาด PRD — GAP-04
+#
+# รันมือเท่านั้น (Actions → Performance at PRD scale → Run workflow) เพราะยิงหนักใส่ staging
+# ใช้ secret ชุดเดียวกับ job performance ใน ci.yml (environment: staging) — agent ไม่ต้องเห็นค่าใด ๆ
+#
+#   NFR-PERF-04  publish 200 คน × 5 เกณฑ์ต่อฝั่ง ≤ 10 วิ   → เวลาจาก perf_fixture --prd-scale
+#   NFR-PERF-01  200 concurrent users                    → load-test.js PEAK_VUS (หน้า Evaluation = my_evaluations)
+#   NFR-PERF-05  full recompute ≤ 30 วิ                  → scripts/ci/time_recompute.py หลัง load test
+#
+# Render free plan อาจรับ 200 VUs ไม่ไหว — ผลที่ได้ไม่ว่าผ่านหรือไม่ผ่านคือหลักฐานจริง ให้บันทึกลง docs/performance-report.md
+
+name: Performance at PRD scale
+
+on:
+  workflow_dispatch:
+    inputs:
+      peak_vus:
+        description: 'จำนวนผู้ใช้พร้อมกันสูงสุด (PRD = 200)'
+        default: '200'
+        required: true
+      steady:
+        description: 'ระยะเวลาที่คงที่ peak'
+        default: '2m'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-staging
+  cancel-in-progress: false
+
+jobs:
+  prd-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      BASE_URL: ${{ vars.STAGING_API_URL }}
+      PERF_FIXTURE_FILE: ./.secrets/fixture.json
+      PERF_EMAIL_DOMAIN: ${{ vars.PERF_EMAIL_DOMAIN }}
+      PEAK_VUS: ${{ inputs.peak_vus }}
+      STEADY: ${{ inputs.steady }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
+        with:
+          k6-version: 2.3.0
+      - run: pip install -r backend/requirements.txt
+      # fixture ต้องมีนักศึกษามากกว่า VU และเป็นกลุ่มละ 4 คนครบ (perf_fixture บังคับ)
+      - name: 'Prepare PRD-scale fixture + time publish (NFR-PERF-04)'
+        working-directory: backend
+        env:
+          ENVIRONMENT: production
+          DEPLOYMENT_TIER: staging
+          DATABASE_URL: ${{ secrets.PERF_DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.PERF_SESSION_SECRET }}
+          ALLOWED_EMAIL_DOMAINS: ${{ vars.PERF_EMAIL_DOMAIN }}
+        run: |
+          students=$(( (PEAK_VUS + 1 + 3) / 4 * 4 ))
+          python -m app.perf_fixture --base-url "$BASE_URL" --domain "$PERF_EMAIL_DOMAIN" \
+            --students "$students" --prd-scale
+      - name: 'Journey at ${{ inputs.peak_vus }} VUs (NFR-PERF-01/02/03)'
+        id: journey
+        continue-on-error: true
+        run: k6 run --summary-export=performance/prd-scale.json performance/load-test.js
+      - name: Full recompute (NFR-PERF-05)
+        if: ${{ !cancelled() }}
+        run: python scripts/ci/time_recompute.py performance/.secrets/fixture.json
+      - name: Keep only public metric data
+        id: metrics_safe
+        if: ${{ !cancelled() }}
+        run: python scripts/ci/perf_summary.py performance/prd-scale.json
+      - name: Upload metrics only (never sessions)
+        if: ${{ !cancelled() && steps.metrics_safe.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: k6-prd-scale-${{ github.run_id }}
+          path: performance/prd-scale.json
+          retention-days: 30
+      - name: Remove private fixture
+        if: always()
+        run: rm -f performance/.secrets/fixture.json
