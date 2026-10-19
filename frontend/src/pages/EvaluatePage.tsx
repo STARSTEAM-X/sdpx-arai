@@ -201,15 +201,15 @@ export default function EvaluatePage() {
       )}
 
       <main className="mx-auto max-w-290 pt-5 pb-16 max-xl:px-7 max-sm:px-4">
-        <div className="relative flex min-h-43 items-center gap-3 max-sm:min-h-0 max-sm:py-4">
+        <div className="relative flex min-h-[132px] items-center gap-3 max-sm:min-h-0 max-sm:py-4">
           <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" />
           <div className="relative z-10 min-w-0 flex-1">
-            <h1 className="font-display text-[30px] leading-tight font-bold max-sm:text-2xl">งานที่ต้องประเมิน</h1>
-            <p className="mt-2 font-display text-[14px] font-semibold max-sm:mt-1 max-sm:font-body max-sm:font-normal max-sm:text-ink-2">
+            <h1 className="font-display text-[32px] leading-[1.5] font-bold max-sm:text-2xl">งานที่ต้องประเมิน</h1>
+            <p className="mt-1 font-display text-[15px] font-semibold max-sm:mt-1 max-sm:font-body max-sm:font-normal max-sm:text-ink-2">
               {[current?.assignmentName, classroomName].filter(Boolean).join(' · ')}
             </p>
           </div>
-          <img src={heroComparison} alt="" aria-hidden="true" className="h-38 w-auto object-contain max-md:hidden" />
+          <img src={heroComparison} alt="" aria-hidden="true" className="pointer-events-none absolute -top-[72px] right-[3px] h-[246px] w-auto max-w-none object-contain max-md:hidden" />
         </div>
 
         {error && (
@@ -223,7 +223,7 @@ export default function EvaluatePage() {
           </Banner>
         )}
 
-        <div role="tablist" aria-label="เลือกฝั่งที่ต้องการประเมิน" className="mt-1 flex flex-wrap gap-2">
+        <div role="tablist" aria-label="เลือกฝั่งที่ต้องการประเมิน" className="mt-3.5 flex flex-wrap gap-2 max-sm:mt-1">
           {(['GROUP', 'INDIVIDUAL'] as const).map((s) => (
             <button
               key={s}
@@ -249,7 +249,7 @@ export default function EvaluatePage() {
                 setSide(next)
                 document.getElementById(`side-${next}`)?.focus()
               }}
-              className={`min-h-11 min-w-40 rounded-full px-6 font-display text-[13.5px] transition-colors ${FOCUS} ${
+              className={`min-h-14.5 min-w-55 rounded-full px-6 font-display text-[16px] transition-colors max-sm:min-h-11 max-sm:min-w-0 max-sm:text-[13.5px] ${FOCUS} ${
                 side === s ? 'bg-peach font-semibold text-accent-ink' : 'bg-white text-ink-2 hover:bg-sand'
               }`}
             >
@@ -268,7 +268,7 @@ export default function EvaluatePage() {
           role="tabpanel"
           aria-labelledby={`side-${side}`}
           aria-busy={!loaded}
-          className="mt-4 flex flex-col gap-5"
+          className="mt-6 flex flex-col gap-6 max-sm:mt-4 max-sm:gap-5"
         >
           {loaded && current && (
             <>
@@ -304,10 +304,10 @@ export default function EvaluatePage() {
                 )
               ) : (
                 <>
-                  <section className="rounded-3xl bg-white px-5.5 py-4">
+                  <section className="rounded-3xl bg-white px-7.5 py-5 max-sm:px-5.5 max-sm:py-4">
                     <div className="flex items-center justify-between gap-4">
-                      <p className="font-display text-[17px] font-semibold">{SIDE_LABEL[side]}</p>
-                      <p className="font-display text-[17px] font-semibold">
+                      <p className="font-display text-[20px] font-semibold max-sm:text-[17px]">{SIDE_LABEL[side]}</p>
+                      <p className="font-display text-[20px] font-semibold max-sm:text-[17px]">
                         ตอบแล้ว{' '}
                         <span className="tabular">
                           {answeredCount} / {current.totalCount}
@@ -321,7 +321,7 @@ export default function EvaluatePage() {
                       aria-label="ความคืบหน้าการตอบคำถาม"
                       aria-valuemin={0}
                       aria-valuemax={current.totalCount}
-                      className="mt-2 h-2 overflow-hidden rounded-full bg-[#d9d9d9]"
+                      className="mt-1.5 h-3 overflow-hidden rounded-full bg-[#d9d9d9] max-sm:h-2"
                     >
                       <div
                         className="h-full rounded-full bg-brand-600 transition-[width]"
@@ -329,9 +329,9 @@ export default function EvaluatePage() {
                       />
                     </div>
                     {deadlineText && (
-                      <p className="mt-3 text-[13px] text-ink-2">
+                      <p className="mt-4 text-[15px] text-ink-2 max-sm:mt-3 max-sm:text-[13px]">
                         กำหนดส่ง {deadlineText.replace(/ (\d{1,2}:\d{2})$/, ' เวลา $1')}
-                        <span className="block text-[11px] text-muted">
+                        <span className="block text-[12px] text-muted">
                           {timezone === 'Asia/Bangkok' ? 'เวลาไทย ' : ''}({timezone})
                         </span>
                       </p>
@@ -353,14 +353,14 @@ export default function EvaluatePage() {
 
                   {pair && (
                     <section id="pair-context" aria-label="คู่ที่กำลังประเมิน">
-                      <h2 className="flex flex-wrap items-center gap-3 font-display text-[17px] font-semibold">
+                      <h2 className="flex flex-wrap items-center gap-3 font-display text-[20px] font-semibold max-sm:text-[17px]">
                         {pairs.length === 1 ? 'คู่เดียวของคุณ' : `คู่ที่ ${position + 1} จาก ${pairs.length}`} ·{' '}
                         {pair.leftLabel} เทียบ {pair.rightLabel}
-                        <span className="rounded-full bg-ok-50 px-2 py-0.5 text-[11px] font-semibold text-ok-700">
+                        <span className="rounded-full bg-ok-50 px-1.5 py-1.5 text-[12px] leading-none font-semibold text-ok-700">
                           √ บันทึก {pairAnswered}/{pairItems.length} เกณฑ์
                         </span>
                       </h2>
-                      <div className="mt-4 grid grid-cols-2 gap-4 max-sm:gap-2">
+                      <div className="mt-6 grid grid-cols-2 gap-5 max-sm:mt-4 max-sm:gap-2">
                         {[
                           // ไม่มีลิงก์รายกลุ่ม → ใช้ลิงก์ผลงานรวมของงาน (โฟลเดอร์ที่อาจารย์แชร์) แทน
                           {
@@ -378,12 +378,12 @@ export default function EvaluatePage() {
                         ].map((team, index) => (
                           <div
                             key={index}
-                            className={`flex min-h-19 min-w-0 items-center gap-4 rounded-2xl px-8 py-3 max-sm:px-3 ${team.tone}`}
+                            className={`flex min-h-[104px] min-w-0 items-center gap-4 rounded-2xl px-8 py-3 max-sm:min-h-19 max-sm:px-3 ${team.tone}`}
                           >
                             <svg
                               aria-hidden="true"
                               viewBox="0 0 24 24"
-                              className={`size-8 shrink-0 ${team.ink} max-sm:hidden`}
+                              className={`size-16 shrink-0 ${team.ink} max-sm:hidden`}
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="1.6"
@@ -396,7 +396,7 @@ export default function EvaluatePage() {
                               <path d="M13.5 21a3.5 3.5 0 0 1 7 0z" fill="currentColor" />
                             </svg>
                             <div className="min-w-0">
-                              <h3 className="font-display text-[17px] font-semibold wrap-break-word">
+                              <h3 className="font-display text-[20px] font-semibold wrap-break-word max-sm:text-[17px]">
                                 {side === 'GROUP' ? `กลุ่ม ${team.label}` : team.label}
                               </h3>
                               {team.url ? (
@@ -404,7 +404,7 @@ export default function EvaluatePage() {
                                   href={team.url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className={`inline-flex items-center font-display text-[13px] font-semibold ${team.ink} hover:underline ${FOCUS}`}
+                                  className={`inline-flex min-h-6 items-center font-display text-[16px] font-semibold ${team.ink} hover:underline max-sm:text-[13px] ${FOCUS}`}
                                 >
                                   ดูผลงาน ↗
                                 </a>
@@ -422,23 +422,23 @@ export default function EvaluatePage() {
                     <section
                       key={section.criterionId}
                       aria-labelledby={`h-${section.criterionId}`}
-                      className="rounded-3xl bg-white px-6 pt-5 pb-5 shadow-[0_8px_30px_-24px_rgba(101,73,63,0.24)] max-sm:px-4"
+                      className="rounded-3xl bg-white p-7.5 shadow-[0_8px_30px_-24px_rgba(101,73,63,0.24)] max-sm:px-4 max-sm:py-5"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-[11px] text-muted">
+                          <p className="text-[12px] text-muted">
                             เกณฑ์ที่ {allSections.findIndex((entry) => entry.criterionId === section.criterionId) + 1}{' '}
                             จาก {allSections.length}
                           </p>
-                          <h2 id={`h-${section.criterionId}`} className="mt-1 font-display text-[20px] font-semibold">
+                          <h2 id={`h-${section.criterionId}`} className="mt-0.5 font-display text-[24px] font-semibold max-sm:text-[20px]">
                             {section.criterionName}
                           </h2>
                           {section.items[0]?.question && (
-                            <p className="mt-1 text-[14px] text-ink-2">{section.items[0].question}</p>
+                            <p className="mt-0.5 text-[16px] text-ink-2 max-sm:text-[14px]">{section.items[0].question}</p>
                           )}
                         </div>
                         {section.items[0]?.weightPct != null && (
-                          <span className="mt-4 rounded-full bg-ok-50 px-3 py-1 text-[11px] text-ok-700">
+                          <span className="mt-6 rounded-full bg-ok-50 px-3.5 py-2.5 text-[12px] leading-none text-ok-700">
                             น้ำหนัก {section.items[0].weightPct}%
                           </span>
                         )}
@@ -465,7 +465,7 @@ export default function EvaluatePage() {
                     className="mt-2 flex flex-wrap items-center gap-3 max-sm:sticky max-sm:bottom-0 max-sm:z-20 max-sm:-mx-4 max-sm:grid max-sm:grid-cols-2 max-sm:border-t max-sm:border-edge max-sm:bg-white max-sm:px-4 max-sm:py-3"
                     aria-live="polite"
                   >
-                    <div className="mr-auto text-[13px] text-muted max-sm:col-span-2 max-sm:mr-0">
+                    <div className="mr-auto text-[14px] text-muted max-sm:col-span-2 max-sm:mr-0">
                       <p className="max-sm:hidden">
                         คู่นี้ตอบแล้ว {pairAnswered} / {pairItems.length} เกณฑ์
                       </p>

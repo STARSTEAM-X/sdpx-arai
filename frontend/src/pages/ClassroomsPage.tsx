@@ -138,12 +138,12 @@ export default function ClassroomsPage() {
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context="ห้องเรียนของฉัน" profile={me} />
 
-      <main className="mx-auto max-w-290 pt-8 pb-20 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
+      <main className="mx-auto max-w-290 pt-12.5 pb-20 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
         <OrangeHero
           title="ห้องเรียนของฉัน"
           subtitle={subtitle}
           image={classroomIllustration}
-          imageClassName="-top-7 right-2 h-46 w-82"
+          imageClassName="-top-[63px] right-[14px] h-[256px] w-[341px]"
         />
 
         <dialog

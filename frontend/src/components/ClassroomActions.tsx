@@ -65,7 +65,7 @@ export function ClassroomActions({ room, onChanged }: { room: Classroom; onChang
         ···
       </button>
       {open && (
-        <div role="menu" className="absolute top-full right-0 z-20 mt-2 w-50 rounded-2xl border border-edge bg-white py-2.5 shadow-[0_12px_30px_rgba(50,16,7,0.12)]">
+        <div role="menu" className="absolute top-full right-0 z-20 max-sm:right-auto max-sm:left-0 mt-2 w-50 rounded-2xl border border-edge bg-white py-2.5 shadow-[0_12px_30px_rgba(50,16,7,0.12)]">
           {!archived && <button type="button" role="menuitem" onClick={() => show('edit')} className={item}>แก้ไขข้อมูลห้อง</button>}
           <button type="button" role="menuitem" onClick={() => show(archived ? 'restore' : 'archive')} className={item}>
             {archived ? 'Unarchive ห้องเรียน' : 'Archive ห้องเรียน'}

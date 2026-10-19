@@ -111,7 +111,7 @@ export default function AuditPage() {
     <div className="min-h-screen bg-ground text-ink">
       <AppNav context="บันทึกการตรวจสอบ" contextTo={`/classrooms/${classroomId}`} classroomId={classroomId} />
       <main className="mx-auto max-w-260 pt-8 pb-16 max-xl:px-7 max-sm:px-4">
-        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2">
+        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center">
           <Link to="/classrooms" className={`hover:text-accent-ink ${FOCUS}`}>
             ห้องเรียนของฉัน
           </Link>
@@ -121,7 +121,7 @@ export default function AuditPage() {
           </Link>
         </nav>
         <div className="relative mt-6 mb-6 flex min-h-41 items-center gap-4">
-          <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" />
+          <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" inline />
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-[32px] font-bold max-sm:text-2xl">บันทึกการตรวจสอบ</h1>
             <p className="mt-2 text-[15px] text-ink-2">
@@ -190,7 +190,7 @@ export default function AuditPage() {
             </p>
           )}
           {loaded && visible.length === 0 && <p className="px-5 py-5 text-sm text-muted">ไม่พบบันทึก</p>}
-          <div className="overflow-x-auto" role="region" aria-label="ตารางบันทึกการตรวจสอบ" tabIndex={0}>
+          <div className="relative overflow-x-auto" role="region" aria-label="ตารางบันทึกการตรวจสอบ" tabIndex={0}>
             <table className="w-full min-w-160 text-left text-[14.5px]">
               <caption className="sr-only">ประวัติการดำเนินการของห้องเรียน ข้อมูลแก้ไขไม่ได้</caption>
               <thead className="bg-table-head">
@@ -208,11 +208,11 @@ export default function AuditPage() {
                       {actions[item.action] ?? item.action}
                       {item.reason ? <span className="text-ink-2"> · {item.reason}</span> : null}
                     </th>
-                    <td className="px-5 py-3 text-right">{item.actorEmail.split('@')[0]}</td>
+                    <td className="px-5 py-3 text-right">{item.actorName ?? item.actorEmail.split('@')[0]}</td>
                     <td className="whitespace-nowrap px-5 py-3 text-right">{when(item.occurredAt)}</td>
                     <td className="px-5 py-3 text-right">
                       <button
-                        className={`text-accent-ink hover:underline ${FOCUS}`}
+                        className={`inline-flex min-h-6 items-center text-accent-ink hover:underline ${FOCUS}`}
                         onClick={(event) => {
                           trigger.current = event.currentTarget
                           setSelected(item)

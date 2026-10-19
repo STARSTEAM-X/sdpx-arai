@@ -69,8 +69,8 @@ export default function AppealPage() {
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context="ยื่นอุทธรณ์คะแนน" contextTo={back} classroomId={classroomId} />
-      <main className="mx-auto max-w-290 pt-5 pb-16 max-xl:px-7 max-sm:px-4">
-        <div className="relative flex min-h-50 items-center justify-between gap-6 max-sm:min-h-0 max-sm:py-4">
+      <main className="mx-auto max-w-290 pb-16 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
+        <div className="relative flex min-h-52 items-center justify-between gap-6 max-sm:min-h-0 max-sm:py-4">
           <div className="flex items-center gap-4">
             <BackChevron to={back} label="กลับหน้าคะแนน" />
             <div>
@@ -110,7 +110,7 @@ export default function AppealPage() {
         {!loaded && <p role="status">กำลังโหลดคำร้อง…</p>}
 
         {score?.finalized && (
-          <div className="mt-2 space-y-4">
+          <div className="mt-5 space-y-5 max-sm:mt-2 max-sm:space-y-4">
             <div className="max-sm:hidden">
               <ScoreBreakdown score={score} groupName={groupName} />
             </div>
@@ -195,22 +195,22 @@ export default function AppealPage() {
                     placeholder="พิมพ์เหตุผล..."
                     aria-invalid={invalid}
                     aria-describedby="appeal-hint appeal-count"
-                    className={`${CTRL} min-h-29 resize-y border-err-field`}
+                    className={`${CTRL} min-h-35 resize-y border-err-field max-sm:min-h-29`}
                   />
-                  <p id="appeal-count" className={`mt-2 text-[11px] ${invalid ? 'text-err' : 'text-err/80'}`}>
+                  <p id="appeal-count" className={`mt-3 text-[12px] ${invalid ? 'text-err' : 'text-err/80'}`}>
                     กรุณาระบุเหตุผลอย่างน้อย 30 ตัวอักษร (ตอนนี้ {message.trim().length} ตัวอักษร)
                   </p>
                 </SectionCard>
-                <p className="mt-4 text-right text-[11px] leading-5 text-muted max-sm:text-left">
+                <p className="mt-5 text-right text-[12px] leading-[18px] text-muted max-sm:mt-4 max-sm:text-left max-sm:text-[11px]">
                   คำร้องจะถูกส่งถึงอาจารย์ผู้สอนเท่านั้น และบันทึกลงประวัติ · อาจารย์จะตอบกลับภายใน 7 วันทำการ
                 </p>
-                <div className="mt-4 flex justify-end gap-4 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:grid max-sm:grid-cols-2 max-sm:gap-3 max-sm:border-t max-sm:border-edge max-sm:bg-white max-sm:px-4 max-sm:py-3">
+                <div className="mt-5 flex justify-end gap-5 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:grid max-sm:grid-cols-2 max-sm:gap-3 max-sm:border-t max-sm:border-edge max-sm:bg-white max-sm:px-4 max-sm:py-3">
                   <Link
                     to={back}
                     className={btn(
                       'ghost',
                       'md',
-                      'min-w-43.5 border-brand-600 text-accent-ink max-sm:min-h-12 max-sm:min-w-0 max-sm:border-line-neutral max-sm:text-ink',
+                      'min-h-12.5 min-w-53 border-brand-600 text-accent-ink max-sm:min-h-12 max-sm:min-w-0 max-sm:border-line-neutral max-sm:text-ink',
                     )}
                   >
                     ยกเลิก
@@ -218,7 +218,7 @@ export default function AppealPage() {
                   <button
                     type="submit"
                     disabled={busy || message.trim().length < 30}
-                    className={btn('primary', 'md', 'min-w-43.5 max-sm:min-h-12 max-sm:min-w-0')}
+                    className={btn('primary', 'md', 'min-h-12 min-w-53 max-sm:min-w-0')}
                   >
                     {busy ? (
                       'กำลังส่ง…'

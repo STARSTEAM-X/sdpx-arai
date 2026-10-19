@@ -58,11 +58,12 @@ class PgAuditRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, actor_email, action, resource_type, resource_id,
-                       before_state, after_state, reason, occurred_at
-                FROM audit_log
-                WHERE classroom_id = %s
-                ORDER BY occurred_at DESC, id
+                SELECT a.id, a.actor_email, u.display_name AS actor_name, a.action, a.resource_type,
+                       a.resource_id, a.before_state, a.after_state, a.reason, a.occurred_at
+                FROM audit_log a
+                LEFT JOIN app_user u ON u.email_normalized = a.actor_email
+                WHERE a.classroom_id = %s
+                ORDER BY a.occurred_at DESC, a.id
                 LIMIT %s
                 """,
                 (classroom_id, limit),
@@ -71,6 +72,8 @@ class PgAuditRepository:
                 {
                     "id": str(r["id"]),
                     "actorEmail": r["actor_email"],
+                    # Figma J38 แสดงชื่อผู้กระทำ — ไม่มีชื่อ (เช่นบัญชีถูกลบ) ก็ยังเหลืออีเมลไว้
+                    "actorName": r["actor_name"],
                     "action": r["action"],
                     "resourceType": r["resource_type"],
                     "resourceId": r["resource_id"],

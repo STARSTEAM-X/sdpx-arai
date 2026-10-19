@@ -85,7 +85,7 @@ export default function AssignmentOverviewPage() {
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context={item?.name ?? 'งานประเมิน'} classroomId={classroomId} />
       <main className="mx-auto max-w-290 pt-8 pb-16 max-xl:px-7 max-sm:px-4">
-        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2">
+        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center">
           <Link to="/classrooms" className={`hover:text-accent-ink ${FOCUS}`}>
             ห้องเรียนของฉัน
           </Link>
@@ -147,12 +147,23 @@ export default function AssignmentOverviewPage() {
                 icon="⏳"
                 title={`เปิดให้ประเมินอยู่ · ปิดรับ ${deadlineText}`}
                 body={`เหลืออีก ${Math.floor(left / 86400000)} วัน ${Math.floor(left / 3600000) % 24} ชม. · ส่งแจ้งเตือนคนที่ยังส่งไม่ครบแล้วเมื่อ 48 ชม. ก่อนปิด`}
+                action={
+                  // Figma J23 — ทางลัดขยายกำหนดส่งบนแถบสถานะ
+                  <AssignmentActions
+                    item={item}
+                    classroomId={classroomId}
+                    timezone={timezone}
+                    onChanged={() => void refresh()}
+                    inline
+                    showCopy={false}
+                  />
+                }
               />
             ) : null}
 
             <div className="relative mt-6 flex min-h-41 items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <BackChevron to={base} label="กลับหน้าห้องเรียน" />
+                <BackChevron to={base} label="กลับหน้าห้องเรียน" inline />
                 <div>
                   <h1 className="font-display text-[32px] font-bold max-sm:text-2xl">{item.name}</h1>
                   <p className="mt-2 text-[15px] text-ink-2">

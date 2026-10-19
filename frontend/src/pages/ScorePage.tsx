@@ -46,13 +46,13 @@ export default function ScorePage() {
         classroomId={classroomId}
       />
 
-      <main className="mx-auto max-w-290 pt-5 pb-16 max-xl:px-7 max-sm:px-4">
-        <div className="relative flex min-h-50 items-center justify-between gap-6 max-sm:min-h-0">
+      <main className="mx-auto max-w-290 pb-16 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
+        <div className="relative flex min-h-52 items-center justify-between gap-6 max-sm:min-h-0">
           <div className="flex items-center gap-4">
             <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" />
             <div>
               <h1 className="font-display text-[30px] font-bold max-sm:text-2xl">คะแนนของฉัน</h1>
-              <p className="mt-2 text-[15px] text-ink-2">{[score?.assignmentName, groupName ? `กลุ่ม ${groupName}` : null].filter(Boolean).join(' · ') || 'ดูองค์ประกอบคะแนนและสถานะการประกาศผล'}</p>
+              <p className="mt-1.5 text-[15px] text-ink-2">{[score?.assignmentName, groupName ? `กลุ่ม ${groupName}` : null].filter(Boolean).join(' · ') || 'ดูองค์ประกอบคะแนนและสถานะการประกาศผล'}</p>
             </div>
           </div>
           <img src={reportsIllustration} alt="" aria-hidden="true" className="h-52 w-68 shrink-0 object-contain max-sm:hidden" />
@@ -71,7 +71,7 @@ export default function ScorePage() {
         )}
 
         {loaded && score && (score.finalized || score.provisional) && (
-          <div data-testid="score-card" className="mt-6 space-y-4 max-sm:mt-2 max-sm:space-y-3">
+          <div data-testid="score-card" className="mt-5 space-y-5 max-sm:mt-2 max-sm:space-y-3">
             <ScoreBreakdown score={score} groupName={groupName} />
             {score.provisional && <p className="text-right text-[11px] text-muted">ระบบแสดงเฉพาะค่าปัจจุบัน ไม่มีประวัติย้อนหลังหรือการเปลี่ยนแปลงรายวัน เพื่อไม่ให้อนุมานได้ว่าใครเป็นผู้ประเมิน</p>}
 

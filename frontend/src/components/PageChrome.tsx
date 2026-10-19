@@ -14,7 +14,7 @@ export function OrangeHero({
   className = '',
   headingLevel = 1,
   textWidth = 'max-w-[64%]',
-  titleSize = 'text-[40px]',
+  titleSize = 'text-[35px]',
 }: {
   title: ReactNode
   subtitle?: ReactNode
@@ -49,15 +49,30 @@ export function OrangeHero({
   )
 }
 
-/** ลูกศรย้อนกลับสีส้มขนาดใหญ่ที่อยู่นอกกรอบเนื้อหาทางซ้าย (Figma Icon/ChevronLeft 70×84) */
-export function BackChevron({ to, label }: { to: string; label: string }) {
+/** ลูกศรย้อนกลับสีส้มขนาดใหญ่ที่อยู่นอกกรอบเนื้อหาทางซ้าย (Figma Icon/ChevronLeft 70×84)
+ *  ยื่นออกนอกกรอบเฉพาะจอที่กว้างพอ (≥1400px) จอเล็กกว่านั้นอยู่ในแถวหัวเรื่องแทน ไม่ให้หลุดขอบจอ */
+export function BackChevron({ to, label, inline = false }: { to: string; label: string; inline?: boolean }) {
+  // Figma J-series (หน้าของผู้สอน) วางลูกศรเล็กไว้ในกรอบเนื้อหา หน้าฝั่งนักศึกษาใช้ลูกศรใหญ่ด้านนอก
+  if (inline) {
+    return (
+      <Link
+        to={to}
+        aria-label={label}
+        className={`grid size-12 shrink-0 place-items-center rounded-xl text-brand-600 hover:bg-accent-soft ${FOCUS}`}
+      >
+        <svg viewBox="0 0 24 28" className="h-9 w-8" aria-hidden="true">
+          <path d="M17 3 6 14l11 11" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Link>
+    )
+  }
   return (
     <Link
       to={to}
       aria-label={label}
-      className={`grid size-14 shrink-0 place-items-center rounded-2xl text-brand-600 hover:bg-accent-soft xl:absolute xl:top-1/2 xl:-left-25 xl:h-21 xl:w-17.5 xl:-translate-y-1/2 ${FOCUS}`}
+      className={`grid size-14 shrink-0 place-items-center rounded-2xl text-brand-600 hover:bg-accent-soft min-[1400px]:absolute min-[1400px]:top-1/2 min-[1400px]:-left-25 min-[1400px]:h-21 min-[1400px]:w-17.5 min-[1400px]:-translate-y-1/2 ${FOCUS}`}
     >
-      <svg viewBox="0 0 24 28" className="h-9 w-8 xl:h-15 xl:w-12" aria-hidden="true">
+      <svg viewBox="0 0 24 28" className="h-9 w-8 min-[1400px]:h-15 min-[1400px]:w-12" aria-hidden="true">
         <path
           d="M17 3 6 14l11 11"
           fill="none"

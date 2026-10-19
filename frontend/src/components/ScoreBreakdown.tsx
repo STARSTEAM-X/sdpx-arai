@@ -33,9 +33,9 @@ function ScoreStep({
         <p className="mt-2 text-xs leading-5 text-muted">{hint}</p>
       </div>
       {rows.length > 0 && (
-        <ul className="space-y-2 px-6 pt-4 max-sm:px-4">
+        <ul className="space-y-2.5 px-6 pt-4.5 max-sm:space-y-2 max-sm:px-4 max-sm:pt-4">
           {rows.map((row) => (
-            <li key={row.id} className="flex items-start gap-3 text-sm">
+            <li key={row.id} className="flex items-start gap-3 text-[16px] max-sm:text-sm">
               <span className="min-w-0 flex-1 text-ink-2">{row.name}</span>
               <span className="text-xs text-muted">{number(row.weightPct)}%</span>
               <span className="font-mono tabular" title={`คะแนนเต็ม ${number(row.maxScore)}`}>
@@ -46,9 +46,9 @@ function ScoreStep({
         </ul>
       )}
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 px-6 py-4 max-sm:px-4 ${muted ? 'bg-sand/40' : ''}`}
+        className={`flex flex-wrap items-center justify-between gap-3 px-6 pt-2.5 pb-5 max-sm:px-4 max-sm:py-4 ${muted ? 'bg-sand/40' : ''}`}
       >
-        <p className="text-sm font-semibold">รวม{label}</p>
+        <p className="text-[15px] font-semibold max-sm:text-sm">รวม{label}</p>
         <div className="font-mono text-base tabular text-accent-ink">{value}</div>
       </div>
     </Card>
@@ -65,9 +65,9 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
     : 0
   return (
     <>
-      <Card radius="md" className="px-6 py-8 text-center max-sm:px-4 max-sm:py-5">
-        <p className="font-display text-[20px] font-semibold">คะแนนรวม</p>
-        <div className="mt-3 flex flex-wrap items-baseline justify-center gap-3 font-mono text-5xl tabular text-brand-600 max-sm:text-[44px]">
+      <Card radius="md" className="px-6 py-[31px] text-center max-sm:px-4 max-sm:py-5">
+        <p className="font-display text-[22px] font-semibold max-sm:text-[20px]">คะแนนรวม</p>
+        <div className="mt-5 flex flex-wrap items-baseline justify-center gap-5 font-mono text-5xl leading-[62px] tabular max-sm:mt-3 max-sm:gap-3 max-sm:leading-none text-brand-600 max-sm:text-[44px]">
           {score.finalScore !== null ? (
             <span data-testid="final-score">{scoreNumber(score.finalScore, 2)}</span>
           ) : (
@@ -81,7 +81,7 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
             </span>
           )}
         </div>
-        <p className="mt-5 text-[17px] text-ink">
+        <p className="mt-5 text-[19px] leading-[30px] text-ink max-sm:text-[17px]">
           {score.finalScore === null
             ? 'จะแสดงเมื่อองค์ประกอบคะแนนครบเกณฑ์ความเป็นส่วนตัว'
             : score.provisional
@@ -91,8 +91,8 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
         </p>
       </Card>
 
-      <div className="space-y-4 max-sm:space-y-3">
-        <div className="space-y-4 max-sm:space-y-3">
+      <div className="space-y-5 max-sm:space-y-3">
+        <div className="space-y-5 max-sm:space-y-3">
           <div id="group-score" className="scroll-mt-24">
             <ScoreStep
               label="คะแนนกลุ่ม"
@@ -148,14 +148,14 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
         </div>
 
         <Card radius="md">
-          <div className="border-b border-edge px-6 py-4 max-sm:border-0 max-sm:px-4 max-sm:pb-0">
+          <div className="border-b border-edge px-5 py-5 max-sm:border-0 max-sm:px-4 max-sm:pt-4 max-sm:pb-0">
             <h2 className="font-display text-xl font-bold max-sm:text-base">การมีส่วนร่วมของฉัน</h2>
-            <p className="mt-1 text-xs text-muted max-sm:hidden">นับจากจำนวนคู่ที่ส่งจริง เทียบกับที่ได้รับมอบหมาย</p>
+            <p className="mt-0.5 text-[14px] text-muted max-sm:hidden">นับจากจำนวนคู่ที่ส่งจริง เทียบกับที่ได้รับมอบหมาย</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 px-6 py-4 max-sm:px-4">
+          <div className="flex flex-wrap items-center gap-3 px-5 pt-5 pb-5 max-sm:px-4 max-sm:py-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-ink-2">ส่งแล้ว</p>
+                <p className="text-[16px] text-ink-2 max-sm:text-sm">ส่งแล้ว</p>
                 <p className="font-mono text-sm tabular">
                   {score.submittedCount != null && `${score.submittedCount} / ${score.assignedCount} คู่ `}
                   <span data-testid="participation-ratio">(p = {scoreNumber(score.participationRatio, 2)})</span>
@@ -167,17 +167,17 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={participationPercent}
-                className="mt-3 h-2 overflow-hidden rounded-full bg-edge"
+                className="mt-2.5 h-2 overflow-hidden rounded-full bg-edge"
               >
                 <div className="h-full rounded-full bg-brand-600" style={{ width: `${participationPercent}%` }} />
               </div>
-              <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[16px] max-sm:text-sm">
                 ตัวคูณการมีส่วนร่วม{' '}
                 <span data-testid="participation-multiplier" className="font-mono text-accent-ink">
                   M = {scoreNumber(score.participationMultiplier, 2)}
                 </span>
               </p>
-              <p className="mt-2 text-[13px] leading-5 text-ink-2">
+              <p className="mt-2.5 text-[14px] leading-5 text-ink-2 max-sm:text-[13px]">
                 {Number(score.participationRatio) >= 0.9 ? 'ถึงเกณฑ์ 90% แล้ว จึงได้คะแนนเต็มตามที่ประเมินได้ · ' : ''}
                 ตัวคูณนี้มีผลเฉพาะคะแนนของตัวเอง ไม่ลดคะแนนของกลุ่ม
               </p>

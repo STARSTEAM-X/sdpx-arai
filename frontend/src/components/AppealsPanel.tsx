@@ -101,7 +101,7 @@ export function AppealsPanel({
           {items.length ? 'ไม่พบคำร้องตามตัวกรอง' : 'ยังไม่มีคำร้องอุทธรณ์'}
         </p>
       ) : (
-        <div className="overflow-x-auto" role="region" aria-label="ตารางคำร้องอุทธรณ์" tabIndex={0}>
+        <div className="relative overflow-x-auto" role="region" aria-label="ตารางคำร้องอุทธรณ์" tabIndex={0}>
           <table className="w-full min-w-180 text-left text-[14px]">
             <thead className="bg-table-head">
               <tr>

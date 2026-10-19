@@ -21,7 +21,7 @@ export function CollectedDataTable({
   className?: string
 }) {
   return (
-    <div className={`overflow-x-auto rounded-2xl border border-edge bg-white ${className}`}>
+    <div className={`relative overflow-x-auto rounded-2xl border border-edge bg-white ${className}`}>
       <table className="w-full min-w-140 border-collapse text-left text-[15px]">
         <thead className="bg-[#fde5d8]">
           <tr>

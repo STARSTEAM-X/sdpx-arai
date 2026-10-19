@@ -259,9 +259,9 @@ export default function ClassroomDetailPage() {
           <OrangeHero
             title={classroomName}
             subtitle={
-              <span className="font-display text-[20px] font-bold max-sm:text-[14px]">
+              <span className="font-display text-[23px] font-bold max-sm:text-[14px]">
                 {roomContext?.groupName ? (
-                  <Link to={`/classrooms/${classroomId}/group`} className={`rounded hover:underline ${FOCUS}`}>
+                  <Link to={`/classrooms/${classroomId}/group`} className={`inline-flex min-h-6 items-center rounded hover:underline ${FOCUS}`}>
                     กลุ่ม {roomContext.groupName}
                   </Link>
                 ) : null}
@@ -270,7 +270,7 @@ export default function ClassroomDetailPage() {
               </span>
             }
             image={welcomeIllustration}
-            imageClassName="-top-8 right-6 h-44 w-60"
+            imageClassName="-top-[63px] -right-[12px] h-[248px] w-[331px]"
           />
           {error && (
             <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">
@@ -345,7 +345,7 @@ export default function ClassroomDetailPage() {
       <AppNav context={classroomName} classroomId={classroomId} />
 
       <main className={`mx-auto max-w-290 pt-8 max-xl:px-7 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-20'}`}>
-        <nav aria-label="breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2.5 text-[14px] text-ink-2">
+        <nav aria-label="breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2.5 text-[14px] text-ink-2 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center">
           <Link to="/classrooms" className={`shrink-0 rounded-md transition-colors hover:text-accent-ink ${FOCUS}`}>
             ห้องเรียนของฉัน
           </Link>
@@ -425,7 +425,7 @@ export default function ClassroomDetailPage() {
                         .join(' · ')
                 }
                 image={classroomIllustration}
-                imageClassName="-top-7 right-2 h-46 w-82"
+                imageClassName="-top-[63px] right-[14px] h-[256px] w-[341px]"
               />
             </div>
 
@@ -442,18 +442,6 @@ export default function ClassroomDetailPage() {
                   {myRole === 'TA' ? 'จัดการรายชื่อ' : 'จัดการสมาชิก'}
                 </a>
               )}
-              {canManageAssignment && !isArchived && (
-                <a
-                  href="#assignments"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    go('assignments')
-                  }}
-                  className={`inline-flex min-h-12.5 items-center rounded-full bg-[#e35205] px-6 font-display text-[16px] font-semibold text-white hover:bg-cta ${FOCUS}`}
-                >
-                  {assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}
-                </a>
-              )}
               {canFinalizeScores && (
                 <a
                   href="#scores"
@@ -464,6 +452,18 @@ export default function ClassroomDetailPage() {
                   className={actionClass}
                 >
                   ดูคะแนนของงาน
+                </a>
+              )}
+              {canManageAssignment && !isArchived && (
+                <a
+                  href="#assignments"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    go('assignments')
+                  }}
+                  className={`inline-flex min-h-12.5 items-center rounded-full bg-[#e35205] px-6 font-display text-[16px] font-semibold text-white hover:bg-cta ${FOCUS}`}
+                >
+                  {assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}
                 </a>
               )}
             </div>

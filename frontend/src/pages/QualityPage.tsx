@@ -19,12 +19,41 @@ import {
 import { COMPARISON_SCALE } from '../lib/scale'
 import reportHeading from '../assets/figma/owner-report-heading.png'
 
+// ถ้อยคำตาม Figma J28
 const signalLabels: Record<string, string> = {
-  'QS-01': 'คำตอบยังน้อย',
-  'QS-02': 'เลือกค่าเดิมซ้ำ',
-  'QS-03': 'เลือกข้างเดียวบ่อย',
-  'QS-04': 'คำตอบเป็นวง',
-  'QS-05': 'เวลาเฉลี่ยต่ำ',
+  'QS-01': 'ได้ผลประเมินน้อย',
+  'QS-02': 'ตอบค่าเดิมทุกข้อ',
+  'QS-03': 'เลือกฝั่งเดียวเกือบทุกข้อ',
+  'QS-04': 'ตอบวนกัน (A>B>C>A)',
+  'QS-05': 'ตอบเร็วผิดปกติ',
+}
+
+/** ค่าที่วัดได้และเกณฑ์ของแต่ละสัญญาณ (Figma J28) — คิดจากคำตอบที่ส่งแล้วด้วยกฎเดียวกับ backend/app/domain/quality.py */
+function measure(reviewer: Reviewer, flag: string): { value: string; threshold: string } {
+  const submitted = reviewer.answers.filter((answer) => answer.status === 'SUBMITTED')
+  const n = submitted.length
+  const pct = (count: number) => `${Math.round((count / Math.max(n, 1)) * 100)}%`
+  if (flag === 'QS-02') {
+    const counts = new Map<number, number>()
+    for (const answer of submitted) counts.set(answer.choice, (counts.get(answer.choice) ?? 0) + 1)
+    const top = Math.max(0, ...counts.values())
+    return { value: `${top} / ${n} ข้อ (${pct(top)})`, threshold: '> 80%' }
+  }
+  if (flag === 'QS-03') {
+    const left = submitted.filter((answer) => answer.choice <= 3).length
+    const side = left >= n - left ? 'ฝั่งซ้าย' : 'ฝั่งขวา'
+    const top = Math.max(left, n - left)
+    return { value: `${side} ${top} / ${n} (${pct(top)})`, threshold: '> 80%' }
+  }
+  if (flag === 'QS-04') {
+    const ratio = reviewer.checkedTriples ? Math.round((reviewer.cycles / reviewer.checkedTriples) * 100) : 0
+    return { value: `${reviewer.cycles} จาก ${reviewer.checkedTriples} ชุด (${ratio}%)`, threshold: '> 20%' }
+  }
+  if (flag === 'QS-05') {
+    const seconds = reviewer.meanTimeMs === null ? '—' : (reviewer.meanTimeMs / 1000).toFixed(1)
+    return { value: `เฉลี่ย ${seconds} วิ / คู่`, threshold: '< 3 วิ' }
+  }
+  return { value: `ส่งแล้ว ${reviewer.submittedCount} / ${reviewer.assignedCount}`, threshold: '—' }
 }
 
 export default function QualityPage() {
@@ -141,7 +170,7 @@ export default function QualityPage() {
     <div className="min-h-screen bg-ground text-ink">
       <AppNav context="รายงานคุณภาพ" contextTo={`/classrooms/${classroomId}#assignments`} classroomId={classroomId} />
       <main className="mx-auto max-w-290 pt-8 pb-16 max-xl:px-7 max-sm:px-4">
-        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2">
+        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-2.5 text-[14px] text-ink-2 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center">
           <Link to="/classrooms" className={`hover:text-accent-ink ${FOCUS}`}>
             ห้องเรียนของฉัน
           </Link>
@@ -158,7 +187,7 @@ export default function QualityPage() {
           </Link>
         </nav>
         <div className="relative mt-6 mb-6 flex min-h-41 items-center gap-4">
-          <BackChevron to={`/classrooms/${classroomId}/assignments/${assignmentId}`} label="กลับหน้างานประเมิน" />
+          <BackChevron to={`/classrooms/${classroomId}/assignments/${assignmentId}`} label="กลับหน้างานประเมิน" inline />
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-[32px] font-bold max-sm:text-2xl">
               {view === 'coverage' ? 'Coverage รายคู่' : 'รายงานคุณภาพการประเมิน'}
@@ -249,12 +278,12 @@ export default function QualityPage() {
                     ))}
                   </div>
                 </div>
-                <div className="overflow-x-auto" role="region" aria-label="ตารางสัญญาณคุณภาพ" tabIndex={0}>
+                <div className="relative overflow-x-auto" role="region" aria-label="ตารางสัญญาณคุณภาพ" tabIndex={0}>
                   <table className="w-full min-w-160 text-left text-sm">
                     <caption className="sr-only">รายงานผู้ประเมินแบบไม่แสดงตัวตน</caption>
                     <thead className="border-y border-edge bg-white">
                       <tr>
-                        {['รายการ', 'สัญญาณ', 'ส่งแล้ว', 'เวลาเฉลี่ย', 'สถานะ', ''].map((label, index) => (
+                        {['รายการ', 'สัญญาณ', 'ค่าที่วัดได้', 'เกณฑ์', 'สถานะ', ''].map((label, index) => (
                           <th key={index} className="bg-table-head px-5 py-3.5 font-normal">
                             {label}
                           </th>
@@ -269,23 +298,28 @@ export default function QualityPage() {
                             {item.label}
                           </th>
                           <td className="px-5 py-4">
-                            {item.flags.length
-                              ? item.flags.map((flag) => `${signalLabels[flag]} · ${flag}`).join(' / ')
-                              : item.submittedCount
-                                ? 'ไม่พบสัญญาณที่ตรวจได้'
-                                : 'ยังไม่มีคำตอบที่ส่ง'}
+                            {item.flags.length ? (
+                              item.flags.map((flag) => (
+                                <p key={flag}>
+                                  {signalLabels[flag]} · {flag}
+                                </p>
+                              ))
+                            ) : (
+                              <p>{item.submittedCount ? 'ไม่พบสัญญาณที่ตรวจได้' : 'ยังไม่มีคำตอบที่ส่ง'}</p>
+                            )}
                             {item.submittedCount > 0 && item.submittedCount < 3 && (
                               <p className="mt-1 text-xs text-muted">ข้อมูลยังน้อย กรุณาพิจารณาประกอบ</p>
                             )}
                           </td>
-                          <td className="px-5 py-4 font-mono">
-                            {item.submittedCount}/{item.assignedCount}
-                          </td>
                           <td className="px-5 py-4">
-                            {item.meanTimeMs === null
-                              ? 'ยังไม่มีข้อมูล'
-                              : `${(item.meanTimeMs / 1000).toFixed(1)} วินาที`}
-                            <p className="mt-1 text-xs text-muted">วัดได้ {item.timedCount} ข้อ</p>
+                            {item.flags.map((flag) => (
+                              <p key={flag}>{measure(item, flag).value}</p>
+                            ))}
+                          </td>
+                          <td className="px-5 py-4 text-ink-2">
+                            {item.flags.map((flag) => (
+                              <p key={flag}>{measure(item, flag).threshold}</p>
+                            ))}
                           </td>
                           <td className="px-5 py-4">
                             <span
@@ -333,7 +367,7 @@ export default function QualityPage() {
                       หรืออาจารย์ประเมินเองก็ได้
                     </p>
                   </div>
-                  <div className="overflow-x-auto" role="region" aria-label="ตารางความครอบคลุมรายคู่" tabIndex={0}>
+                  <div className="relative overflow-x-auto" role="region" aria-label="ตารางความครอบคลุมรายคู่" tabIndex={0}>
                     <table className="w-full min-w-180 text-left text-[14px]">
                       <caption className="sr-only">
                         ส่งแล้วเทียบกับที่มอบหมายและเป้าหมาย ไม่รวมผู้ประเมินที่ถูกตัดคำตอบ

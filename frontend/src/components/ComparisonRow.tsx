@@ -68,7 +68,7 @@ export function ComparisonRow({
           event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next - 1]?.focus()
         }}
         disabled={readOnly}
-        className={`group flex min-h-32 min-w-0 flex-col items-center justify-center gap-3 rounded-2xl px-1 py-4 text-center text-xs font-medium transition-colors max-sm:min-h-12 max-sm:flex-row max-sm:justify-start max-sm:rounded-xl max-sm:border max-sm:border-edge max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-sm ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`group flex min-h-29 min-w-0 flex-col items-center justify-center gap-3 rounded-2xl px-1 py-4 text-center text-xs font-medium transition-colors max-sm:min-h-12 max-sm:flex-row max-sm:justify-start max-sm:rounded-xl max-sm:border max-sm:border-edge max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-sm ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
           selected
             ? left ? 'bg-peach text-accent-ink' : 'bg-info-soft text-info-ink'
             : left ? 'text-accent-ink hover:bg-accent-soft/60' : 'text-info-ink hover:bg-info-soft/50'
@@ -107,8 +107,8 @@ export function ComparisonRow({
         {!item.completed && choice === null && <Pill tone="warn">ยังไม่ได้ตอบ</Pill>}
       </div>
 
-      <div className={compact ? 'rounded-2xl border border-edge px-4 pt-4 pb-6 max-sm:border-0 max-sm:p-0' : ''}>
-        <div className={`${compact ? '' : 'mt-4'} flex justify-between gap-4 text-xs font-semibold max-sm:hidden`} aria-hidden="true">
+      <div className={compact ? 'rounded-2xl border border-edge p-5.25 max-sm:border-0 max-sm:p-0' : ''}>
+        <div className={`${compact ? '' : 'mt-4'} flex justify-between gap-4 text-[15px] font-semibold max-sm:hidden`} aria-hidden="true">
           <span className="min-w-0 text-accent-ink wrap-break-word">{item.leftLabel} ดีกว่า</span>
           <span className="min-w-0 text-right text-info-ink wrap-break-word">{item.rightLabel} ดีกว่า</span>
         </div>
@@ -121,7 +121,7 @@ export function ComparisonRow({
         </div>
       </div>
 
-      <p className="mt-4 flex min-h-5 items-center gap-1.5 text-xs font-semibold" aria-live="polite">
+      <p className="mt-5 flex min-h-5 items-center gap-1.5 text-[14px] font-semibold max-sm:mt-4 max-sm:text-xs" aria-live="polite">
         {choice === null && state !== 'error' && <span className="text-ink-2">ยังไม่ได้เลือกคำตอบ</span>}
         {choice !== null && state !== 'error' && (() => {
           const picked = COMPARISON_SCALE.find((entry) => entry.id === choice)

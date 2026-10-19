@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import classroomIllustration from '../assets/enhanced/classroom.webp'
@@ -56,12 +56,20 @@ export default function GroupPage() {
   const withdrawn = students.filter((member) => member.enrollmentStatus === 'WITHDRAWN').length
   const staff = members.filter((member) => member.role !== 'STUDENT')
 
+  // Figma ST15 — ตัวเองก่อน แล้วเพื่อนกลุ่มเดียวกัน นักศึกษากลุ่มอื่น และทีมผู้สอนท้ายสุด
+  const rank = useCallback(
+    (member: RosterEntry) =>
+      member.email === me?.email ? 0 : member.role !== 'STUDENT' ? 3 : member.groupName === myGroup ? 1 : 2,
+    [me?.email, myGroup],
+  )
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return members
       .filter((member) => tab === 'ALL' || (tab === 'STUDENT' ? member.role === 'STUDENT' : member.role !== 'STUDENT'))
       .filter((member) => !q || [member.displayName, member.email].some((value) => value?.toLowerCase().includes(q)))
-  }, [members, tab, query])
+      .sort((a, b) => rank(a) - rank(b) || (a.groupName ?? '').localeCompare(b.groupName ?? '') || 0)
+  }, [members, tab, query, rank])
 
   const name = (member: RosterEntry) =>
     `${member.displayName ?? member.email}${member.email === me?.email ? ' (คุณ)' : ''}`

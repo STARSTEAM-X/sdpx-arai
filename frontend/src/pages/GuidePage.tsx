@@ -276,7 +276,7 @@ function SystemTab() {
           คะแนนของคุณจะถูกคูณด้วยตัวคูณการมีส่วนร่วม ซึ่งคิดจากสัดส่วนคู่ที่คุณส่งจริง เทียบกับที่ได้รับมอบหมาย
           ถ้าส่งครบ 90% ขึ้นไปถือว่าได้เต็ม
         </p>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-edge">
+        <div className="relative mt-3 overflow-x-auto rounded-xl border border-edge">
           <table className="w-full min-w-120 text-left text-[15px]">
             <thead className="bg-table-head">
               <tr>
