@@ -12,6 +12,7 @@ from app.domain.pairing import Side
 
 NOT_OPENED_MESSAGE = "อาจารย์ยังไม่เปิดงานนี้ให้ประเมิน — ระบบจะแจ้งเตือนเมื่อเปิดแล้ว"
 NO_INDIVIDUAL_MESSAGE = "งานนี้ไม่มีการประเมินรายบุคคล"
+NO_GROUP_MESSAGE = "งานนี้ไม่มีการประเมินระดับกลุ่ม — ประเมินรายบุคคลได้ตามปกติ"
 
 
 @dataclass(frozen=True)
@@ -63,10 +64,10 @@ def build_my_evaluations(
         )
 
     if not side_enabled:
-        # FR-ASSIGN-07 — individual_max_score = 0 แปลว่าไม่มี pair ฝั่งนี้เลยตั้งแต่ publish
+        # FR-ASSIGN-07 / GAP-11 — คะแนนเต็มของฝั่งนี้เป็น 0 แปลว่าไม่มี pair ฝั่งนี้เลยตั้งแต่ publish
         # ต้องอธิบายว่าทำไมว่างเปล่า ไม่ใช่ปล่อยให้ดูเหมือนหน้าจอพัง
         return MyEvaluations(
-            side=side, opened=True, message=NO_INDIVIDUAL_MESSAGE,
+            side=side, opened=True, message=NO_GROUP_MESSAGE if side is Side.GROUP else NO_INDIVIDUAL_MESSAGE,
             completed_count=0, total_count=0, items=[],
         )
 

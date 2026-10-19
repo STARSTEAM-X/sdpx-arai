@@ -376,13 +376,15 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
         assignment = _load_for_instructor(conn, assignment_id, user_email)
         groups = PgAssignmentRepository(conn).groups_with_members(assignment.classroom_id)
 
-    items = [
-        solve_group_feasibility(
-            groups,
-            target_coverage=assignment.target_coverage,
-            max_workload=assignment.max_workload,
+    items = []
+    if assignment.has_group_side:
+        items.append(
+            solve_group_feasibility(
+                groups,
+                target_coverage=assignment.target_coverage,
+                max_workload=assignment.max_workload,
+            )
         )
-    ]
     if assignment.has_individual_side:
         items.append(
             solve_individual_feasibility(
@@ -497,7 +499,7 @@ def get_my_evaluations(
     with transaction() as conn:
         assignment = _load_for_member(conn, assignment_id, user_email)
 
-        side_enabled = side is Side.GROUP or assignment.has_individual_side
+        side_enabled = side in assignment.enabled_sides
         scheduled = assignment.opens_at_utc is not None and datetime.now(UTC) < assignment.opens_at_utc
         should_query = assignment.status is not AssignmentStatus.DRAFT and side_enabled and not scheduled
 

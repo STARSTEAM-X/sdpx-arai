@@ -118,3 +118,14 @@ class Testฝั่งบุคคลถูกปิด:
         )
 
         assert result.message == NOT_OPENED_MESSAGE
+
+
+def test_GAP11_ฝั่งกลุ่มถูกปิด_ข้อความต้องบอกว่าไม่มีการประเมินระดับกลุ่ม():
+    from app.domain.evaluation_service import NO_GROUP_MESSAGE
+
+    result = build_my_evaluations(
+        side=Side.GROUP, status=AssignmentStatus.PUBLISHED, side_enabled=False, pairs=[]
+    )
+
+    assert result.message == NO_GROUP_MESSAGE
+    assert result.items == []

@@ -13,9 +13,7 @@ from app.repositories.pg_scoring_repo import PgScoringRepository
 def run_recompute(conn: Connection, assignment: Assignment, *, is_final: bool, now: datetime) -> bool:
     scoring_repo = PgScoringRepository(conn)
     has_low_confidence = False
-    sides = [Side.GROUP]
-    if assignment.has_individual_side:
-        sides.append(Side.INDIVIDUAL)
+    sides = assignment.enabled_sides
 
     for side in sides:
         comparisons = scoring_repo.submitted_comparisons(assignment.id, side)

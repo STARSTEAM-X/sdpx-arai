@@ -71,6 +71,24 @@ class Assignment:
     generation: int = 1
 
     @property
+    def has_group_side(self) -> bool:
+        """`group_max_score = 0` ปิดฝั่งกลุ่ม แบบสมมาตรกับฝั่งบุคคล (GAP-11)
+
+        จำเป็นสำหรับห้องที่มี 2 กลุ่ม — ฝั่งกลุ่มไม่มีผู้มีสิทธิ์ประเมินเลย (FR-PAIR-02)
+        แต่ฝั่งรายบุคคลยังประเมินได้ปกติ
+        """
+        return self.group_max_score > 0
+
+    @property
+    def enabled_sides(self) -> list[Side]:
+        sides = []
+        if self.has_group_side:
+            sides.append(Side.GROUP)
+        if self.has_individual_side:
+            sides.append(Side.INDIVIDUAL)
+        return sides
+
+    @property
     def has_individual_side(self) -> bool:
         """`individual_max_score = 0` แปลว่าไม่มีการประเมินรายบุคคลเลย (FR-ASSIGN-07)"""
         return self.individual_max_score > 0
@@ -140,9 +158,12 @@ def assert_publishable(assignment: Assignment) -> None:
             field="status",
         )
 
-    sides = [Side.GROUP]
-    if assignment.has_individual_side:
-        sides.append(Side.INDIVIDUAL)
+    sides = assignment.enabled_sides
+    if not sides:
+        raise ValidationError(
+            "ปิดทั้งฝั่งกลุ่มและฝั่งบุคคล (คะแนนเต็มเป็น 0 ทั้งคู่) — ต้องเปิดอย่างน้อย 1 ฝั่ง",
+            field="groupMaxScore",
+        )
 
     for side in sides:
         items = assignment.criteria_for(side)
@@ -161,6 +182,13 @@ def assert_publishable(assignment: Assignment) -> None:
                 f"({direction} {abs(gap)}%)",
                 field="criteria",
             )
+
+    if not assignment.has_group_side and assignment.criteria_for(Side.GROUP):
+        raise ValidationError(
+            "ตั้ง groupMaxScore = 0 (ปิดการประเมินฝั่งกลุ่ม) "
+            "แต่ยังมีเกณฑ์ฝั่ง GROUP ค้างอยู่ — ลบเกณฑ์นั้นหรือกำหนดคะแนนเต็มให้มากกว่า 0",
+            field="groupMaxScore",
+        )
 
     # ฝั่ง INDIVIDUAL ถูกปิด แต่ยังมีเกณฑ์ค้างอยู่ = ตั้งค่าขัดกันเอง ต้องบอกก่อนจะสร้าง pair
     if not assignment.has_individual_side and assignment.criteria_for(Side.INDIVIDUAL):

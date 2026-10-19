@@ -77,6 +77,8 @@ export default function EvaluatePage() {
       if (group.opened && individual.opened)
         queue.retain(new Set([...group.items, ...individual.items].map((item) => item.pairAssignmentId)))
       setData({ GROUP: group, INDIVIDUAL: individual })
+      // GAP-11: งานที่ปิดฝั่งกลุ่ม (groupMaxScore = 0) เปิดมาที่ฝั่งรายบุคคลเลย ไม่ต้องให้กดสลับเอง
+      if (group.opened && group.totalCount === 0 && individual.totalCount > 0) setSide((s) => (s === 'GROUP' ? 'INDIVIDUAL' : s))
 
       // AC ของ US-07 บังคับให้แสดงเวลาตาม timezone ของห้องเรียน ไม่ใช่ของเครื่องผู้ใช้
       const room = classrooms.items.find((c) => c.id === classroomId)

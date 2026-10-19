@@ -579,7 +579,7 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         details = []
         group_overridden = bool(group_id and scoring_repo.latest_override_value(assignment_id, Side.GROUP, group_id, None) is not None)
         individual_overridden = bool(not individual_hidden and assignment.has_individual_side and my_user_id and scoring_repo.latest_override_value(assignment_id, Side.INDIVIDUAL, my_user_id, None) is not None)
-        targets = [(Side.GROUP, group_id, assignment.group_max_score)]
+        targets = [(Side.GROUP, group_id, assignment.group_max_score)] if assignment.has_group_side else []
         if not individual_hidden and assignment.has_individual_side:
             targets.append((Side.INDIVIDUAL, my_user_id, assignment.individual_max_score))
         for side, item_id, maximum in targets:
