@@ -14,8 +14,8 @@ from pydantic import BaseModel
 
 from app.auth import CurrentUser, issue_session
 from app.config import ALLOWED_EMAIL_DOMAINS, GOOGLE_CLIENT_ID
-from app.domain.account import account_type
 from app.db import transaction
+from app.domain.account import account_type
 from app.google_oidc import (
     EmailDomainNotAllowed,
     GoogleAuthError,

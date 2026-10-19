@@ -18,7 +18,12 @@ from app.domain.account import can_create_classroom
 from app.domain.assignment_service import Assignment
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.classroom_service import ClassroomService
-from app.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.domain.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 from app.domain.finalize_service import auto_finalize_at
 from app.domain.models import Classroom, ClassroomStatus
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
