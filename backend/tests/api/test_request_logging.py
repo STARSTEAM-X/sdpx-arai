@@ -5,6 +5,7 @@
 
 import json
 import logging
+import re
 from collections.abc import Iterator
 
 import pytest
@@ -50,6 +51,17 @@ def test_request_ปกติได้_log_ครบทุก_field(client: Test
     assert line["statusCode"] == 200
     assert isinstance(line["duration_ms"], (int, float))
     assert line["requestId"] == res.headers["x-request-id"]
+
+
+def test_ส่ง_Server_Timing_ให้_k6_วัดเวลาฝั่ง_server(client: TestClient, http_log: list[dict]):
+    """NFR-PERF-02 วัดที่ server — runner ของ CI อยู่ไกล staging ~220ms ซึ่งผู้ใช้จริงไม่ได้เจอ
+    k6 อ่าน header นี้แทนการใช้เวลา round-trip (performance/load-test.js)"""
+    res = client.get("/api/health")
+
+    match = re.fullmatch(r"app;dur=(\d+(?:\.\d+)?)", res.headers["server-timing"])
+    assert match, res.headers["server-timing"]
+    # วัดก่อนส่ง response จึงไม่เกินเวลาที่ log บันทึกตอนจบ request
+    assert float(match.group(1)) <= _requests(http_log)[0]["duration_ms"]
 
 
 def test_ใช้_route_pattern_ไม่ใช่_path_ที่มี_id(client: TestClient, http_log: list[dict]):

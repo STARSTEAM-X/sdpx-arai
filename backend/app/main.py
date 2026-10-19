@@ -150,6 +150,9 @@ async def request_context(
         response = await call_next(request)
         status_code = response.status_code
         response.headers["x-request-id"] = request_id
+        # NFR-PERF-02 วัดเวลาของ server เอง ไม่รวม network — k6 ใน CI อยู่ไกล staging ~220ms
+        # (performance/load-test.js อ่านค่านี้) · บอกแค่เวลารวม ไม่เปิดเผยรายละเอียดภายใน
+        response.headers["Server-Timing"] = f"app;dur={(time.perf_counter() - start) * 1000:.1f}"
         # FR-AUTH-04 — current_user_email ออก token ใหม่ให้เมื่อใกล้หมดอายุ หน้าเว็บเก็บทับของเดิม
         refreshed = getattr(request.state, "refreshed_token", None)
         if refreshed:
