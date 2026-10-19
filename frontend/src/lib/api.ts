@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { clearToken, getToken } from './session'
+import { clearToken, getToken, renewToken } from './session'
 
 // build-time env ของ Vite — เปลี่ยนค่าแล้วต้อง rebuild ไม่ใช่แค่ restart
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
@@ -52,6 +52,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       ...init.headers,
     },
   })
+
+  // FR-AUTH-04 — server ต่ออายุ session ให้เมื่อใกล้หมด (ไม่ทับถ้าระหว่างนั้นผู้ใช้ออก/เปลี่ยนบัญชีแล้ว)
+  const renewed = res.headers.get('x-session-token')
+  if (renewed && token && token === getToken()) renewToken(renewed)
 
   if (res.ok) {
     return (res.status === 204 ? undefined : await res.json()) as T

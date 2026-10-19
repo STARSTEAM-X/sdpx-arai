@@ -14,6 +14,8 @@ from fastapi import Depends, HTTPException, Request
 from app.config import ALLOWED_EMAIL_DOMAINS, SESSION_SECRET, SESSION_TTL_HOURS
 
 _ALGORITHM = "HS256"
+# FR-AUTH-04 — เหลืออายุไม่ถึงเท่านี้แล้วยังใช้งานอยู่ ออก token ใหม่ให้เงียบ ๆ ทาง header X-Session-Token
+SESSION_REFRESH_BEFORE = timedelta(hours=2)
 
 
 def issue_session(email_normalized: str) -> tuple[str, datetime]:
@@ -78,6 +80,8 @@ def current_user_email(request: Request) -> str:
     # ให้ request log ระบุได้ว่าเป็นผู้ใช้คนไหน (เก็บเป็น hash ตอนเขียน log ไม่ใช่อีเมล)
     # request.state อยู่ใน scope ร่วมกับ middleware จึงอ่านได้หลัง handler ทำงานเสร็จ
     request.state.user_email = email
+    if datetime.fromtimestamp(payload["exp"], UTC) - datetime.now(UTC) < SESSION_REFRESH_BEFORE:
+        request.state.refreshed_token = issue_session(email)[0]
     return email
 
 

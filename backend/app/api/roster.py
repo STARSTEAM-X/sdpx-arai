@@ -91,13 +91,22 @@ async def preview_roster(classroom_id: str, user_email: CurrentUser,
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise ValidationError("เลือกไฟล์ CSV ที่ไม่ว่างและมีขนาดไม่เกิน 2 MB", field="file")
     with transaction() as conn:
-        result = RosterService(PgClassroomRepository(conn), ALLOWED_EMAIL_DOMAINS).preview_csv(
+        result = RosterService(PgClassroomRepository(conn), _allowed_domains(conn, classroom_id)).preview_csv(
             classroom_id=classroom_id, actor_email=user_email, raw=raw,
         )
     return RosterPreviewOut(**RosterImportOut.of(result).model_dump(), rows=[
         RosterPreviewRow(email=row.email_normalized, displayName=row.display_name, groupName=row.group_name)
         for row in result.rows
     ])
+
+
+def _allowed_domains(conn, classroom_id: str) -> list[str]:
+    """FR-AUTH-02 — โดเมนที่ระบบกำหนดทั้งระบบมาก่อน ถ้าไม่ได้กำหนด ใช้โดเมนของห้องนั้น (กฎเดียวกับเพิ่มผู้สอน)
+
+    ตรวจตอนนำเข้ารายชื่อ ไม่ใช่ตอนออก token เพราะคนเดียวอยู่ได้หลายห้องที่จำกัดโดเมนต่างกัน (FR-AUTHZ-03)
+    """
+    classroom = PgClassroomRepository(conn).get_by_id(classroom_id)
+    return ALLOWED_EMAIL_DOMAINS or (classroom.allowed_email_domains if classroom else [])
 
 
 @router.get("/{classroom_id}/roster", response_model=RosterList)
@@ -135,7 +144,7 @@ async def import_roster(
     with transaction() as conn:
         service = RosterService(
             classroom_repo=PgClassroomRepository(conn),
-            allowed_email_domains=ALLOWED_EMAIL_DOMAINS,
+            allowed_email_domains=_allowed_domains(conn, classroom_id),
         )
         result = service.import_csv(
             classroom_id=classroom_id, actor_email=user_email, raw=raw

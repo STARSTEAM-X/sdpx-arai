@@ -202,6 +202,24 @@ test.describe('US-12 จัดการผู้ร่วมสอนและ T
     expect(message).toContain('kmitl.ac.th')
   })
 
+  // FR-AUTH-02 — โดเมนจำกัดต่อห้อง ต้องคุมการนำเข้ารายชื่อนักศึกษาด้วย ไม่ใช่แค่การเพิ่มผู้สอน
+  test('FR-AUTH-02: นำเข้ารายชื่อที่มีอีเมลนอกโดเมนของห้องถูกปฏิเสธทั้งไฟล์', async ({ api, instructorToken }) => {
+    const created = await api.post('/api/classrooms', {
+      ...auth(instructorToken),
+      data: { name: 'ห้องจำกัด domain นำเข้า', timezone: 'Asia/Bangkok', allowedEmailDomains: ['kmitl.ac.th'] },
+    })
+    const { id } = await created.json()
+    const csv = ['email,group_name', 'ok@kmitl.ac.th,Aurora', 'outsider@gmail.com,Aurora'].join(String.fromCharCode(10))
+    const res = await api.post(`/api/classrooms/${id}/roster:import`, {
+      ...auth(instructorToken),
+      multipart: { file: { name: 'roster.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') } },
+    })
+    expect(res.status()).toBe(422)
+    expect(JSON.stringify(await res.json())).toContain('kmitl.ac.th')
+    const roster = await api.get(`/api/classrooms/${id}/roster`, auth(instructorToken))
+    expect((await roster.json()).items.filter((m: { role: string }) => m.role === 'STUDENT')).toHaveLength(0)
+  })
+
   // AC: Given อีเมลนั้นเป็น STUDENT ในห้องนี้อยู่แล้ว, When เพิ่มเป็น TA, Then ตอบ 409
   test('edge case: คนที่เป็นนักศึกษาอยู่แล้วเพิ่มเป็น TA ไม่ได้', async ({
     api,

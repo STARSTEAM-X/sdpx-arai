@@ -124,7 +124,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     # หน้าเว็บอยู่คนละ origin — ต้องเปิดให้อ่านชื่อไฟล์จาก header ไม่งั้นไฟล์ส่งออกได้ชื่อสำรอง
-    expose_headers=["Content-Disposition"],
+    expose_headers=["Content-Disposition", "X-Session-Token"],
 )
 
 
@@ -147,6 +147,10 @@ async def request_context(
         response = await call_next(request)
         status_code = response.status_code
         response.headers["x-request-id"] = request_id
+        # FR-AUTH-04 — current_user_email ออก token ใหม่ให้เมื่อใกล้หมดอายุ หน้าเว็บเก็บทับของเดิม
+        refreshed = getattr(request.state, "refreshed_token", None)
+        if refreshed:
+            response.headers["X-Session-Token"] = refreshed
         # FR-SEC-01 — API ส่งแต่ JSON/ไฟล์ส่งออก ไม่มีหน้าเว็บ จึงห้าม sniff และห้ามฝังใน frame
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")

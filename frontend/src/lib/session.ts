@@ -38,6 +38,11 @@ export function setToken(token: string): void {
   window.dispatchEvent(new Event(SESSION_CHANGED))
 }
 
+/** FR-AUTH-04 — ต่ออายุ token ของผู้ใช้คนเดิม: ไม่ล้างคำตอบที่ยังไม่ส่ง และไม่แจ้งว่า session เปลี่ยน */
+export function renewToken(token: string): void {
+  localStorage.setItem(KEY, token)
+}
+
 export function clearToken(): void {
   clearDrafts()
   localStorage.removeItem(KEY)
