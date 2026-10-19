@@ -247,21 +247,20 @@ test.describe('US-09 ส่งคำตอบทั้งชุด', () => {
         ['paireval.session', studentToken] as const,
       )
 
-      let dialogMessage = ''
-      page.on('dialog', (dialog) => {
-        dialogMessage = dialog.message()
-        void dialog.dismiss() // ปฏิเสธ — ต้อง "ไม่" ส่งจริงถ้าไม่กดยืนยัน
-      })
-
       await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/evaluate`)
       await page.getByRole('button', { name: 'ส่งคำตอบ' }).click()
 
-      await expect.poll(() => dialogMessage).toContain('2')
-      // dismiss ไปแล้ว — ต้องไม่เห็นข้อความว่าส่งสำเร็จ
+      // Figma ST21 — dialog ในหน้าเว็บแทน window.confirm
+      const confirm = page.getByTestId('submit-confirm')
+      await expect(confirm).toBeVisible()
+      await expect(confirm.getByTestId('unanswered-count')).toContainText('2')
+      await confirm.getByRole('button', { name: 'กลับไปตอบต่อ' }).click() // ปฏิเสธ — ต้อง "ไม่" ส่งจริง
+      await expect(confirm).toHaveCount(0)
       await expect(page.getByText(/ส่งแล้ว/)).toHaveCount(0)
+      await expect(page.getByTestId('submit-success')).toHaveCount(0)
     })
 
-    test('ตอบครบแล้วกดส่ง — ไม่มี dialog และเห็นข้อความส่งสำเร็จ', async ({
+    test('ตอบครบแล้วกดส่ง — ไม่ถามยืนยันและเห็นหน้าต่างส่งสำเร็จ', async ({
       page,
       api,
       instructorToken,
@@ -275,12 +274,6 @@ test.describe('US-09 ส่งคำตอบทั้งชุด', () => {
         await api.put(`/api/comparisons/${p.pairAssignmentId}`, { ...auth(studentToken), data: { choice: 2 } })
       }
 
-      let dialogShown = false
-      page.on('dialog', (dialog) => {
-        dialogShown = true
-        void dialog.accept()
-      })
-
       await page.addInitScript(
         ([key, token]) => window.localStorage.setItem(key, token),
         ['paireval.session', studentToken] as const,
@@ -288,8 +281,9 @@ test.describe('US-09 ส่งคำตอบทั้งชุด', () => {
       await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/evaluate`)
       await page.getByRole('button', { name: 'ส่งคำตอบ' }).click()
 
-      await expect(page.getByText(/ส่งแล้ว 2 คู่/)).toBeVisible()
-      expect(dialogShown).toBe(false)
+      await expect(page.getByTestId('submit-success')).toBeVisible()
+      await expect(page.getByText(/ส่งแล้ว 2 คู่/)).toBeAttached()
+      await expect(page.getByTestId('submit-confirm')).toHaveCount(0)
     })
 
     // FR-EVAL-08: เลย deadline แล้วต้องเป็น read-only ทั้งหน้า

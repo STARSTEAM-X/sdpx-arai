@@ -384,6 +384,21 @@ test.describe('หน้าเว็บซ่อนสิ่งที่ role �
     await expect(page.getByTestId('roster-import')).toBeVisible()
     // ถ้าหน้าจอกับ server ไม่ตรงกัน TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ
     await expect(page.getByTestId('assignment-panel')).toHaveCount(0)
+
+    // Figma T09 — เปิดรายงานคุณภาพ (TA ไม่มีสิทธิ์) ผ่าน URL ตรง ๆ เห็นหน้าอธิบายพร้อมทางกลับไปรายชื่อ
+    const created = await api.post('/api/assignments', {
+      headers: { authorization: `Bearer ${instructorToken}` },
+      data: {
+        classroomId, name: 'งานที่ TA ไม่เห็น', groupMaxScore: 15, individualMaxScore: 0,
+        groupDeadlineUtc: '2027-01-01T00:00:00Z', targetCoverage: 1,
+        criteria: [{ side: 'GROUP', name: 'คุณภาพงาน', weightPct: 100 }],
+      },
+    })
+    const { id: assignmentId } = await created.json() as { id: string }
+    await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/quality`)
+    await expect(page.getByRole('heading', { name: 'บทบาทของคุณเข้าถึงส่วนนี้ไม่ได้' })).toBeVisible()
+    await page.getByRole('link', { name: 'ไปหน้ารายชื่อ' }).click()
+    await expect(page).toHaveURL(/#members$/)
   })
 
   test('CO_TEACHER เห็นทั้งสองกล่อง', async ({
@@ -401,55 +416,67 @@ test.describe('หน้าเว็บซ่อนสิ่งที่ role �
     await page.goto(`/classrooms/${classroomId}#members`)
 
     await expect(page.getByTestId('roster-import')).toBeVisible()
-    await page.getByRole('link', { name: 'งานประเมิน', exact: true }).click()
+    await page.getByRole('link', { name: 'กลับภาพรวมห้องเรียน' }).click()
+    await page.getByRole('link', { name: /สร้างงานประเมิน$/ }).first().click()
     await expect(page.getByTestId('assignment-panel')).toBeVisible()
   })
 })
 
 test.describe('จัดการผู้ร่วมสอนบนหน้าเว็บ', () => {
-  test('เจ้าของห้องเพิ่ม TA แล้วเห็นในรายการทันที', async ({ signedInPage, classroomId }) => {
-    await signedInPage.goto(`/classrooms/${classroomId}#members`)
-
-    const panel = signedInPage.getByTestId('member-panel')
+  // Figma J10 — เพิ่มผู้สอนผ่าน dialog: กรอกอีเมล + เลือกบทบาท
+  async function openAddInstructor(page: import('@playwright/test').Page, classroomId: string) {
+    await page.goto(`/classrooms/${classroomId}#members`)
+    await page.getByRole('button', { name: '+ เพิ่มผู้สอน' }).first().click()
+    const panel = page.getByTestId('member-panel')
     await expect(panel).toBeVisible()
+    return panel
+  }
 
-    await signedInPage.getByLabel('อีเมล').fill('ta.ui@kmitl.ac.th')
-    await signedInPage.getByRole('button', { name: 'บทบาท', exact: true }).click()
-    await signedInPage.getByRole('option', { name: /^ผู้ช่วยสอน/ }).click()
-    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+  test('เจ้าของห้องเพิ่ม TA แล้วเห็นในรายการทันที', async ({ signedInPage, classroomId }) => {
+    const panel = await openAddInstructor(signedInPage, classroomId)
 
-    await expect(signedInPage.getByTestId('member-notice')).toContainText('ta.ui@kmitl.ac.th')
-    const row = signedInPage.getByTestId('instructor-list').getByRole('listitem').filter({ hasText: 'ta.ui@kmitl.ac.th' })
+    await panel.getByLabel('อีเมล').fill('ta.ui@kmitl.ac.th')
+    await panel.getByRole('radio', { name: /^TA/ }).check()
+    await panel.getByRole('button', { name: 'เพิ่มเป็น TA', exact: true }).click()
+
+    await expect(signedInPage.getByTestId('page-notice')).toContainText('ta.ui@kmitl.ac.th')
+    const row = signedInPage.getByTestId('roster-list').getByRole('listitem').filter({ hasText: 'ta.ui@kmitl.ac.th' })
     await expect(row).toBeVisible()
-    await expect(row).toContainText('ผู้ช่วยสอน')
+    await expect(row).toContainText('TA')
     // ยังไม่เคย login — ต้องบอกให้เห็น ไม่งั้นอาจารย์จะคิดว่าเพิ่มไม่สำเร็จ
-    await expect(row).toContainText('ยังไม่เคยเข้าระบบ')
+    await expect(row).toContainText('ไม่เคยเข้าสู่ระบบ')
   })
 
   test('ถอดผู้ร่วมสอนออกได้แล้วหายจากรายการ', async ({ signedInPage, classroomId }) => {
-    await signedInPage.goto(`/classrooms/${classroomId}#members`)
-
-    await signedInPage.getByLabel('อีเมล').fill('co.ui@kmitl.ac.th')
-    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
-    const row = signedInPage.getByTestId('instructor-list').getByRole('listitem').filter({ hasText: 'co.ui@kmitl.ac.th' })
+    const panel = await openAddInstructor(signedInPage, classroomId)
+    await panel.getByLabel('อีเมล').fill('co.ui@kmitl.ac.th')
+    await panel.getByRole('button', { name: 'เพิ่มเป็นผู้สอนร่วม', exact: true }).click()
+    const row = signedInPage.getByTestId('roster-list').getByRole('listitem').filter({ hasText: 'co.ui@kmitl.ac.th' })
     await expect(row).toBeVisible()
 
-    await row.getByRole('button', { name: 'ถอดออก' }).click()
+    await row.getByRole('button', { name: /^จัดการ / }).click()
+    await signedInPage.getByRole('menuitem', { name: /ถอดออกจากห้อง/ }).click()
+    // Figma J11c — ยืนยันใน dialog ก่อนถอดจริง
+    const confirm = signedInPage.getByTestId('remove-member-dialog')
+    await expect(confirm).toContainText('co.ui@kmitl.ac.th')
+    await confirm.getByRole('button', { name: 'ถอดออกจากห้อง' }).click()
 
-    await expect(signedInPage.getByTestId('member-notice')).toContainText('ถอด')
+    await expect(signedInPage.getByTestId('page-notice')).toContainText('ถอด')
     await expect(row).toHaveCount(0)
   })
 
-  test('ปุ่มถอดของเจ้าของห้องคนสุดท้ายถูกปิดไว้', async ({ signedInPage, classroomId }) => {
+  test('เจ้าของห้องไม่มีเมนูถอดออก', async ({ signedInPage, api, instructorToken, classroomId }) => {
+    await importRoster(api, instructorToken, classroomId)
     await signedInPage.goto(`/classrooms/${classroomId}#members`)
 
     const ownerRow = signedInPage
-      .getByTestId('instructor-list')
+      .getByTestId('roster-list')
       .getByRole('listitem')
       .filter({ hasText: 'เจ้าของห้อง' })
 
-    // server ตอบ 409 LAST_OWNER อยู่แล้ว — ปิดปุ่มเพื่อไม่ให้กดแล้วเจอ error ที่รู้ล่วงหน้า
-    await expect(ownerRow.getByRole('button', { name: 'ถอดออก' })).toBeDisabled()
+    await expect(ownerRow).toBeVisible()
+    // server ตอบ 409 LAST_OWNER อยู่แล้ว — ไม่แสดงเมนูเพื่อไม่ให้กดแล้วเจอ error ที่รู้ล่วงหน้า
+    await expect(ownerRow.getByRole('button', { name: /^จัดการ / })).toHaveCount(0)
   })
 
   test('อีเมลที่เป็นสมาชิกอยู่แล้วขึ้นข้อความจาก API ตรง ๆ', async ({
@@ -459,17 +486,16 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
     classroomId,
   }) => {
     await importRoster(api, instructorToken, classroomId)
-    await signedInPage.goto(`/classrooms/${classroomId}#members`)
+    const panel = await openAddInstructor(signedInPage, classroomId)
 
-    await signedInPage.getByLabel('อีเมล').fill('somchai@uni.ac.th')
-    await signedInPage.getByRole('button', { name: 'บทบาท', exact: true }).click()
-    await signedInPage.getByRole('option', { name: /^ผู้ช่วยสอน/ }).click()
-    await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+    await panel.getByLabel('อีเมล').fill('somchai@uni.ac.th')
+    await panel.getByRole('radio', { name: /^TA/ }).check()
+    await panel.getByRole('button', { name: 'เพิ่มเป็น TA', exact: true }).click()
 
     await expect(signedInPage.getByTestId('member-error')).toContainText('STUDENT')
   })
 
-  test('CO_TEACHER ไม่เห็นกล่องจัดการสมาชิก', async ({
+  test('CO_TEACHER ไม่เห็นปุ่มเพิ่มผู้สอน', async ({
     page,
     api,
     instructorToken,
@@ -483,8 +509,8 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
 
     await page.goto(`/classrooms/${classroomId}#members`)
 
+    await expect(page.getByTestId('roster-list')).toBeVisible()
+    await expect(page.getByRole('button', { name: '+ เพิ่มผู้สอน' })).toHaveCount(0)
     await expect(page.getByTestId('member-panel')).toHaveCount(0)
-    await page.getByRole('link', { name: 'งานประเมิน', exact: true }).click()
-    await expect(page.getByTestId('assignment-panel')).toBeVisible()
   })
 })

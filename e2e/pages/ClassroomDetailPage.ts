@@ -58,10 +58,9 @@ export class ClassroomDetailPage {
 
   /** แถวของสมาชิกคนหนึ่ง อ้างด้วยอีเมล
    *
-   *  รายชื่อเป็น <table> ไม่ใช่ <ul> แล้ว เพราะแต่ละแถวมี 4 คอลัมน์ที่ต้องอ่านเทียบกัน
-   *  (กลุ่ม บทบาท สถานะ) — role ที่ตรงกับ <tr> คือ 'row' ไม่ใช่ 'listitem'
+   *  Figma J09 เปลี่ยนรายชื่อกลับเป็นรายการ (avatar · ชื่อ · ป้ายบทบาท · ป้ายสถานะ) — role คือ 'listitem'
    */
   memberRow(email: string): Locator {
-    return this.rosterList.getByRole('row').filter({ hasText: email })
+    return this.rosterList.getByRole('listitem').filter({ hasText: email })
   }
 }

@@ -46,15 +46,19 @@ test.describe('หน้าแรก', () => {
 })
 
 test.describe('การเชื่อมต่อกับ backend', () => {
-  test('ป้ายสถานะระบบแสดงผลลัพธ์ ไม่ค้างอยู่ที่กำลังโหลด', async ({ page }) => {
+  // ป้ายสถานะ API บนหน้าแรกถูกเอาออกตามแบบ Figma — ตรวจ health ของ API ตรง ๆ แทน
+  test('API ตอบ health check ได้', async ({ request }) => {
+    const api = process.env.API_BASE_URL ?? 'http://localhost:8123'
+    const res = await request.get(`${api}/api/health`)
+    expect(res.ok()).toBeTruthy()
+  })
+})
+
+test.describe('คู่มือการใช้งาน', () => {
+  test('ปุ่มดูวิธีใช้งานบนหน้าแรกพาไปหน้าคู่มือ', async ({ page }) => {
     await page.goto('/')
-
-    const badge = page.getByTestId('api-status')
-    await expect(badge).toBeVisible()
-
-    // web-first assertion รอให้เองจนกว่า attribute จะเปลี่ยน ไม่ต้องใช้ waitForTimeout
-    // ยอมรับทั้ง ok และ error เพราะ smoke test ไม่ควรพังเมื่อ backend ล่ม
-    // — หน้าที่ของมันคือบอกว่า frontend ยัง render ได้ ส่วนสถานะ backend เป็นคนละเรื่อง
-    await expect(badge).toHaveAttribute('data-status', /^(ok|error)$/)
+    await page.getByRole('link', { name: 'ดูวิธีใช้งาน' }).first().click()
+    await expect(page).toHaveURL(/\/guide$/)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   })
 })

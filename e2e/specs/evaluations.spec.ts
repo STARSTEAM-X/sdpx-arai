@@ -189,7 +189,8 @@ test.describe('US-07 นักศึกษาเห็นรายการง�
       await expect(page.getByRole('heading', { level: 1, name: 'งานที่ต้องประเมิน' })).toBeVisible()
       // classroomId fixture ตั้ง timezone Asia/Bangkok (UTC+7) — 18:30 UTC จึงเป็น 01:30 วันถัดไป
       await expect(page.getByText('01:30')).toBeVisible()
-      await expect(page.getByRole('link', { name: 'ดูผลงาน' })).toHaveAttribute(
+      // งานนี้มีแค่ลิงก์ผลงานรวม — การ์ดของทั้งสองกลุ่มจึงชี้ไปโฟลเดอร์เดียวกัน
+      await expect(page.getByRole('link', { name: /^ดูผลงาน/ }).first()).toHaveAttribute(
         'href',
         'https://drive.example.com/shared-folder',
       )

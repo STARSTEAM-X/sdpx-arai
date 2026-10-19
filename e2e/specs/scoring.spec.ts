@@ -416,6 +416,43 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
       await expect(card.getByRole('button', { name: 'ประกาศผลคะแนน' })).toBeDisabled()
     })
 
+    // Figma J31 / J31e — ประกาศผลและเปิดผลใหม่ยืนยันผ่าน dialog ของเว็บ ไม่ใช่ window.confirm/prompt
+    test('ประกาศผลผ่านหน้าต่างยืนยัน และเปิดผลใหม่ต้องระบุเหตุผลก่อน', async ({
+      page,
+      api,
+      instructorToken,
+      classroomId,
+    }) => {
+      await seedRoster(api, instructorToken, classroomId)
+      await createAndPublish(api, instructorToken, classroomId, '2020-01-01T00:00:00Z')
+
+      await page.addInitScript(
+        ([key, token]) => window.localStorage.setItem(key, token),
+        ['paireval.session', instructorToken] as const,
+      )
+      await page.goto(`/classrooms/${classroomId}#scores`)
+      const card = page.getByTestId('assignment-scoring-card')
+
+      await card.getByRole('button', { name: 'ประกาศผลคะแนน' }).click()
+      const finalize = page.getByTestId('finalize-dialog')
+      await expect(finalize).toBeVisible()
+      await finalize.getByRole('button', { name: 'ประกาศผลคะแนน' }).click()
+      // ไม่มีใครส่งคำตอบ → server ขอให้ยืนยันเรื่องข้อมูลน้อย ในกล่องเดิม
+      await expect(finalize.getByRole('alert')).toBeVisible()
+      await finalize.getByRole('button', { name: 'ยืนยันประกาศผล' }).click()
+      await expect(finalize).toHaveCount(0)
+      await expect(card.getByTestId('scoring-notice')).toContainText('ประกาศผลคะแนนแล้ว')
+
+      await card.getByRole('button', { name: 'เปิดผลใหม่' }).click()
+      const reopen = page.getByTestId('reopen-dialog')
+      await reopen.getByRole('button', { name: 'เปิดผลใหม่' }).click()
+      await expect(reopen).toContainText('กรุณาระบุเหตุผลก่อนเปิดผลใหม่')
+      await reopen.getByLabel('เหตุผล (บังคับ)').fill('ต้องให้ประเมินคู่ที่ข้อมูลยังไม่พอเพิ่ม')
+      await reopen.getByRole('button', { name: 'เปิดผลใหม่' }).click()
+      await expect(reopen).toHaveCount(0)
+      await expect(card.getByTestId('scoring-notice')).toContainText('เปิดผลคะแนนใหม่แล้ว')
+    })
+
     // AC (US-13): คะแนนที่ยังไม่ finalize ต้องมี label "ชั่วคราว" กำกับบนหน้าเว็บของอาจารย์เสมอ
     test('AC: กดดูคะแนนที่คำนวณก่อน finalize เห็น label "ชั่วคราว — อาจเปลี่ยนแปลงได้"', async ({
       page,
@@ -435,9 +472,47 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
       await page.goto(`/classrooms/${classroomId}#scores`)
 
       const card = page.getByTestId('assignment-scoring-card')
-      await card.getByRole('button', { name: 'ดูคะแนนที่คำนวณ' }).click()
+      await card.getByRole('button', { name: 'ดูรายงานคะแนน' }).click()
       await expect(card.getByTestId('scores-final-flag')).toHaveText('ชั่วคราว — อาจเปลี่ยนแปลงได้')
     })
+  })
+})
+
+test.describe('แก้คะแนนด้วยมือบนหน้าเว็บ (Figma J25c · S05/S06)', () => {
+  test('ต้องมีเหตุผลและคะแนนอยู่ในช่วงก่อนบันทึก แล้วรายงานอัปเดตทันที', async ({
+    page,
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    await answerAndSubmitAll(api, assignmentId)
+    await api.post(`/api/assignments/${assignmentId}:recompute`, auth(instructorToken))
+
+    await page.addInitScript(
+      ([key, token]) => window.localStorage.setItem(key, token),
+      ['paireval.session', instructorToken] as const,
+    )
+    await page.goto(`/classrooms/${classroomId}#scores`)
+    const card = page.getByTestId('assignment-scoring-card')
+    await card.getByRole('button', { name: 'ดูรายงานคะแนน' }).click()
+    await card.getByRole('button', { name: /^ปรับคะแนน / }).first().click()
+
+    const dialog = page.getByTestId('override-dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'บันทึกคะแนนที่แก้' }).click()
+    await expect(dialog).toContainText('กรุณาระบุเหตุผลก่อนบันทึก')
+
+    await dialog.getByLabel(/^คะแนนใหม่/).fill('999')
+    await dialog.getByLabel('เหตุผล (บังคับ)').fill('ตรวจผลงานจริงแล้วคะแนนจากระบบต่ำเกินไป')
+    await dialog.getByRole('button', { name: 'บันทึกคะแนนที่แก้' }).click()
+    await expect(dialog).toContainText('คะแนนต้องอยู่ระหว่าง 0–15')
+
+    await dialog.getByLabel(/^คะแนนใหม่/).fill('11.5')
+    await dialog.getByRole('button', { name: 'บันทึกคะแนนที่แก้' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(card.getByRole('table')).toContainText('11.5')
   })
 })
 

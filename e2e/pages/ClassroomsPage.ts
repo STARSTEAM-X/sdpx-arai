@@ -22,7 +22,7 @@ export class ClassroomsPage {
     // เรียงตามลำดับที่แนะนำ: getByRole → getByLabel → getByTestId
     this.heading = page.getByRole('heading', { level: 1, name: 'ห้องเรียนของฉัน' })
     this.nameInput = page.getByLabel('ชื่อห้องเรียน')
-    this.timezoneSelect = page.getByRole('button', { name: /^เขตเวลา/ })
+    this.timezoneSelect = page.getByLabel('เขตเวลาของห้อง')
     this.submitButton = page.getByRole('button', { name: 'สร้างห้องเรียน', exact: true })
     // role="alert" ทำให้ screen reader อ่านข้อความผิดพลาดให้เอง — ได้ a11y ติดมาด้วย
     this.errorMessage = page.getByRole('alert')
@@ -41,9 +41,9 @@ export class ClassroomsPage {
     if (!(await this.submitButton.isVisible())) await this.openCreateButton.click()
     await this.nameInput.fill(name)
     await this.page.getByLabel('รหัสวิชา').fill('CE-SDPX')
-    await this.page.getByRole('textbox', { name: /^ภาคเรียน/ }).fill('1/2569')
-    await this.timezoneSelect.click()
-    await this.page.getByRole('option', { name: timezone }).click()
+    await this.page.getByLabel('ภาคเรียน', { exact: true }).fill('1/2569')
+    // Figma J03 — เขตเวลาเป็นช่องพิมพ์พร้อมรายการแนะนำ (datalist)
+    await this.timezoneSelect.fill(timezone)
     await this.submitButton.click()
   }
 

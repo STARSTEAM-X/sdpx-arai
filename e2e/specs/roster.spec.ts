@@ -26,7 +26,7 @@ test.describe('US-03 นำเข้ารายชื่อจาก CSV', () =
     await expect(roster.importResult).toContainText('2 กลุ่ม')
     await expect(roster.memberRow('somchai@uni.ac.th')).toBeVisible()
     await expect(roster.memberRow('mana@uni.ac.th')).toBeVisible()
-    await expect(roster.studentCount).toContainText('นักศึกษา 4 คน')
+    await expect(roster.studentCount).toContainText('นักศึกษา 4')
   })
 
   test('นักศึกษาที่เพิ่ง import ยังไม่เคยเข้าระบบ จึงขึ้นสถานะรอ', async ({
@@ -37,7 +37,7 @@ test.describe('US-03 นำเข้ารายชื่อจาก CSV', () =
     await roster.goto(classroomId)
     await roster.importCsv('roster.csv', rosterCsv.valid)
 
-    await expect(roster.memberRow('somchai@uni.ac.th')).toContainText('ยังไม่เคยเข้าระบบ')
+    await expect(roster.memberRow('somchai@uni.ac.th')).toContainText('ไม่เคยเข้าสู่ระบบ')
   })
 
   // AC: Given CSV 100 แถว มีแถวที่ 42 อีเมลผิดรูปแบบ, When import,

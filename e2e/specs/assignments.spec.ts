@@ -17,7 +17,8 @@ const DEADLINE = '2027-01-31T16:59:00Z'
 
 /** เลือกกำหนดส่งผ่าน UI จริง เพื่อคุมทั้งปฏิทินไทยและเวลา 24 ชั่วโมง */
 async function chooseDeadline(page: Page) {
-  await page.getByLabel('กำหนดส่ง', { exact: true }).click()
+  // ป้ายเปลี่ยนเป็น "ฝั่งกลุ่ม" เมื่อมีคะแนนรายบุคคล (Figma J13a) จึงอ้างช่องด้วย id ของมัน
+  await page.locator('#assignment-deadline').click()
 
   const now = new Date()
   const bangkok = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
@@ -306,10 +307,9 @@ test.describe('US-05 ดูความเป็นไปได้ก่อน�
 
       await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานทดสอบ anonymity')
       await chooseDeadline(signedInPage)
-      await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
-      await expect(signedInPage.getByTestId('assignment-created')).toBeVisible()
-
+      // Figma J13a/J14 — "ตรวจความเป็นไปได้" บันทึกฉบับร่างให้ก่อนแล้วแสดงผลตรวจ
       await signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' }).click()
+      await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
       await expect(signedInPage.getByTestId('low-anonymity-note-INDIVIDUAL')).toBeVisible()
       await expect(signedInPage.getByTestId('low-anonymity-note-INDIVIDUAL')).toContainText('k-anonymity')
     })
@@ -491,7 +491,8 @@ test.describe('US-06 เผยแพร่งานแล้วระบบจ�
 })
 
 test.describe('เส้นทางที่อาจารย์กดเองบนหน้าเว็บ', () => {
-  test('เมนู section เปลี่ยนสถานะ active ตาม hash ที่เปิดและรายการที่กด', async ({
+  // Figma J12/J16 — ไม่มีเมนู section แล้ว ภาพรวมมีปุ่มพาไปแต่ละส่วน และแต่ละส่วนมีปุ่มย้อนกลับ
+  test('ปุ่มบนภาพรวมพาไปแต่ละส่วนตาม hash และปุ่มย้อนกลับพากลับภาพรวม', async ({
     signedInPage,
     api,
     instructorToken,
@@ -499,28 +500,24 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
   }) => {
     await seedRoster(api, instructorToken, classroomId)
     await signedInPage.goto(`/classrooms/${classroomId}#members`)
+    await expect(signedInPage.getByRole('heading', { name: 'สมาชิกในห้องเรียน', level: 1 })).toBeVisible()
 
-    const nav = signedInPage.getByRole('navigation', { name: 'ส่วนต่าง ๆ ในห้องเรียน' })
-    const overview = nav.getByRole('link', { name: 'ภาพรวม' })
-    const members = nav.getByRole('link', { name: 'สมาชิก' })
-    const assignments = nav.getByRole('link', { name: 'งานประเมิน' })
-    const scores = nav.getByRole('link', { name: 'คะแนน' })
+    const back = signedInPage.getByRole('link', { name: 'กลับภาพรวมห้องเรียน' })
+    await back.click()
+    await expect(signedInPage).toHaveURL(/#overview$/)
 
-    await expect(members).toHaveAttribute('aria-current', 'location')
-    await expect(overview).not.toHaveAttribute('aria-current', 'location')
-
-    await assignments.click()
+    await signedInPage.getByRole('link', { name: /สร้างงานประเมิน$/ }).first().click()
     await expect(signedInPage).toHaveURL(/#assignments$/)
-    await expect(assignments).toHaveAttribute('aria-current', 'location')
-    await expect(members).not.toHaveAttribute('aria-current', 'location')
+    await expect(signedInPage.getByTestId('assignment-panel')).toBeVisible()
 
-    await scores.click()
+    await back.click()
+    await signedInPage.getByRole('link', { name: 'ดูคะแนนของงาน' }).click()
     await expect(signedInPage).toHaveURL(/#scores$/)
-    await expect(scores).toHaveAttribute('aria-current', 'location')
-    await expect(assignments).not.toHaveAttribute('aria-current', 'location')
+    await expect(signedInPage.getByRole('heading', { name: 'คะแนนของงาน', level: 1 })).toBeVisible()
+    await expect(signedInPage.getByTestId('assignment-panel')).toBeHidden()
   })
 
-  test('import รายชื่อ → สร้างงาน → ตรวจความเป็นไปได้ → เผยแพร่', async ({
+  test('import รายชื่อ → กรอกงาน → ตรวจความเป็นไปได้ → ยืนยันเผยแพร่', async ({
     signedInPage,
     api,
     instructorToken,
@@ -534,23 +531,27 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
 
     await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานกลุ่มปลายภาค')
     await chooseDeadline(signedInPage)
-    await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
+    await signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' }).click()
 
     await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
-
-    await signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' }).click()
     // ต้องเห็นทั้งสองฝั่ง เพราะข้อจำกัดคนละเรื่องกัน
     await expect(signedInPage.getByTestId('feasibility-GROUP')).toBeVisible()
     await expect(signedInPage.getByTestId('feasibility-INDIVIDUAL')).toBeVisible()
-    await expect(signedInPage.getByTestId('feasibility-GROUP')).toContainText('coverage ที่ขอ 5')
+    await expect(signedInPage.getByTestId('feasibility-GROUP')).toContainText('coverage ที่ตั้งไว้ (R)5')
 
-    await signedInPage.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
+    await panel.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
+    // Figma J15 — ยืนยันก่อนเผยแพร่จริง
+    const confirm = signedInPage.getByTestId('publish-confirm')
+    await expect(confirm).toBeVisible()
+    await confirm.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
 
-    await expect(signedInPage.getByTestId('publish-result')).toContainText('สร้างคู่ประเมิน')
-    await expect(signedInPage.getByTestId('assignment-status')).toContainText('PUBLISHED')
+    // Figma J16 — กลับหน้าภาพรวมพร้อมแบนเนอร์ และงานขึ้นในรายการเป็นเปิดให้ประเมิน
+    await expect(signedInPage.getByTestId('page-notice')).toContainText('เผยแพร่ "งานกลุ่มปลายภาค" แล้ว')
+    await expect(signedInPage.getByTestId('page-notice')).toContainText(/จัดคู่ \d+ รายการ/)
+    await expect(signedInPage.getByRole('listitem').filter({ hasText: 'งานกลุ่มปลายภาค' })).toContainText('เปิดให้ประเมิน')
   })
 
-  test('น้ำหนักไม่ครบ 100% แล้วกดเผยแพร่ ต้องเห็นข้อความบอกว่าขาดเท่าไร', async ({
+  test('น้ำหนักไม่ครบ 100% ต้องเห็นข้อความบอกว่าขาดเท่าไรและเผยแพร่ไม่ได้', async ({
     signedInPage,
     api,
     instructorToken,
@@ -561,13 +562,12 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
 
     await chooseDeadline(signedInPage)
     await signedInPage.getByLabel('น้ำหนักเกณฑ์ฝั่งกลุ่ม (%)').fill('90')
-    await signedInPage.getByRole('button', { name: 'สร้างงานประเมิน' }).click()
-    await expect(signedInPage.getByTestId('assignment-status')).toBeVisible()
 
-    await signedInPage.getByRole('button', { name: 'เผยแพร่และจัดคู่' }).click()
-
-    await expect(signedInPage.getByTestId('assignment-error')).toContainText('ขาดอีก 10')
-    await expect(signedInPage.getByTestId('assignment-status')).toContainText('DRAFT')
+    await expect(signedInPage.getByTestId('assignment-readiness')).toContainText('ขาดอีก 10')
+    await expect(signedInPage.getByRole('button', { name: 'เผยแพร่และจัดคู่' })).toBeDisabled()
+    await expect(signedInPage.getByRole('button', { name: 'ตรวจความเป็นไปได้' })).toBeDisabled()
+    // ยังไม่ถูกบันทึกเป็นงาน — ไม่มีอะไรหลุดไปถึง server
+    await expect(signedInPage.getByTestId('assignment-status')).toHaveCount(0)
   })
 
   test('นักศึกษาไม่เห็นกล่องสร้างงานประเมิน', async ({
@@ -586,8 +586,10 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     )
     await page.goto(`/classrooms/${classroomId}#assignments`)
 
-    await page.getByText('ข้อมูลห้องและสมาชิก', { exact: true }).click()
-    await expect(page.getByTestId('roster-list')).toBeVisible()
+    await expect(page.getByTestId('student-dashboard')).toBeVisible()
     await expect(page.getByTestId('assignment-panel')).toHaveCount(0)
+    // Figma ST15 — รายชื่อสมาชิกของนักศึกษาอยู่ในหน้ากลุ่มของฉัน
+    await page.goto(`/classrooms/${classroomId}/group`)
+    await expect(page.getByRole('heading', { name: /สมาชิกในห้องเรียน/ })).toBeVisible()
   })
 })

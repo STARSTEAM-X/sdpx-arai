@@ -21,9 +21,9 @@ test.describe('US-02 สร้างห้องเรียน', () => {
 
     // web-first assertion รอให้เองจนกว่ารายการจะอัปเดต ไม่ต้องใช้ waitForTimeout
     await expect(classrooms.classroomNamed(testClassroom.name)).toBeVisible()
-    await expect(classrooms.classroomNamed(testClassroom.name)).toContainText(
-      testClassroom.expectedSlug,
-    )
+    // Figma J04b — การ์ดแสดงรหัสวิชาและบทบาทของฉัน (ไม่แสดง slug แล้ว; slug ยังตรวจในเคสชื่อซ้ำ)
+    await expect(classrooms.classroomNamed(testClassroom.name)).toContainText('CE-SDPX')
+    await expect(classrooms.classroomNamed(testClassroom.name)).toContainText('เจ้าของห้อง')
   })
 
   // AC: Given มี classroom ชื่อ slug ซ้ำอยู่แล้ว, When สร้างซ้ำ, Then ตอบ 409

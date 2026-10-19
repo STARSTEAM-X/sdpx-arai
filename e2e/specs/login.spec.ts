@@ -124,7 +124,7 @@ test.describe('การเข้าสู่ระบบและการป�
     await signedInPage.getByRole('button', { name: 'ลองใหม่', exact: true }).click()
     await verified
     await expect(signedInPage.getByRole('heading', { name: 'ห้องเรียนของฉัน', exact: true })).toBeVisible()
-    await expect(signedInPage.getByRole('button', { name: /^บัญชีของ / })).toBeVisible()
+    await expect(signedInPage.getByTestId('current-user')).toHaveAttribute('aria-label', /^บัญชีของ /)
   })
 
   test('API ปฏิเสธ session ระหว่างโหลดห้องเรียนต้องล้าง session และกลับหน้าแรก', async ({ signedInPage }) => {
@@ -188,10 +188,9 @@ test.describe('การเข้าสู่ระบบและการป�
       }))
     }, [SESSION_KEY, nextToken] as const)
     await nextProfile
-    const nextAccount = signedInPage.getByRole('button', {
-      name: `บัญชีของ ${testUsers.otherInstructor.displayName}`, exact: true,
-    })
-    await expect(nextAccount).toBeVisible()
+    const nextAccount = signedInPage.getByTestId('current-user')
+    const nextLabel = `บัญชีของ ${testUsers.otherInstructor.displayName}`
+    await expect(nextAccount).toHaveAttribute('aria-label', nextLabel)
 
     const oldRejection = signedInPage.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/classrooms'
@@ -200,14 +199,14 @@ test.describe('การเข้าสู่ระบบและการป�
     ))
     releaseOld401()
     await (await oldRejection).finished()
-    await expect(nextAccount).toBeVisible()
+    await expect(nextAccount).toHaveAttribute('aria-label', nextLabel)
     expect(await signedInPage.evaluate(([key, token]) => (
       localStorage.getItem(key) === token
     ), [SESSION_KEY, nextToken] as const)).toBe(true)
     // โหลดใหม่พิสูจน์ว่า session บัญชีใหม่ยังผ่าน API จริงและเข้าใช้งานได้
     await signedInPage.reload()
     await expect(signedInPage).toHaveURL(/\/classrooms$/)
-    await expect(nextAccount).toBeVisible()
+    await expect(nextAccount).toHaveAttribute('aria-label', nextLabel)
   })
 
   test('ปุ่มเข้าสู่ระบบเปิด Google ทันทีและเปลี่ยนหน้าหลังยืนยัน session สำเร็จ', async ({ page, api, instructorToken }, testInfo) => {
@@ -236,7 +235,7 @@ test.describe('การเข้าสู่ระบบและการป�
     await expect(page).toHaveURL(/\/classrooms$/)
     // RequireSession และหน้าห้องเรียนต้องอ่าน profile จาก API จริงด้วย token ที่ได้
     await expect(page.getByRole('heading', { name: 'ห้องเรียนของฉัน', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: /^บัญชีของ / })).toBeVisible()
+    await expect(page.getByTestId('current-user')).toHaveAttribute('aria-label', /^บัญชีของ /)
     await popup.close()
   })
 
@@ -250,8 +249,8 @@ test.describe('การเข้าสู่ระบบและการป�
       },
     })
     await page.goto('/')
-    await page.getByRole('button', { name: 'รู้จัก PairEval', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })).toHaveCount(2)
+    // Figma Home Guest มีปุ่มเข้าสู่ระบบเพียงจุดเดียวบนแถบเมนู
+    await expect(page.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })).toHaveCount(1)
 
     const popupPromise = page.waitForEvent('popup')
     await page.getByRole('navigation', { name: 'เมนูหลัก' })
@@ -260,7 +259,8 @@ test.describe('การเข้าสู่ระบบและการป�
     await returnGoogleCredential(page)
 
     await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('alert')).toHaveText('ไม่สามารถยืนยันบัญชี Google ได้')
-    await expect(page.locator('#login').getByRole('alert')).toHaveCount(0)
+    // แจ้งครั้งเดียวที่จุดที่กด ไม่ซ้ำที่อื่นบนหน้า
+    await expect(page.getByRole('alert')).toHaveCount(1)
     await expect(page).toHaveURL(/\/$/)
     expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBeNull()
     await expect(page.getByTestId('classroom-list')).toHaveCount(0)
