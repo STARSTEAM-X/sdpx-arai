@@ -27,7 +27,10 @@
 
 ## ตั้งค่า (ทำครั้งเดียว)
 
-Google Cloud project `paireval-mail` เปิด Gmail API และตั้ง OAuth consent screen (External, scope `gmail.send`) ไว้แล้ว
+ใช้ Google Cloud project `sdpx-arai` ตัวเดียวกับ Google Sign-In — เปิด Gmail API, เพิ่ม scope `gmail.send` และ
+Branding มี home page `https://paireval-web.onrender.com` กับ privacy `https://paireval-web.onrender.com/guide/privacy`
+(Publish ต้องมีสองช่องนี้) · Publish เป็น In production แล้ว (2026-10-20) — client ล็อกอินของนักศึกษาขอแค่ email/profile
+จึงไม่เห็น `gmail.send`
 
 1. **Audience → Publish app** — ถ้าค้างที่ Testing refresh token จะหมดอายุใน 7 วัน
    หน้าขออนุญาตจะขึ้นว่า "unverified app" ซึ่งไม่เป็นไร เพราะผู้ที่กดอนุญาตมีแค่เจ้าของบัญชีที่ใช้ส่ง
@@ -38,6 +41,9 @@ Google Cloud project `paireval-mail` เปิด Gmail API และตั้�
    ```bash
    python scripts/gmail/get_refresh_token.py backend/.secrets/gmail-client.json
    ```
+
+   ถ้าเบราว์เซอร์ขึ้น "400. That's an error … malformed" แปลว่าลิงก์ถูกตัดที่ `&` ระหว่างส่งให้เบราว์เซอร์
+   ให้คัดลอกลิงก์เต็มจาก terminal ไปเปิดเอง
 
    สคริปต์เขียน `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` ลง `backend/.secrets/gmail.env` โดยไม่พิมพ์ค่าออกจอ
 4. ใส่ 3 ค่านั้น (และ `EMAIL_FROM` = address ของบัญชีนั้น ถ้าต้องการให้ผู้รับเห็นชื่อ PairEval) ใน
