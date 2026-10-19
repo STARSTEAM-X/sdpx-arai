@@ -1,0 +1,20 @@
+# pin แบบ compatible release (~=) — รับ patch update แต่ไม่กระโดด minor เอง
+# version ที่ระบุคือค่าที่ resolve ได้จริงตอน WS-01 (2026-08-23)
+fastapi~=0.141.1
+uvicorn[standard]~=0.52.4
+
+# database — เขียน SQL ตรง ๆ ไม่ใช้ ORM
+psycopg[binary,pool]~=3.3.4
+
+# session token
+pyjwt[crypto]~=2.15.0
+
+# pydantic EmailStr ต้องใช้
+email-validator~=2.2.0
+
+# โหลด backend/.env ตอน dev — บน Render ค่ามาจาก render.yaml ซึ่งชนะไฟล์นี้เสมอ
+python-dotenv~=1.2.3
+
+# รับไฟล์ CSV แบบ multipart/form-data ที่ roster:import ใช้
+# FastAPI ต้องมีตัวนี้ถึงจะประกาศ UploadFile ได้ ไม่งั้น import แล้ว throw ตอน start
+python-multipart~=0.0.20

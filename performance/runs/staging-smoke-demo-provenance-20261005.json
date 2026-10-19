@@ -1,0 +1,26 @@
+{
+  "startedAt": "2026-10-05T01:42:19.8935161Z",
+  "webBefore": {
+    "version": "edba11daa41bf30d1d9a29b84992773c334a9ef4"
+  },
+  "runner": "Windows, Thailand",
+  "k6ExitCode": 0,
+  "profile": "health smoke only; 3 VUs/30s; p95<500ms; errors<1%",
+  "apiAfter": {
+    "status": "ok",
+    "version": "edba11d",
+    "environment": "production",
+    "deploymentTier": "staging"
+  },
+  "k6Version": "2.3.0",
+  "webAfter": {
+    "version": "edba11daa41bf30d1d9a29b84992773c334a9ef4"
+  },
+  "apiBefore": {
+    "status": "ok",
+    "version": "edba11d",
+    "environment": "production",
+    "deploymentTier": "staging"
+  },
+  "completedAt": "2026-10-05T01:42:51.7523364Z"
+}

@@ -1,0 +1,40 @@
+{
+  "runId": 37247458310,
+  "runUrl": "https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37247458310",
+  "artifactId": 11320210252,
+  "artifactName": "k6-staging-90fe6d99e85c59c319d22048108346dad28b6900",
+  "commit": "90fe6d99e85c59c319d22048108346dad28b6900",
+  "target": "https://paireval-api.onrender.com",
+  "runner": "GitHub-hosted ubuntu-latest",
+  "runnerRegion": "not recorded",
+  "k6Version": "2.3.0",
+  "students": 60,
+  "studentStages": "0 -> 5 -> 10 -> 0; 30s / 60s / 30s",
+  "instructorVUs": 1,
+  "journeyStartUtc": "2026-10-05T00:32:07Z",
+  "journeyEndUtc": "2026-10-05T00:34:26Z",
+  "journeyExitCode": 99,
+  "failedThresholds": [
+    "autosave_latency: p(95)<=300",
+    "http_req_duration{name:save_comparison}: p(95)<=300"
+  ],
+  "deploySeconds": 76.6,
+  "commitToVerifiedLiveSeconds": 359.7,
+  "files": [
+    {
+      "artifactFile": "staging-baseline.json",
+      "repositoryFile": "performance/baseline.json",
+      "originalArtifactSha256": "fd4cb0634f70c21eee47b62cd0d6ed0ff8f2dca80bd4c6308c1e10a23f6433de",
+      "sanitizedRepositorySha256": "64c15206d102c9b32a4bd67ab9d1a0aed48534a34948d3c7deb4280745d87b7b"
+    },
+    {
+      "artifactFile": "staging-smoke.json",
+      "repositoryFile": "performance/staging-smoke.json",
+      "originalArtifactSha256": "e64c9dbedc954fee030ba3fbcf7625a165040029db6dc3e584c06c7c9bb12eab",
+      "sanitizedRepositorySha256": "37b3e9b2a82cd3dd270a6792a3d0cdb2a667c309ee499085755597a3729a4bd4"
+    }
+  ],
+  "artifactStatus": "deleted: setup_data included synthetic-account sessions",
+  "sanitization": "Only metrics/root_group retained; metric values and thresholds unchanged",
+  "sessionRotation": "Owner confirmed Render SESSION_SECRET and GitHub PERF_SESSION_SECRET changed; GitHub updated 2026-10-05T00:58:36Z; API redeploy requested 2026-10-05T01:04:21Z"
+}

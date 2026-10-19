@@ -1,0 +1,24 @@
+{
+  "webStatus": 200,
+  "apiStatus": "ok",
+  "corsStatus": 200,
+  "allowedOrigin": "http://127.0.0.1:5173",
+  "beforeCounts": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "afterCounts": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "countOrder": [
+    "classrooms",
+    "assignments",
+    "comparisons",
+    "members"
+  ]
+}

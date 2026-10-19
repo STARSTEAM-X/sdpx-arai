@@ -1,0 +1,129 @@
+# Render Blueprint — Infrastructure as Code ของ PairEval
+# Blueprint เดิมใช้ Manual Sync หลัง review; Auto Sync ต้องปิดเพื่อไม่ข้าม CI
+#
+# วิธีใช้ครั้งแรก: Render Dashboard > New > Blueprint > เลือก repo นี้ > Apply
+# Render จะถามค่าของ env var ที่ตั้ง sync: false ไว้
+
+services:
+  # ---------- Frontend: static site ที่ build จาก Vite ----------
+  - type: web
+    name: paireval-web
+    runtime: static
+    # static site ไม่มี region — Render เสิร์ฟผ่าน global CDN ให้อยู่แล้ว
+    rootDir: frontend
+    branch: develop
+    autoDeployTrigger: 'off' # GitHub Actions เรียก deploy hook หลัง CI ผ่าน
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    # Google Sign-In เปิด popup แล้วคุยกลับด้วย window.postMessage
+    # ถ้าไม่ตั้ง COOP เป็น same-origin-allow-popups เบราว์เซอร์จะบล็อกการคุยนั้น
+    # แล้วปุ่ม login จะกดได้แต่ไม่มีอะไรเกิดขึ้น
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin-allow-popups
+      # PRD §14.3 FR-SEC-01 — CSP อยู่ใน <meta> ที่ vite.config.ts ใส่ตอน build (ต้องรู้ URL ของ API)
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()
+
+    # SPA routing: path อย่าง /classrooms ไม่มีไฟล์จริงบน disk
+    # ถ้าไม่ rewrite กลับไป index.html การกด refresh บนหน้านั้นจะได้ 404
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # URL ของ backend — กรอกหลัง paireval-api ขึ้นแล้ว
+      # เป็น build-time env ของ Vite: แก้ค่าแล้วต้อง redeploy ถึงจะมีผล
+      - key: VITE_API_BASE_URL
+        sync: false
+
+      # OAuth Client ID ของ Google — ค่าสาธารณะ ไม่ใช่ secret
+      # มันถูกฝังลง bundle ที่ทุกคนโหลดได้อยู่แล้ว ขอบเขตความปลอดภัยคือ
+      # รายการ Authorized JavaScript origins ที่ตั้งไว้ใน Google Cloud Console
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+  # ---------- Backend: FastAPI ----------
+  - type: web
+    name: paireval-api
+    runtime: python
+    plan: free
+    region: singapore # ใกล้ผู้ใช้ไทยที่สุด (default ของ Render คือ oregon)
+    # Postgres ที่จะสร้างใน WS-03 ต้องอยู่ region เดียวกันนี้
+    rootDir: backend
+    branch: develop
+    autoDeployTrigger: 'off'
+    buildCommand: pip install -r requirements.txt
+    # migrate ก่อน uvicorn ทุกครั้ง — runner เก็บชื่อไฟล์ที่รันแล้วใน schema_migration
+    # จึงข้ามของเดิมเอง การรันซ้ำทุก deploy ไม่มีผลข้างเคียง
+    # ถ้า migrate พัง จะไม่ยก uvicorn ขึ้นเลย ดีกว่าปล่อยให้ service ขึ้นแล้วพังตอนมี request
+    startCommand: python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health # Render ใช้ตรวจว่า deploy สำเร็จจริง
+    envVars:
+      # origin ของ paireval-web — กรอกหลัง static site ขึ้นแล้ว
+      - key: CORS_ORIGINS
+        sync: false
+
+      # ★ ตัวควบคุมความปลอดภัยที่สำคัญที่สุด
+      # ถ้าไม่ใช่ "production" endpoint สำหรับ test (seed / cleanup / session)
+      # จะถูกลงทะเบียนขึ้นมา ซึ่งแปลว่าใครก็ล้าง database และปลอมเป็นใครก็ได้
+      # ห้ามเปลี่ยนค่านี้บน service ที่เข้าถึงได้จาก internet
+      - key: ENVIRONMENT
+        value: production
+      - key: DEPLOYMENT_TIER
+        value: staging
+      - key: AUTO_FINALIZE_ENABLED
+        # ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ — ค่าเริ่มต้นของ PRD §17 OQ-3 (docs/adr/ADR-002-auto-finalize.md)
+        value: "true"
+
+      # ใช้เซ็น session token — ต้องยาวอย่างน้อย 32 bytes (RFC 7518 §3.2)
+      # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง
+      - key: ALERT_WEBHOOK_URL
+        # NFR-OBS-02 — incoming webhook (Slack/Discord/Better Stack) ที่รับ alert · มี token ในตัว จึงกรอกใน Dashboard
+        # ว่างไว้ได้: alert ยังออกเป็น log event `alert` ระดับ ERROR
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # ต้องตรงกับ client id ฝั่ง frontend — ใช้ตรวจ claim `aud` ของ id_token
+      # ถ้าไม่ตรง ระบบจะรับ token ที่ออกให้แอปอื่นเข้ามาได้
+      - key: GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+      # ว่าง = ทุก domain login ได้ (เปิดชั่วคราวตามที่ทีมขอ 2026-10-20) · ใส่ kmitl.ac.th เพื่อกลับไปจำกัด (FR-AUTH-02)
+      # นักศึกษา/อาจารย์แยกจากรูปแบบอีเมล ไม่ใช่จาก domain — app/domain/account.py
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: ""
+
+      # ต่อกับ Postgres ด้านล่าง — Render ใส่ connection string ให้เอง
+      # ค่า default ใน config.py ชี้ไป localhost:5433 ซึ่งไม่มีอยู่บน Render
+      # ถ้าไม่ตั้ง key นี้ service จะขึ้นได้แต่ทุก endpoint ที่แตะ DB จะพัง
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paireval-db-20261005
+          property: connectionString
+
+# Free อนุญาตหนึ่งฐานข้อมูลที่ active ต่อ workspace เท่านั้น
+# ตัวนี้สร้างทดแทนของเดิมเมื่อ 2026-10-05; หมดอายุ 2026-11-04
+# Sync จะรับฐานข้อมูลที่มีชื่อนี้อยู่แล้วเข้ามาจัดการ ดู docs/render-free-db.md
+databases:
+  - name: paireval-db-20261005
+    plan: free
+    region: singapore
+    postgresMajorVersion: "18"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false

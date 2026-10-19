@@ -1,0 +1,29 @@
+# build context ระดับ root — ใช้โดย e2e/Dockerfile เท่านั้น
+# (frontend และ backend มี .dockerignore ของตัวเองเพราะ context แยกกัน)
+
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/.venv/
+backend/__pycache__/
+
+# --- secret ---
+.env
+.env.*
+!.env.example
+
+# --- report / artifact ที่สร้างใหม่ได้ ---
+coverage/
+docs/coverage/
+e2e/playwright-report/
+e2e/test-results/
+.pytest_cache/
+__pycache__/
+
+# --- ของที่ image ไม่ต้องใช้ ---
+.git/
+.github/
+Sources/
+memory-bank/
+*.log
+.DS_Store

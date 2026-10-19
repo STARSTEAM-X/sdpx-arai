@@ -1,0 +1,1 @@
+{"ts": "2026-10-05T01:41:50.124+00:00", "level": "info", "logger": "paireval.http", "event": "http_request", "requestId": "ws07-demo-health", "duration_ms": 17.1, "method": "GET", "route": "/api/health", "statusCode": 200, "user": null, "errorCode": null}

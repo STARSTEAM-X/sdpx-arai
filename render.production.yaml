@@ -1,0 +1,99 @@
+# Production template — ใช้ใน workspace แยกที่ยังไม่มี Free DB active
+# ห้าม Apply ใน workspace ของ staging: Free DB ได้หนึ่งตัวต่อ workspace
+# ยังไม่สร้าง resource เหล่านี้ ดู docs/render-free-db.md และ docs/cicd.md
+services:
+  # ---------- Production: แยก service และ database จาก staging ----------
+  - type: web
+    name: paireval-web-production
+    runtime: static
+    rootDir: frontend
+    branch: main
+    autoDeployTrigger: 'off'
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin-allow-popups
+      # PRD §14.3 FR-SEC-01 — CSP อยู่ใน <meta> ที่ vite.config.ts ใส่ตอน build (ต้องรู้ URL ของ API)
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+
+  - type: web
+    name: paireval-api-production
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    branch: main
+    autoDeployTrigger: 'off'
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: DEPLOYMENT_TIER
+        value: production
+      - key: AUTO_FINALIZE_ENABLED
+        # ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ — ค่าเริ่มต้นของ PRD §17 OQ-3 (docs/adr/ADR-002-auto-finalize.md)
+        value: "true"
+      - key: ALERT_WEBHOOK_URL
+        # NFR-OBS-02 — incoming webhook (Slack/Discord/Better Stack) ที่รับ alert · มี token ในตัว จึงกรอกใน Dashboard
+        # ว่างไว้ได้: alert ยังออกเป็น log event `alert` ระดับ ERROR
+        sync: false
+      # GAP-03 อีเมลแจ้งเตือนผ่าน Gmail API — ได้ค่าจาก scripts/gmail/get_refresh_token.py (docs/email-notifications.md)
+      # ต้องครบ 3 ค่าถึงจะส่ง · ว่าง = แจ้งเตือนในเว็บอย่างเดียว · staging ตั้งใจไม่ใส่ จะได้ไม่ส่งหา roster ทดสอบ
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: EMAIL_FROM
+        # address ของบัญชี Gmail ที่ออก token — ผู้รับเห็นชื่อผู้ส่งเป็น PairEval · ว่างได้
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
+      # ว่าง = ทุก domain login ได้ (เปิดชั่วคราวตามที่ทีมขอ 2026-10-20) · ใส่ kmitl.ac.th เพื่อกลับไปจำกัด (FR-AUTH-02)
+      # นักศึกษา/อาจารย์แยกจากรูปแบบอีเมล ไม่ใช่จาก domain — app/domain/account.py
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: ""
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paireval-production-db
+          property: connectionString
+
+databases:
+  - name: paireval-production-db
+    plan: free
+    region: singapore
+    postgresMajorVersion: "18"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false

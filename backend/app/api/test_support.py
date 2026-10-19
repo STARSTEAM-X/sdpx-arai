@@ -1,0 +1,218 @@
+"""endpoint ที่มีไว้ให้ E2E ใช้เท่านั้น
+
+## ทำไมต้องมี
+
+E2E ต้องเริ่มจาก state ที่รู้แน่ ไม่งั้น test จะให้ผลต่างกันตามลำดับการรัน
+และ Playwright login ผ่าน Google จริงไม่ได้เพราะ Google บล็อก automated login
+
+## ทำไมถึงอันตราย
+
+`POST /api/test/cleanup` ลบข้อมูลทั้งหมด และ `POST /api/test/session`
+ออก session ให้ใครก็ได้โดยไม่ต้องมีรหัสผ่าน
+ถ้าสองอันนี้หลุดขึ้น production = ใครก็ล้าง database และปลอมเป็นใครก็ได้ผ่าน internet
+
+## กันอย่างไร
+
+router ทั้งชุดนี้จะถูก **ไม่ลงทะเบียนเลย** ถ้า ENVIRONMENT เป็น production
+(ดู app/main.py) และยังมี guard ซ้ำทุก request เป็นชั้นที่สอง (`allow_test_support`)
+ค่า default ของ ENVIRONMENT คือ "production" — การลืมตั้ง env จึงเป็นการปิด ไม่ใช่เปิด
+
+**staging (WS-07)** อยู่บน internet เหมือน production แต่ k6 ต้องขอ session ได้
+จึงเปิดให้เฉพาะ request ที่แนบ `X-Test-Support-Token` ตรงกับ `TEST_SUPPORT_TOKEN`
+ไม่ผ่านตอบ 404 เหมือน route ไม่มีอยู่ — คนนอกแยกไม่ออกว่ามี endpoint ชุดนี้
+"""
+
+import hmac
+import logging
+import uuid
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, EmailStr, Field
+
+from app.auth import issue_session
+from app.config import ENVIRONMENT, TEST_SUPPORT_TOKEN
+from app.db import transaction
+from app.domain.email import normalize_email
+from app.observability import log_event, user_ref
+
+_log = logging.getLogger("paireval.test_support")
+
+MIN_TOKEN_LENGTH = 32
+
+
+def allow_test_support(environment: str, *, configured: str, presented: str | None) -> bool:
+    """ตัดสินว่า request นี้ใช้ /api/test/* ได้ไหม — ไม่รู้จัก environment = ปิดไว้ก่อน"""
+    if environment in ("development", "test"):
+        return True
+    if environment == "staging":
+        if len(configured) < MIN_TOKEN_LENGTH or not presented:
+            return False
+        # compare_digest เวลาเท่ากันไม่ว่าจะผิดที่ตัวไหน — กันการเดา token ทีละตัวจากเวลาตอบ
+        return hmac.compare_digest(presented.encode(), configured.encode())
+    return False
+
+
+def _guard(x_test_support_token: str | None = Header(default=None)) -> None:
+    """ชั้นป้องกันที่สอง — ต่อให้มีคนเผลอ include router นี้ใน production ก็ยังไม่ทำงาน"""
+    if not allow_test_support(
+        ENVIRONMENT, configured=TEST_SUPPORT_TOKEN, presented=x_test_support_token
+    ):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+# ด่านอยู่ระดับ router — endpoint ที่เพิ่มทีหลังได้ด่านนี้อัตโนมัติ ไม่มีทางลืมเรียก
+router = APIRouter(prefix="/api/test", tags=["test-support"], dependencies=[Depends(_guard)])
+
+
+class SeedUser(BaseModel):
+    email: EmailStr
+    displayName: str | None = None
+
+
+class SeedRequest(BaseModel):
+    users: list[SeedUser] = Field(default_factory=list)
+    # False = เพิ่ม user โดยไม่ล้างของเดิม — load test บน staging ต้องไม่ลบข้อมูลที่สะสมไว้
+    # (staging ต้องมีข้อมูลมากพอให้ query สะท้อนความจริง · WS-07)
+    reset: bool = True
+    # True = ถือว่า user ที่ seed กดรับทราบประกาศความเป็นส่วนตัวแล้ว
+    # test ส่วนใหญ่ไม่ได้ทดสอบ popup นั้น จึงไม่ให้มันบังหน้าจอ (Figma ST03)
+    privacyAcknowledged: bool = True
+
+
+class SessionRequest(BaseModel):
+    email: EmailStr
+    # E2E ส่วนใหญ่ไม่ได้ทดสอบประกาศความเป็นส่วนตัว — ส่ง False เมื่อต้องการเห็น popup นั้น
+    privacyAcknowledged: bool = True
+
+
+@router.post("/seed")
+def seed(body: SeedRequest | None = None) -> dict:
+    """ตั้ง state ตั้งต้น: ล้างของเก่าแล้วใส่ user ตัวอย่าง
+
+    ล้างก่อนเสมอเพื่อให้ seed เป็น idempotent — เรียกซ้ำกี่ครั้งก็ได้ state เดิม
+    ยกเว้นส่ง `reset: false` จะเพิ่มเฉพาะ user ที่ยังไม่มี (ใช้กับ staging)
+    """
+    users = body.users if body and body.users else [SeedUser(email="ajarn@uni.ac.th")]
+    reset = body.reset if body else True
+    privacy_ack = body.privacyAcknowledged if body else True
+
+    with transaction() as conn, conn.cursor() as cur:
+        if not reset:
+            for u in users:
+                cur.execute(
+                    """
+                    INSERT INTO app_user (id, email_normalized, email_raw, display_name, status,
+                                          privacy_acknowledged_at)
+                    VALUES (%s, %s, %s, %s, 'ACTIVE', CASE WHEN %s THEN now() END)
+                    ON CONFLICT (email_normalized) DO NOTHING
+                    """,
+                    (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName, privacy_ack),
+                )
+            return {"seeded": len(users), "reset": False}
+
+        # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
+        # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
+        # ถ้าลืม test ที่ใช้ idempotency-key ซ้ำข้าม test จะได้ response ค้างจากรอบก่อน
+        # ทั้งที่ assignment/comparison ของรอบนี้ถูกล้างไปแล้ว
+        cur.execute(
+            "TRUNCATE classroom_member, classroom, app_user, submission_idempotency "
+            "RESTART IDENTITY CASCADE"
+        )
+        for u in users:
+            cur.execute(
+                """
+                INSERT INTO app_user (id, email_normalized, email_raw, display_name, status,
+                                      privacy_acknowledged_at)
+                VALUES (%s, %s, %s, %s, 'ACTIVE', CASE WHEN %s THEN now() END)
+                """,
+                (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName, privacy_ack),
+            )
+
+    return {"seeded": len(users)}
+
+
+@router.post("/cleanup")
+def cleanup() -> dict:
+    with transaction() as conn, conn.cursor() as cur:
+        # submission_idempotency ไม่มี FK ไปทางตารางไหนเลย (คีย์มาจาก client ไม่ผูกกับ
+        # ห้องเรียนหรือผู้ใช้คนไหน) — TRUNCATE ... CASCADE จึงไม่แตะมันเลย ต้องเรียกตรง ๆ
+        # ถ้าลืม test ที่ใช้ idempotency-key ซ้ำข้าม test จะได้ response ค้างจากรอบก่อน
+        # ทั้งที่ assignment/comparison ของรอบนี้ถูกล้างไปแล้ว
+        cur.execute(
+            "TRUNCATE classroom_member, classroom, app_user, submission_idempotency "
+            "RESTART IDENTITY CASCADE"
+        )
+    return {"cleaned": True}
+
+
+@router.post("/session")
+def test_session(body: SessionRequest) -> dict:
+    """ออก session ให้โดยไม่ต้องผ่าน Google — สำหรับ E2E เท่านั้น
+
+    ผู้ใช้ต้องมีอยู่ใน database แล้ว (มาจาก seed) เพื่อไม่ให้กลายเป็นช่องสร้าง user ลอย ๆ
+    """
+    email = normalize_email(str(body.email))
+
+    with transaction() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM app_user WHERE email_normalized = %s", (email,))
+        row = cur.fetchone()
+        if row is not None and body.privacyAcknowledged:
+            cur.execute(
+                "UPDATE app_user SET privacy_acknowledged_at = COALESCE(privacy_acknowledged_at, now()) "
+                "WHERE id = %s",
+                (row["id"],),
+            )
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "USER_NOT_SEEDED", "message": f"ยังไม่มีผู้ใช้ {email} ใน seed"},
+            )
+
+    token, expires_at = issue_session(email)
+    log_event(_log, "session_created", method="test", user=user_ref(email))
+    return {"accessToken": token, "expiresAt": expires_at.isoformat(), "email": email}
+
+
+@router.get("/pairs/{assignment_id}")
+def dump_pairs(assignment_id: str) -> dict:
+    """คืนคู่ประเมินทั้งหมดของงานหนึ่ง — ให้ E2E ตรวจ invariant กับข้อมูลที่บันทึกจริง
+
+    ทำไมต้องมี: unit test ของ pairing engine พิสูจน์ว่า *ตรรกะ* ถูก แต่พิสูจน์ไม่ได้ว่า
+    การ map กลุ่มกับสมาชิกจาก database เข้าไปหา engine นั้นถูก — ถ้า group_id
+    ผูกผิดคน กฎ "ห้ามประเมินกลุ่มตัวเอง" จะยังเขียวใน unit test ทั้งที่ของจริงพัง
+
+    ปิดใน production เหมือน endpoint อื่นในไฟล์นี้ เพราะเปิดเผยว่าใครประเมินอะไร
+    ซึ่งเป็นข้อมูลที่ผู้ประเมินเองก็ไม่ควรเห็นของคนอื่น
+    """
+    with transaction() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.side, p.item_a_id, p.item_b_id, p.display_left_item_id,
+                   u.email_normalized AS evaluator,
+                   m.group_id        AS evaluator_group_id
+            FROM pair_assignment p
+            JOIN app_user u ON u.id = p.evaluator_user_id
+            JOIN assignment a ON a.id = p.assignment_id
+            LEFT JOIN classroom_member m
+                   ON m.user_id = p.evaluator_user_id AND m.classroom_id = a.classroom_id
+            WHERE p.assignment_id = %s
+            ORDER BY p.criterion_id, u.email_normalized, p.item_a_id, p.item_b_id
+            """,
+            (assignment_id,),
+        )
+        rows = cur.fetchall()
+
+    return {
+        "count": len(rows),
+        "items": [
+            {
+                "side": r["side"],
+                "itemA": str(r["item_a_id"]),
+                "itemB": str(r["item_b_id"]),
+                "displayLeft": str(r["display_left_item_id"]),
+                "evaluator": r["evaluator"],
+                "evaluatorGroupId": str(r["evaluator_group_id"]) if r["evaluator_group_id"] else None,
+            }
+            for r in rows
+        ],
+    }

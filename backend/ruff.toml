@@ -1,0 +1,27 @@
+# ruff — linter ของฝั่ง backend (WS-06) · รันด้วย: python -m ruff check .
+#
+# เลือกเปิดเฉพาะกฎที่จับ "bug จริง" ได้ ไม่ใช่กฎเรื่องรสนิยม
+# linter ที่บ่นเรื่องไม่สำคัญจนคนเลิกอ่าน คือ linter ที่ไม่มีใครเชื่อ
+
+target-version = "py312"
+
+[lint]
+select = [
+  "F",  # pyflakes — ตัวแปร/import ที่ไม่ได้ใช้, ชื่อที่ไม่มีอยู่จริง
+  "E",  # pycodestyle error
+  "W",  # pycodestyle warning
+  "I",  # import เรียงลำดับ — diff เล็กลงเวลาหลายคนแก้ไฟล์เดียวกัน
+  "B",  # bugbear — กับดักที่พบบ่อย เช่น mutable default argument
+  "UP", # pyupgrade — syntax เก่าที่ Python 3.12 มีแบบที่ดีกว่าแล้ว
+]
+
+ignore = [
+  # comment ใน repo นี้เป็นภาษาไทยและยาวโดยตั้งใจ (อธิบาย "ทำไม")
+  # การบังคับตัดบรรทัดทำให้อ่านยากขึ้น ไม่ได้ป้องกัน bug ใด ๆ
+  "E501",
+]
+
+[lint.flake8-bugbear]
+# FastAPI ใช้ File(), Depends() ฯลฯ เป็น default argument เพื่อประกาศ dependency โดยตั้งใจ
+# ค่าพวกนี้เป็น marker ที่ไม่ถูก mutate จึงไม่ใช่กับดักที่ B008 ต้องการจับ
+extend-immutable-calls = ["fastapi.File", "fastapi.Depends", "fastapi.Query", "fastapi.Header"]

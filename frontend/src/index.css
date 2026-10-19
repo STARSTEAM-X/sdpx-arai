@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Design token ของ PairEval — แก้สีที่นี่ที่เดียว ทุก component จะตามหมด
+   Tailwind v4 อ่าน @theme แล้วสร้าง utility ให้เอง เช่น --color-brand-600 → bg-brand-600 */
+@theme {
+  /* Figma · PairEval Illustrated: สีส้มสำหรับจุดเน้นและปุ่มหลัก */
+  --color-brand-50: #fff5eb;
+  --color-brand-100: #ffe7d0;
+  --color-brand-200: #ffd0ac;
+  --color-brand-500: #ff7d3d;
+  --color-brand-600: #e35205;
+  --color-brand-700: #b84204;
+
+  /* สี CTA และตัวอักษรจาก Figma แยกจากส้มสว่างของภาพประกอบ */
+  --color-cta: #b84204;
+  --color-cta-hover: #963603;
+  --color-accent-ink: #a63c03;
+  --color-accent-soft: #fff0e5;
+  --color-accent-line: #f4d0b6;
+  --color-info-soft: #dde9ff;
+  --color-info-ink: #2455a6;
+  --color-reference-border: #c9c0b9;
+
+  /* สีเขียว = สถานะสำเร็จ / ตัวเลขคุณภาพ */
+  --color-ok-50: #eaf7f0;
+  --color-ok-500: #2e9e6b;
+  --color-ok-600: #238156;
+  --color-ok-700: #1f7a54;
+  --color-ok-line: #bee2d0;
+
+  /* ฝั่งขวาของการเปรียบเทียบใช้ฟ้าอมเทาแทนเขียวสถานะสำเร็จ
+     เพื่อไม่ชี้นำว่าผลงานฝั่งขวาเป็นคำตอบที่ "ถูก" ตั้งแต่ก่อนผู้ใช้เลือก */
+  --color-comparison-right-soft: #f0f7fa;
+  --color-comparison-right-line: #b9d8e5;
+  --color-comparison-right-ink: #285f75;
+
+  /* แดงหม่น ไม่ใช่แดงเตือนภัย — หน้าจัดการรายชื่อขึ้น error บ่อยจนแดงจัดกลายเป็นเสียงรบกวน */
+  --color-err: #b23a2c;
+  --color-err-soft: #fcefec;
+  --color-err-line: #efc8c0;
+
+  /* เหลืองอำพัน = "สำเร็จแต่มีข้อสังเกต" เช่นกลุ่มที่มีสมาชิกคนเดียว */
+  --color-warn: #8a6011;
+  --color-warn-soft: #fbf3e3;
+  --color-warn-line: #e9d6af;
+
+  /* กลาง ๆ อุ่นกว่า gray มาตรฐานเล็กน้อย ให้เข้ากับส้ม */
+  --color-ink: #321007;
+  --color-ink-2: #65493f;
+  --color-muted: #7c665b;
+  --color-cream: #fffcf7;
+  --color-surface-cream: #fff3ec;
+  --color-line: #f0e3d9;
+  /* พื้นหลังหน้า dashboard และพื้นรองในการ์ด — เข้มกว่า cream พอให้การ์ดขาวลอยขึ้นมา */
+  --color-ground: #fffcf7;
+  --color-sand: #fff5ec;
+  --color-edge: #f0e3d9;
+  /* ขอบช่องกรอก — PRD FR-A11Y-03 ต้อง ≥ 3:1 กับพื้น (WCAG 1.4.11) · แบบเดิม #e4ccba ได้แค่ 1.5:1 */
+  --color-edge-strong: #9c8b80;
+
+  /* สีจากแบบ Figma ที่ใช้ซ้ำหลายหน้า (เดิมเขียนเป็น hex ตรง ๆ ในแต่ละ component) */
+  --color-table-head: #f6f3f0;   /* หัวตาราง · กล่องสรุปใน dialog */
+  --color-caution-soft: #fff1c9; /* ป้าย "ข้อมูลไม่พอ" / "anonymity ต่ำ" */
+  --color-line-neutral: #cfc9c4; /* ขอบปุ่มรองสีเทา */
+  --color-peach: #fde5d4;        /* ป้าย "ยังไม่ได้ประเมิน" · ป้ายเจ้าของห้อง */
+  --color-err-field: #e0928a;    /* ขอบช่องกรอกที่ผิด */
+  --color-neutral-soft: #ebe9e6; /* ป้ายฉบับร่าง · แถบ archive */
+  --color-ok-banner: #e3f4e9;    /* แบนเนอร์สำเร็จสีเขียว */
+  --color-role-ta: #7041a6;
+  --color-role-ta-soft: #f1e8ff;
+
+  --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  /* Figma ใช้ IBM Plex Sans Thai ทั้งหัวข้อและเนื้อความ (ตรวจจาก Home และ M08)
+     Mono ใช้กับตัวเลขที่ต้องอ่านเทียบกันเป็นคอลัมน์ เช่น % เลขแถว CSV และขนาดไฟล์ */
+  --font-display: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  --radius-control: 0.75rem;
+  --radius-card: 1.5rem;
+  --shadow-card: 0 8px 30px -24px rgb(101 73 63 / 24%);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ตัวเลขในตารางและช่อง % ต้องกว้างเท่ากันทุกหลัก ไม่งั้นค่าที่เปลี่ยนแบบ real-time
+   จะขยับซ้ายขวาจนอ่านไม่ทัน */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Home — Orange illustrated · Figma 175:3 / 175:4 */
+.illustrated-hero {
+  background: linear-gradient(100deg, #ff7d3d 0%, #ffd67d 52%, #ff7a38 100%);
+}
+
+.hero-art {
+  height: clamp(210px, 29.7222vw, 428px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* PRD §15 FR-A11Y-04 — radio / checkbox ต้องมีพื้นที่กด ≥ 24×24 CSS px (WCAG 2.2 SC 2.5.8)
+   อยู่ใน layer base จึงแพ้ utility class (sr-only ของตัวเลือกแบบการ์ด หรือขนาดที่กำหนดเอง) */
+@layer base {
+  input[type='radio'],
+  input[type='checkbox'] {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+}

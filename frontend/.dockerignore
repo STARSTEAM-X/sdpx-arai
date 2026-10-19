@@ -1,0 +1,18 @@
+# ไฟล์ที่ไม่ควรถูกส่งเข้า build context ของ frontend
+# node_modules บน host เป็นตัวใหญ่ที่สุด และเป็นของที่ build มาสำหรับ OS ของ host
+# ถ้าปล่อยให้ copy เข้าไป จะทับผลของ `npm ci` ใน image และพังแบบหาสาเหตุยาก
+
+node_modules/
+dist/
+.vite/
+
+# --- secret ---
+.env
+.env.*
+!.env.example
+
+# --- report / artifact ที่สร้างใหม่ได้ ---
+coverage/
+*.log
+.DS_Store
+TEST_PLAN.md

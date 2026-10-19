@@ -1,0 +1,8 @@
+services:
+  e2e:
+    volumes:
+      - ./implementation-reports:/work/implementation-reports
+      - ./.local/audit-tools:/audit-tools:ro
+    environment:
+      AXE_PATH: /audit-tools/node_modules/axe-core/axe.min.js
+    command: [npx, playwright, test, --config, implementation-reports/scripts/playwright.config.ts]

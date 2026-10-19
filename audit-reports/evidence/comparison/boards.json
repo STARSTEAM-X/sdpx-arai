@@ -1,0 +1,58 @@
+[
+  {
+    "reference": "evidence/figma/student-score-desktop-60-437.png",
+    "actual": "evidence/visual/score-three-two-criteria-1440.png",
+    "output": "evidence/comparison/score-desktop-side-by-side.png",
+    "referenceSize": [
+      1440,
+      1474
+    ],
+    "actualSize": [
+      1440,
+      1170
+    ],
+    "pixelDifference": "NOT APPLICABLE — dynamic fixture/content conditions differ. Unscaled side-by-side evidence only."
+  },
+  {
+    "reference": "evidence/figma/student-evaluation-mobile-516-996.png",
+    "actual": "evidence/visual/evaluation-three-criteria-390.png",
+    "output": "evidence/comparison/evaluation-mobile-side-by-side.png",
+    "referenceSize": [
+      390,
+      2093
+    ],
+    "actualSize": [
+      390,
+      2516
+    ],
+    "pixelDifference": "NOT APPLICABLE — dynamic fixture/content conditions differ. Unscaled side-by-side evidence only."
+  },
+  {
+    "reference": "evidence/figma/student-classroom-mobile-516-923.png",
+    "actual": "evidence/visual/student-classroom-390.png",
+    "output": "evidence/comparison/student-classroom-mobile-side-by-side.png",
+    "referenceSize": [
+      390,
+      1238
+    ],
+    "actualSize": [
+      390,
+      2257
+    ],
+    "pixelDifference": "NOT APPLICABLE — dynamic fixture/content conditions differ. Unscaled side-by-side evidence only."
+  },
+  {
+    "reference": "evidence/figma/owner-classroom-desktop-330-1914.png",
+    "actual": "evidence/visual/owner-members-no-assignment-1440.png",
+    "output": "evidence/comparison/owner-overview-desktop-side-by-side.png",
+    "referenceSize": [
+      1440,
+      896
+    ],
+    "actualSize": [
+      1440,
+      3608
+    ],
+    "pixelDifference": "NOT APPLICABLE — dynamic fixture/content conditions differ. Unscaled side-by-side evidence only."
+  }
+]

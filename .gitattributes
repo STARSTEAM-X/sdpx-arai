@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# ไฟล์ของ Windows shell ต้องเป็น CRLF เสมอ
+# ถ้าเป็น LF cmd.exe จะอ่านบรรทัดขาดเป็นท่อน แล้วสั่งงานเพี้ยนทั้งไฟล์
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# shell script ของ POSIX ต้องเป็น LF เสมอ แม้จะ checkout บน Windows
+*.sh text eol=lf

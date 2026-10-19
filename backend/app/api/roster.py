@@ -1,0 +1,164 @@
+"""endpoint ของรายชื่อสมาชิกห้องเรียน — US-03 และเป็นด่านที่ US-11 ถูกบังคับใช้จริง
+
+route ที่นี่บาง: อ่าน input, เปิด transaction, แปลงผลเป็น JSON
+การตัดสินสิทธิ์และกฎ atomic อยู่ใน RosterService ซึ่งทดสอบได้โดยไม่ต้องมี HTTP หรือ DB
+"""
+
+import logging
+
+from fastapi import APIRouter, File, UploadFile
+from pydantic import BaseModel
+
+from app.auth import CurrentUser
+from app.config import ALLOWED_EMAIL_DOMAINS
+from app.db import transaction
+from app.domain.errors import ValidationError
+from app.domain.models import RosterImportResult, RosterMember
+from app.domain.roster_service import RosterService
+from app.observability import log_event, user_ref
+from app.repositories.pg_classroom_repo import PgClassroomRepository
+
+log = logging.getLogger("paireval.roster")
+
+router = APIRouter(prefix="/api/classrooms", tags=["classrooms"])
+
+# กันไฟล์ใหญ่เกินจนกิน memory ของ service — roster ของห้องเรียนจริงไม่ถึงหลักนี้
+# 2 MB รองรับได้ราวหลายหมื่นแถว ซึ่งเกินขนาดชั้นเรียนไปมากอยู่แล้ว
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+
+
+class RosterEntryOut(BaseModel):
+    memberId: str
+    userId: str
+    email: str
+    displayName: str | None
+    role: str
+    groupName: str | None
+    status: str
+    enrollmentStatus: str = 'ACTIVE'
+
+    @staticmethod
+    def of(m: RosterMember) -> "RosterEntryOut":
+        return RosterEntryOut(
+            memberId=m.member_id,
+            userId=m.user_id,
+            email=m.email,
+            displayName=m.display_name,
+            role=str(m.role),
+            groupName=m.group_name,
+            status=m.status,
+            enrollmentStatus=m.enrollment_status,
+        )
+
+
+class RosterList(BaseModel):
+    items: list[RosterEntryOut]
+
+
+class RosterWarningOut(BaseModel):
+    type: str
+    message: str
+
+
+class RosterImportOut(BaseModel):
+    imported: int
+    groupsCreated: int
+    warnings: list[RosterWarningOut]
+
+    @staticmethod
+    def of(r: RosterImportResult) -> "RosterImportOut":
+        return RosterImportOut(
+            imported=len(r.rows),
+            groupsCreated=len(r.groups),
+            warnings=[RosterWarningOut(type=w.type, message=w.message) for w in r.warnings],
+        )
+
+
+class RosterPreviewRow(BaseModel):
+    email: str
+    displayName: str | None
+    groupName: str
+
+
+class RosterPreviewOut(RosterImportOut):
+    rows: list[RosterPreviewRow]
+
+
+@router.post("/{classroom_id}/roster:preview", response_model=RosterPreviewOut)
+async def preview_roster(classroom_id: str, user_email: CurrentUser,
+                         file: UploadFile = File(...)) -> RosterPreviewOut:
+    raw = await file.read()
+    if not raw or len(raw) > MAX_UPLOAD_BYTES:
+        raise ValidationError("เลือกไฟล์ CSV ที่ไม่ว่างและมีขนาดไม่เกิน 2 MB", field="file")
+    with transaction() as conn:
+        result = RosterService(PgClassroomRepository(conn), _allowed_domains(conn, classroom_id)).preview_csv(
+            classroom_id=classroom_id, actor_email=user_email, raw=raw,
+        )
+    return RosterPreviewOut(**RosterImportOut.of(result).model_dump(), rows=[
+        RosterPreviewRow(email=row.email_normalized, displayName=row.display_name, groupName=row.group_name)
+        for row in result.rows
+    ])
+
+
+def _allowed_domains(conn, classroom_id: str) -> list[str]:
+    """FR-AUTH-02 — โดเมนที่ระบบกำหนดทั้งระบบมาก่อน ถ้าไม่ได้กำหนด ใช้โดเมนของห้องนั้น (กฎเดียวกับเพิ่มผู้สอน)
+
+    ตรวจตอนนำเข้ารายชื่อ ไม่ใช่ตอนออก token เพราะคนเดียวอยู่ได้หลายห้องที่จำกัดโดเมนต่างกัน (FR-AUTHZ-03)
+    """
+    classroom = PgClassroomRepository(conn).get_by_id(classroom_id)
+    return ALLOWED_EMAIL_DOMAINS or (classroom.allowed_email_domains if classroom else [])
+
+
+@router.get("/{classroom_id}/roster", response_model=RosterList)
+def get_roster(classroom_id: str, user_email: CurrentUser) -> RosterList:
+    with transaction() as conn:
+        service = RosterService(
+            classroom_repo=PgClassroomRepository(conn),
+            allowed_email_domains=ALLOWED_EMAIL_DOMAINS,
+        )
+        members = service.list_roster(classroom_id=classroom_id, actor_email=user_email)
+    return RosterList(items=[RosterEntryOut.of(m) for m in members])
+
+
+@router.post("/{classroom_id}/roster:import", response_model=RosterImportOut)
+async def import_roster(
+    classroom_id: str,
+    user_email: CurrentUser,
+    file: UploadFile = File(...),
+) -> RosterImportOut:
+    """นำเข้ารายชื่อจาก CSV — ทั้งไฟล์ผ่านหรือไม่บันทึกเลย
+
+    อ่านไฟล์ทั้งก้อนเข้า memory เพราะ parser ต้องเห็นทุกแถวก่อนตัดสินอยู่แล้ว
+    การอ่านทีละ chunk จะไม่ช่วยอะไรเลยในเมื่อกฎ atomic บังคับให้รอครบทั้งไฟล์
+    """
+    raw = await file.read()
+
+    if not raw:
+        raise ValidationError("ไม่ได้แนบไฟล์ หรือไฟล์ว่าง", field="file")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise ValidationError(
+            f"ไฟล์ใหญ่เกิน {MAX_UPLOAD_BYTES // (1024 * 1024)} MB", field="file"
+        )
+
+    # transaction ครอบทั้งการเขียน — ถ้าแถวใดพังกลางทาง จะ rollback ทั้งชุด
+    with transaction() as conn:
+        service = RosterService(
+            classroom_repo=PgClassroomRepository(conn),
+            allowed_email_domains=_allowed_domains(conn, classroom_id),
+        )
+        result = service.import_csv(
+            classroom_id=classroom_id, actor_email=user_email, raw=raw
+        )
+
+    # จำนวนแถวพอสำหรับตรวจย้อนหลัง — รายชื่อในไฟล์เป็นอีเมลนักศึกษา ห้ามลง log
+    log_event(
+        log,
+        "roster_imported",
+        classroomId=classroom_id,
+        imported=len(result.rows),
+        groupsCreated=len(result.groups),
+        warnings=len(result.warnings),
+        bytes=len(raw),
+        user=user_ref(user_email),
+    )
+    return RosterImportOut.of(result)

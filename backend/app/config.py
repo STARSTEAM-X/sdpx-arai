@@ -1,0 +1,125 @@
+"""config ทั้งหมดของ backend อ่านจาก environment variable ที่เดียว
+
+ตั้งใจใช้ os.getenv ตรง ๆ ไม่ใช้ library เพิ่ม เพราะจำนวนค่ายังน้อย
+ถ้า config โตจนคุมยาก ค่อยย้ายไป pydantic-settings แล้วบันทึกเป็น ADR (WS-08)
+"""
+
+import os
+import pathlib
+
+from dotenv import load_dotenv
+
+# โหลด backend/.env ถ้ามี — ทำให้ขั้นตอน `cp .env.example .env` ที่เขียนไว้ใน README
+# มีผลจริง ไม่ใช่ขั้นตอนที่ทำแล้วไม่เกิดอะไรขึ้น
+#
+# override=False โดยตั้งใจ: environment variable ที่ตั้งจากภายนอกต้องชนะเสมอ
+# เพราะบน Render ค่ามาจาก render.yaml ไม่ใช่จากไฟล์ และ .env ไม่ควรไปทับของจริง
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env", override=False)
+
+
+def _split_csv(raw: str) -> list[str]:
+    """แปลง "a, b ,c" เป็น ["a", "b", "c"] และตัดค่าว่างทิ้ง"""
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+# origin ที่อนุญาตให้เรียก API ได้ — ระบุเป็นรายตัว ไม่ใช้ "*"
+# เพราะ "*" ใช้ร่วมกับ credentials ไม่ได้ และเปิดกว้างเกินจำเป็น
+CORS_ORIGINS: list[str] = _split_csv(os.getenv("CORS_ORIGINS", "http://localhost:5173"))
+
+# Render ใส่ RENDER_GIT_COMMIT ให้อัตโนมัติ — ใช้เป็น version เพื่อดูว่า commit ไหนขึ้นอยู่
+# ค่านี้คือสิ่งที่ทำให้วัด commit-to-live time ได้แม่นยำ ไม่ต้องเดาจากข้อความบนหน้าเว็บ
+APP_VERSION: str = os.getenv("RENDER_GIT_COMMIT", "dev")[:7]
+
+# ---------------------------------------------------------------------------
+# ตัวควบคุมความปลอดภัยที่สำคัญที่สุดในไฟล์นี้
+#
+# endpoint สำหรับ test (seed / cleanup / test-session) จะเปิดก็ต่อเมื่อค่านี้
+# **ไม่ใช่** "production" เท่านั้น — ค่า default เป็น production โดยตั้งใจ
+# เพื่อให้การลืมตั้ง env กลายเป็นการ "ปิด" ไม่ใช่ "เปิด"
+# ---------------------------------------------------------------------------
+ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").strip().lower()
+
+IS_PRODUCTION: bool = ENVIRONMENT == "production"
+
+# บอกเป้าหมายของ deployment โดยไม่เปิด test endpoints บน public staging
+DEPLOYMENT_TIER: str = os.getenv(
+    "DEPLOYMENT_TIER", "production" if IS_PRODUCTION else "local"
+).strip().lower()
+if DEPLOYMENT_TIER not in {"local", "staging", "production"}:
+    raise RuntimeError("DEPLOYMENT_TIER ต้องเป็น local, staging หรือ production")
+
+# รองรับ test harness เดิมใน environment ที่แยกจาก internet เท่านั้น
+# public staging ต้องใช้ ENVIRONMENT=production จึงปิด /api/test/* เสมอ
+# load test ใช้ app.perf_fixture แทน HTTP test endpoints
+TEST_SUPPORT_TOKEN: str = os.getenv("TEST_SUPPORT_TOKEN", "")
+
+DATABASE_URL: str = os.getenv(
+    "DATABASE_URL", "postgresql://paireval:devpassword@localhost:5433/paireval"
+)
+
+# ใช้เซ็นและตรวจ session token
+#
+# HS256 ต้องการ key อย่างน้อย 32 bytes ตาม RFC 7518 §3.2 — สั้นกว่านั้นเดาได้ง่ายขึ้นมาก
+# PyJWT เตือนเป็น InsecureKeyLengthWarning แต่ warning ที่ไม่มีใครอ่านคือ warning ที่ไร้ผล
+# จึงบังคับตรวจตรงนี้แทน
+MIN_SESSION_SECRET_BYTES = 32
+
+_DEVELOPMENT_SESSION_SECRET = "dev-only-secret-not-for-production-use-32b"
+SESSION_SECRET: str = os.getenv("SESSION_SECRET", _DEVELOPMENT_SESSION_SECRET)
+
+# A known fallback has enough bytes but cannot authenticate anyone securely.
+# Local/test stacks keep their convenience default; public services must opt in
+# with their own key, including when the development key was set explicitly.
+if IS_PRODUCTION and SESSION_SECRET == _DEVELOPMENT_SESSION_SECRET:
+    raise RuntimeError("production ต้องตั้ง SESSION_SECRET ของตัวเอง ห้ามใช้ development key")
+
+if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
+    raise RuntimeError(
+        f"SESSION_SECRET สั้นเกินไป ({len(SESSION_SECRET.encode())} bytes) "
+        f"ต้องยาวอย่างน้อย {MIN_SESSION_SECRET_BYTES} bytes ตาม RFC 7518 §3.2 · "
+        "สร้างค่าใหม่ด้วย: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
+
+SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "12"))  # FR-AUTH-04
+
+# PRD §12 FR-API-04 — เพดาน request ต่อนาทีต่อผู้ใช้ · stack dev/test ตั้งสูงเพราะ seed และ E2E ยิงถี่โดยชอบธรรม
+RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+EXPORT_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("EXPORT_RATE_LIMIT_PER_MINUTE", "5"))
+
+# ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ พร้อมเตือนล่วงหน้า — ค่าเริ่มต้นของ PRD §17 OQ-3 (และ Figma J24)
+# ตั้ง false เพื่อปิดทั้งการประกาศ แถบสถานะ และการแจ้งเตือน ดู docs/adr/ADR-002-auto-finalize.md
+AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
+
+# PRD §13 NFR-OBS-02 — ที่ส่ง alert (Slack/Discord/Better Stack incoming webhook) · ว่าง = log event `alert` อย่างเดียว
+# URL ของ webhook มักมี token ในตัว ตั้งผ่าน environment ของ Render (sync: false) ห้ามใส่ในไฟล์
+ALERT_WEBHOOK_URL: str = os.getenv("ALERT_WEBHOOK_URL", "").strip()
+
+# GAP-03 / PRD §7.9 — ส่งอีเมลแจ้งเตือนผ่าน Gmail API (HTTPS) เพราะ Render แผนฟรีบล็อก SMTP ขาออก
+# ต้องตั้งครบทั้ง 3 ค่าถึงจะเปิด worker · ว่าง = แจ้งเตือนในเว็บอย่างเดียวเหมือนเดิม
+# client secret และ refresh token เป็นความลับ ตั้งผ่าน environment ของ Render (sync: false) ห้ามใส่ในไฟล์
+GMAIL_CLIENT_ID: str = os.getenv("GMAIL_CLIENT_ID", "").strip()
+GMAIL_CLIENT_SECRET: str = os.getenv("GMAIL_CLIENT_SECRET", "").strip()
+GMAIL_REFRESH_TOKEN: str = os.getenv("GMAIL_REFRESH_TOKEN", "").strip()
+# address ของบัญชี Gmail ที่ออก token — ใส่แล้วผู้รับเห็นชื่อผู้ส่งเป็น PairEval · ว่างได้
+EMAIL_FROM: str = os.getenv("EMAIL_FROM", "").strip()
+EMAIL_ENABLED: bool = bool(GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN)
+# Gmail ส่วนตัวส่งได้ราว 500 ฉบับ/วัน — เผื่อไว้ให้ส่งอีเมลเองได้ด้วย ฉบับที่เกินจะรอรอบถัดไป
+EMAIL_DAILY_CAP: int = int(os.getenv("EMAIL_DAILY_CAP", "400"))
+# ลิงก์ในอีเมลชี้ไปหน้าเว็บ (FR-NOTIF-06) · ว่าง = origin แรกของ CORS_ORIGINS ซึ่งคือ paireval-web
+WEB_BASE_URL: str = (os.getenv("WEB_BASE_URL", "").strip() or (CORS_ORIGINS[:1] or [""])[0]).rstrip("/")
+
+# OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
+# มันฝังอยู่ในทุกหน้าที่ใช้ Google Sign-In อยู่แล้ว
+# ขอบเขตความปลอดภัยคือรายการ Authorized JavaScript origins ที่ตั้งใน Google Cloud Console
+# ไม่ใช่ความลับของตัว ID
+GOOGLE_CLIENT_ID: str = os.getenv(
+    "GOOGLE_CLIENT_ID",
+    "481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com",
+)
+
+# domain อีเมลที่ยอมให้เข้าระบบ — ว่าง = รับทุก domain (FR-AUTH-02)
+#
+# PRD กำหนดให้ตั้งค่านี้ "ต่อ classroom" แต่ตอน login ระบบยังไม่รู้ว่าผู้ใช้จะเข้า classroom ไหน
+# จึงทำเป็นด่านระดับระบบไว้ก่อน ส่วนการบังคับต่อ classroom จะไปอยู่ที่ชั้นตรวจสมาชิก
+# เมื่อทำ US-03 (roster) เสร็จ
+ALLOWED_EMAIL_DOMAINS: list[str] = _split_csv(os.getenv("ALLOWED_EMAIL_DOMAINS", ""))

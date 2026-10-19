@@ -1,0 +1,38 @@
+# --- secrets: ห้ามหลุดเข้า repo เด็ดขาด ---
+.env
+.env.*
+!.env.example
+
+# --- frontend ---
+node_modules/
+dist/
+.vite/
+
+# --- backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- test / report artifacts ---
+coverage/
+.coverage
+playwright-report/
+test-results/
+
+# docs/coverage/ เป็น artifact ที่ต้องส่งตาม WS-03 — แต่ commit เฉพาะไฟล์สรุปที่คนอ่านได้
+# ส่วน HTML ที่ generate มา (379K, 29 ไฟล์) ไม่ commit เพราะสร้างใหม่ได้ตลอด
+# และทำให้ diff ของ PR เต็มไปด้วยไฟล์ที่ไม่มีใครอ่าน
+!docs/coverage/
+docs/coverage/*/
+!docs/coverage/*.md
+
+# --- misc ---
+*.log
+.DS_Store
+# เครื่องมือ/ฐานข้อมูลและ session สำหรับทดสอบบนเครื่อง — ห้าม commit
+.local/
+performance/.secrets/
+# Gmail OAuth client / refresh token (GAP-03) — ค่าจริงอยู่ใน environment ของ Render เท่านั้น
+backend/.secrets/
