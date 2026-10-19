@@ -12,6 +12,11 @@ export function formatDeadline(isoUtc: string, timezone: string): string {
   })
 }
 
+export function classroomUtcToLocal(isoUtc: string, timezone: string): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(isoUtc)).map((part) => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+}
+
 /** แปลงเวลาหน้าปัดของห้องเรียนเป็น UTC โดยไม่อิง timezone ของเครื่องผู้ใช้
  *
  * ค่า `datetime-local` ไม่มี offset ติดมาด้วย จึงต้องคำนวณ offset จาก IANA timezone

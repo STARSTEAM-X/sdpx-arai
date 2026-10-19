@@ -82,6 +82,16 @@ describe('เงื่อนไขก่อนสร้างงาน', () => {
 })
 
 describe('แปลงเป็น body ของ API', () => {
+  it('sends all authored criteria, questions and real group artifact links', () => {
+    const body = toCreateInput(draft({ groupCriteria: [{ name: ' UX ', weightPct: 40, question: 'ใช้งานได้ดีเพียงใด?' }, { name: 'ความครบถ้วน', weightPct: 60 }], groupArtifactUrls: { A: 'https://example.com/a', B: '' } }), 'room-1')
+    expect(body.criteria.filter((criterion) => criterion.side === 'GROUP')).toEqual([
+      { side: 'GROUP', name: 'UX', weightPct: 40, question: 'ใช้งานได้ดีเพียงใด?', displayOrder: 0 },
+      { side: 'GROUP', name: 'ความครบถ้วน', weightPct: 60, displayOrder: 1 },
+    ])
+    expect(body.groupArtifactUrls).toEqual({ A: 'https://example.com/a' })
+    expect(weightChecks(draft({ groupCriteria: [{ name: 'UX', weightPct: 40 }, { name: 'ความครบถ้วน', weightPct: 60 }] }))[0].ok).toBe(true)
+  })
+
   it('กำหนดส่งถูกแปลงเป็น UTC ตามเขตเวลาเครื่อง ไม่ส่งเวลาท้องถิ่นดิบ ๆ', () => {
     const local = '2027-01-31T23:59'
     const body = toCreateInput(draft({ deadline: local }), 'room-1')

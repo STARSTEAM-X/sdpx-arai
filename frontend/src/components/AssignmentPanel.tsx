@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { DeadlinePicker } from './DeadlinePicker'
+import { CriteriaEditor } from './CriteriaEditor'
 import { Banner, CTRL, Card, CardHead, Pill, Spinner, btn } from './Ui'
 import { IconAlert, IconCheckCircle, IconClipboardCheck } from './icons'
 import {
@@ -11,6 +13,8 @@ import {
   createAssignment,
   getFeasibility,
   publishAssignment,
+  getAssignment,
+  updateAssignment,
 } from '../lib/api'
 import {
   type AssignmentDraft,
@@ -18,6 +22,7 @@ import {
   individualEnabled,
   toCreateInput,
   weightChecks,
+  assignmentToDraft,
 } from '../lib/assignment'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -102,22 +107,45 @@ export function AssignmentPanel({
   onDraftChange,
   studentCount,
   timezone,
+  onChanged,
+  groupNames = [],
+  editingId,
 }: {
   classroomId: string
   draft: AssignmentDraft
   onDraftChange: (next: AssignmentDraft) => void
   studentCount: number
   timezone: string
+  onChanged?: () => void
+  groupNames?: string[]
+  editingId?: string
 }) {
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [feasibility, setFeasibility] = useState<Feasibility[] | null>(null)
   const [published, setPublished] = useState<PublishResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'create' | 'feasibility' | 'publish' | null>(null)
+  const [loadingDraft, setLoadingDraft] = useState(false)
+  const [savedDraft, setSavedDraft] = useState<string | null>(null)
+  useEffect(() => {
+    if (!editingId) { setAssignment(null); return }
+    let active = true
+    setLoadingDraft(true)
+    void getAssignment(editingId).then((value) => {
+      if (!active) return
+      if (value.status !== 'DRAFT') { setError('แก้ไขได้เฉพาะงานฉบับร่าง'); return }
+      setAssignment(value); setFeasibility(null); setPublished(null); setError(null)
+      const loaded = assignmentToDraft(value, timezone)
+      onDraftChange(loaded); setSavedDraft(JSON.stringify(loaded))
+    }).catch((err) => { if (active) setError(err instanceof ApiError ? err.message : 'โหลดฉบับร่างไม่สำเร็จ') }).finally(() => { if (active) setLoadingDraft(false) })
+    return () => { active = false }
+  }, [editingId, onDraftChange, timezone])
 
   const individual = individualEnabled(draft)
   const checks = weightChecks(draft)
   const blocker = draftBlocker(draft, studentCount)
+  const dirty = Boolean(assignment && savedDraft !== JSON.stringify(draft))
+  const draftId = editingId ?? (assignment?.status === 'DRAFT' ? assignment.id : undefined)
 
   const set = <K extends keyof AssignmentDraft>(key: K, value: AssignmentDraft[K]) =>
     onDraftChange({ ...draft, [key]: value })
@@ -144,8 +172,8 @@ export function AssignmentPanel({
     setPublished(null)
     void run(
       'create',
-      () => createAssignment(toCreateInput(draft, classroomId, timezone)),
-      setAssignment,
+      () => draftId ? updateAssignment(draftId, toCreateInput(draft, classroomId, timezone)) : createAssignment(toCreateInput(draft, classroomId, timezone)),
+      (created) => { setAssignment(created); setSavedDraft(JSON.stringify(draft)); onChanged?.() },
     )
   }
 
@@ -155,7 +183,7 @@ export function AssignmentPanel({
         <CardHead
           id="h-asg"
           icon={<IconClipboardCheck className="size-5" />}
-          title="สร้างงานประเมิน"
+          title={draftId ? 'แก้ไขงานฉบับร่าง' : 'สร้างงานประเมิน'}
           hint="สร้างงาน → ตรวจความเป็นไปได้ → เผยแพร่ให้ระบบจัดคู่อัตโนมัติ"
         />
 
@@ -166,6 +194,9 @@ export function AssignmentPanel({
             </Banner>
           )}
 
+          {editingId && <Link to={`/classrooms/${classroomId}#assignments`} className={btn('ghost', 'sm', 'mb-4')}>สร้างงานใหม่</Link>}
+          {!editingId && assignment && <button type="button" onClick={() => { setAssignment(null); setFeasibility(null); setPublished(null); setSavedDraft(null); setError(null) }} className={btn('ghost', 'sm', 'mb-4')}>เริ่มสร้างงานใหม่</button>}
+          {loadingDraft && <p role="status">กำลังโหลดฉบับร่าง…</p>}
           <form id="assignment-form" onSubmit={handleCreate} noValidate>
             <fieldset className="m-0 border-0 p-0">
               <legend className="mb-4 font-display text-[13px] font-semibold tracking-widest text-muted uppercase">
@@ -193,6 +224,17 @@ export function AssignmentPanel({
                     describedBy="assignment-deadline-help"
                     onChange={(value) => set('deadline', value)}
                   />
+                </Field>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field id="assignment-description" label="คำอธิบายงาน">
+                  <textarea id="assignment-description" value={draft.description ?? ''} onChange={(e) => set('description', e.target.value)} className={CTRL} />
+                </Field>
+                <Field id="assignment-artifact" label="ลิงก์รวมผลงาน">
+                  <input id="assignment-artifact" type="url" value={draft.artifactUrl ?? ''} onChange={(e) => set('artifactUrl', e.target.value)} className={CTRL} />
+                </Field>
+                <Field id="assignment-group-max" label="คะแนนเต็มฝั่งกลุ่ม">
+                  <input id="assignment-group-max" type="number" min={0} value={draft.groupMaxScore ?? 15} onChange={(e) => set('groupMaxScore', Number(e.target.value))} className={CTRL} />
                 </Field>
               </div>
             </fieldset>
@@ -242,56 +284,31 @@ export function AssignmentPanel({
               </div>
             </fieldset>
 
-            <fieldset className="m-0 mt-6 border-0 border-t border-edge p-0 pt-6">
-              <legend className="mb-4 font-display text-[13px] font-semibold tracking-widest text-muted uppercase">
-                น้ำหนักคะแนน
-              </legend>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  id="weight-group"
-                  label="น้ำหนักเกณฑ์ฝั่งกลุ่ม (%)"
-                  help="เกณฑ์ “คุณภาพงาน” · คะแนนเต็มฝั่งกลุ่ม 15 คะแนน"
-                >
-                  <input
-                    id="weight-group"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={draft.groupWeight}
-                    aria-describedby="weight-group-help"
-                    onChange={(e) => set('groupWeight', Number(e.target.value))}
-                    className={`${CTRL} font-mono tabular`}
-                  />
-                </Field>
-
-                {individual && (
-                  <Field
-                    id="weight-individual"
-                    label="น้ำหนักเกณฑ์ฝั่งบุคคล (%)"
-                    help="เกณฑ์ “การมีส่วนร่วม” · หายไปเองเมื่อคะแนนเต็มรายบุคคลเป็น 0"
-                  >
-                    <input
-                      id="weight-individual"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={draft.individualWeight}
-                      aria-describedby="weight-individual-help"
-                      onChange={(e) => set('individualWeight', Number(e.target.value))}
-                      className={`${CTRL} font-mono tabular`}
-                    />
-                  </Field>
-                )}
+            <CriteriaEditor side="GROUP" draft={draft} onChange={onDraftChange} />
+            {individual && <CriteriaEditor side="INDIVIDUAL" draft={draft} onChange={onDraftChange} />}
+            <details className="mt-6 rounded-2xl border border-edge p-5">
+              <summary className="min-h-11 cursor-pointer font-display font-semibold">ตั้งค่าการคำนวณคะแนน</summary>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field id="score-floor" label="คะแนนขั้นต่ำ (สัดส่วน 0–1)"><input id="score-floor" type="number" min={0} max={1} step={0.001} value={draft.scoreFloor ?? 0.6} onChange={(event) => set('scoreFloor', Number(event.target.value))} className={CTRL} /></Field>
+                <Field id="score-ceiling" label="คะแนนขั้นสูง (สัดส่วน 0–1)"><input id="score-ceiling" type="number" min={0} max={1} step={0.001} value={draft.scoreCeiling ?? 1} onChange={(event) => set('scoreCeiling', Number(event.target.value))} className={CTRL} /></Field>
+                <Field id="instructor-weight" label="น้ำหนักผู้สอน"><input id="instructor-weight" type="number" min={0} max={10} step={0.01} value={draft.instructorWeight ?? 1} onChange={(event) => set('instructorWeight', Number(event.target.value))} className={CTRL} /></Field>
+                <Field id="completion-threshold" label="เกณฑ์การมีส่วนร่วม (สัดส่วน 0–1)"><input id="completion-threshold" type="number" min={0.001} max={1} step={0.001} value={draft.completionThreshold ?? 0.9} onChange={(event) => set('completionThreshold', Number(event.target.value))} className={CTRL} /></Field>
+                <Field id="min-comparisons" label="จำนวนเปรียบเทียบขั้นต่ำ" help="ใช้ตรวจความเชื่อมั่นและเกณฑ์ซ่อนคะแนนรายบุคคลตามกฎปัจจุบัน"><input id="min-comparisons" type="number" min={1} max={100} value={draft.minComparisons ?? 3} onChange={(event) => set('minComparisons', Number(event.target.value))} className={CTRL} /></Field>
               </div>
-
-              <div className="mt-4 flex flex-col gap-2">
-                {checks.map((c) => (
-                  <WeightMeter key={c.side} {...c} />
-                ))}
-              </div>
-            </fieldset>
+            </details>
+            {individual && <div className="mt-5"><Field id="individual-deadline" label="กำหนดส่งรายบุคคล" help="หากไม่ระบุ ใช้กำหนดส่งเดียวกับฝั่งกลุ่ม"><DeadlinePicker id="individual-deadline" value={draft.individualDeadline ?? ''} timezone={timezone} describedBy="individual-deadline-help" onChange={(value) => set('individualDeadline', value)} /></Field></div>}
+            <fieldset className="mt-6 rounded-2xl border border-edge p-5"><legend className="px-2 font-display font-semibold">เวลาเปิดรับประเมิน</legend><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={draft.opensAt !== undefined} onChange={(event) => set('opensAt', event.target.checked ? '' : undefined)} />ตั้งเวลาเปิดรับล่วงหน้า</label>{draft.opensAt !== undefined && <Field id="assignment-opens" label="วันและเวลาเปิดรับ" help="ต้องอยู่ก่อนกำหนดส่ง ระบบจะเปิดรับเมื่อถึงเวลานี้"><DeadlinePicker id="assignment-opens" value={draft.opensAt} timezone={timezone} describedBy="assignment-opens-help" onChange={(value) => set('opensAt', value)} /></Field>}</fieldset>
+            {groupNames.length > 0 && <fieldset className="mt-6 rounded-2xl border border-edge p-5">
+              <legend className="px-2 font-display font-semibold">ลิงก์ผลงานของแต่ละกลุ่ม</legend>
+              <p className="mb-4 text-xs text-muted">นักศึกษาจะเห็นลิงก์ของกลุ่มที่ได้รับมอบหมายให้เปรียบเทียบ</p>
+              <div className="space-y-3">{groupNames.map((name) => <label key={name} className="grid items-center gap-2 text-sm sm:grid-cols-[9rem_1fr]">{name}<input aria-label={`ลิงก์ผลงาน ${name}`} type="url" value={draft.groupArtifactUrls?.[name] ?? ''} onChange={(event) => set('groupArtifactUrls', { ...draft.groupArtifactUrls, [name]: event.target.value })} className={CTRL} /></label>)}</div>
+            </fieldset>}
+            <div className="mt-4 flex flex-col gap-2">
+              {checks.map((c) => <WeightMeter key={c.side} {...c} />)}
+            </div>
           </form>
 
+          {dirty && <Banner tone="warn" className="mt-4">มีการแก้ไขที่ยังไม่ได้บันทึก กรุณาบันทึกฉบับร่างก่อนตรวจหรือเผยแพร่</Banner>}
           {assignment && (
             <div
               data-testid="assignment-created"
@@ -314,7 +331,7 @@ export function AssignmentPanel({
               <div className="mt-3 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  disabled={busy !== null}
+                  disabled={busy !== null || dirty || assignment.status !== "DRAFT"}
                   onClick={() =>
                     void run('feasibility', () => getFeasibility(assignment.id), (r) =>
                       setFeasibility(r.items),
@@ -328,10 +345,11 @@ export function AssignmentPanel({
 
                 <button
                   type="button"
-                  disabled={busy !== null}
+                  disabled={busy !== null || dirty || assignment.status !== "DRAFT"}
                   onClick={() =>
                     void run('publish', () => publishAssignment(assignment.id), (r) => {
                       setPublished(r)
+                      onChanged?.()
                       setAssignment({ ...assignment, status: 'PUBLISHED' })
                     })
                   }
@@ -431,11 +449,11 @@ export function AssignmentPanel({
           <button
             type="submit"
             form="assignment-form"
-            disabled={busy !== null || blocker !== null}
+            disabled={loadingDraft || busy !== null || blocker !== null || Boolean(assignment && assignment.status !== 'DRAFT') || Boolean(editingId && assignment?.id !== editingId)}
             className={btn('primary', 'md', 'max-sm:w-full')}
           >
             {busy === 'create' && <Spinner />}
-            สร้างงานประเมิน
+            {draftId ? 'บันทึกฉบับร่าง' : assignment ? 'เผยแพร่งานแล้ว' : 'สร้างงานประเมิน'}
           </button>
         </div>
       </div>

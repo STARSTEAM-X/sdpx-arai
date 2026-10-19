@@ -39,6 +39,7 @@ class Criterion:
     name: str
     weight_pct: Decimal
     display_order: int = 0
+    question: str | None = None
 
 
 @dataclass
@@ -58,7 +59,7 @@ class Assignment:
     pairing_seed: int | None = None
     status: AssignmentStatus = AssignmentStatus.DRAFT
     criteria: list[Criterion] = field(default_factory=list)
-    # ค่า config ของ scoring engine (US-16) — ยังไม่มี UI ให้ตั้งเอง ใช้ default ตาม PRD
+    # ค่า config ของ scoring engine (US-16) — ฟอร์มร่างตั้งค่าได้ ใช้ default ตาม PRD
     # เสมอ (OQ-1: floor 0.60 "ใช้ได้ทันที" ถ้ายังไม่มีใครตอบว่าต้องการค่าอื่น)
     instructor_weight: Decimal = Decimal("1.0")
     min_comparisons: int = 3
@@ -66,6 +67,8 @@ class Assignment:
     score_ceiling: Decimal = Decimal("1.000")
     completion_threshold: Decimal = Decimal("0.900")
     finalized_at: datetime | None = None
+    opens_at_utc: datetime | None = None
+    generation: int = 1
 
     @property
     def has_individual_side(self) -> bool:

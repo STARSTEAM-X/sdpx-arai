@@ -23,7 +23,7 @@ def publication(monkeypatch):
         group_deadline_utc=datetime(2030, 1, 1, tzinfo=UTC), created_by="teacher@example.test",
         target_coverage=1, criteria=[Criterion("group", Side.GROUP, "คุณภาพ", Decimal(100))],
     )
-    state = SimpleNamespace(assignment=assignment, calls=[], saved=[], audits=[], fail=None)
+    state = SimpleNamespace(assignment=assignment, calls=[], saved=[], audits=[], fail=None, archived=False)
     state.groups = [
         GroupInfo(f"g{i}", f"กลุ่ม {i}", tuple(f"u{i}{j}" for j in range(3)))
         for i in range(3)
@@ -43,6 +43,11 @@ def publication(monkeypatch):
     class Repository:
         def __init__(self, conn):
             pass
+
+        def lock(self, assignment_id):
+            # Lifecycle now serializes publishing against draft edits/unpublish.
+            assert assignment_id == assignment.id
+            return assignment
 
         def groups_with_members(self, classroom_id):
             assert classroom_id == assignment.classroom_id
@@ -74,6 +79,13 @@ def publication(monkeypatch):
 
     monkeypatch.setattr(api, "transaction", transaction)
     monkeypatch.setattr(api, "_load_for_instructor", load)
+    # New archive requirement: preserve the existing publication characterization while
+    # replacing the new database-backed classroom guard with an explicit fixture state.
+    def writable(conn, classroom_id):
+        assert classroom_id == assignment.classroom_id
+        if state.archived:
+            raise ConflictError("ห้องเรียนนี้เก็บเข้าคลังแล้ว")
+    monkeypatch.setattr(api, "require_writable_classroom", writable)
     monkeypatch.setattr(api, "PgAssignmentRepository", Repository)
     monkeypatch.setattr(api, "PgAuditRepository", Repository)
     monkeypatch.setattr(api, "log_event", lambda *args, **kwargs: state.calls.append("log"))
@@ -83,6 +95,14 @@ def publication(monkeypatch):
 
 def publish(state, seed=0):
     return api.publish_assignment(state.assignment.id, state.assignment.created_by, state.request, seed)
+
+
+def test_archived_classroom_rejects_publication_before_creating_pairs(publication):
+    publication.archived = True
+    with pytest.raises(ConflictError, match="เก็บเข้าคลัง"):
+        publish(publication)
+    assert publication.saved == []
+    assert publication.audits == []
 
 
 @pytest.mark.parametrize("individual", [False, True])

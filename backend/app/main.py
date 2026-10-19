@@ -13,11 +13,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api import appeals as appeals_api
+from app.api import assignment_lifecycle as lifecycle_api
 from app.api import assignments as assignments_api
 from app.api import auth as auth_api
 from app.api import classrooms
 from app.api import comparisons as comparisons_api
+from app.api import coverage as coverage_api
+from app.api import enrollment as enrollment_api
 from app.api import members as members_api
+from app.api import notifications as notifications_api
+from app.api import quality as quality_api
 from app.api import roster as roster_api
 from app.api import scoring as scoring_api
 from app.api.errors import (
@@ -143,6 +149,12 @@ app.include_router(assignments_api.router)
 app.include_router(members_api.router)
 app.include_router(comparisons_api.router)
 app.include_router(scoring_api.router)
+app.include_router(notifications_api.router)
+app.include_router(appeals_api.router)
+app.include_router(lifecycle_api.router)
+app.include_router(enrollment_api.router)
+app.include_router(quality_api.router)
+app.include_router(coverage_api.router)
 
 # ---------------------------------------------------------------------------
 # endpoint สำหรับ test จะถูกลงทะเบียนก็ต่อเมื่อไม่ใช่ production เท่านั้น

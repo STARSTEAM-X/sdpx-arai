@@ -12,6 +12,7 @@ from decimal import Decimal
 from psycopg import Connection
 
 from app.domain.assignment_service import Assignment, AssignmentStatus, Criterion
+from app.domain.errors import ConflictError, ValidationError
 from app.domain.evaluation_service import EvaluationItem
 from app.domain.pairing import GroupInfo, Pair, Side
 
@@ -21,7 +22,7 @@ _ASSIGNMENT_COLUMNS = """
     a.group_deadline_utc, a.individual_deadline_utc,
     a.target_coverage, a.max_workload, a.pairing_seed, a.status,
     a.instructor_weight, a.min_comparisons, a.score_floor, a.score_ceiling,
-    a.completion_threshold, a.finalized_at,
+    a.completion_threshold, a.finalized_at, a.opens_at_utc, a.generation,
     u.email_normalized AS created_by
 """
 
@@ -46,6 +47,8 @@ def _row_to_assignment(row: dict, criteria: list[Criterion] | None = None) -> As
         score_ceiling=Decimal(row["score_ceiling"]),
         completion_threshold=Decimal(row["completion_threshold"]),
         finalized_at=row["finalized_at"],
+        opens_at_utc=row.get('opens_at_utc'),
+        generation=row.get('generation', 1),
         status=AssignmentStatus(row["status"]),
         created_by=row["created_by"],
         criteria=criteria or [],
@@ -55,6 +58,12 @@ def _row_to_assignment(row: dict, criteria: list[Criterion] | None = None) -> As
 class PgAssignmentRepository:
     def __init__(self, conn: Connection):
         self._conn = conn
+
+    def lock(self, assignment_id: str, *, exclusive: bool = True) -> Assignment | None:
+        with self._conn.cursor() as cur:
+            clause = 'UPDATE' if exclusive else 'SHARE'
+            cur.execute(f'SELECT id FROM assignment WHERE id = %s FOR {clause}', (assignment_id,))
+        return self.get(assignment_id)
 
     # --- อ่าน ---
 
@@ -69,7 +78,7 @@ class PgAssignmentRepository:
                 """
                 SELECT g.id, g.name, m.user_id
                 FROM group_entity g
-                JOIN classroom_member m ON m.group_id = g.id AND m.role = 'STUDENT'
+                JOIN classroom_member m ON m.group_id = g.id AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE'
                 WHERE g.classroom_id = %s
                 ORDER BY g.name, m.user_id
                 """,
@@ -108,8 +117,8 @@ class PgAssignmentRepository:
 
             cur.execute(
                 """
-                SELECT id, side, name, weight_pct, display_order
-                FROM criterion WHERE assignment_id = %s
+                SELECT id, side, name, weight_pct, display_order, question
+                FROM criterion WHERE assignment_id = %s AND retired_at IS NULL
                 ORDER BY side, display_order, name
                 """,
                 (assignment_id,),
@@ -121,6 +130,7 @@ class PgAssignmentRepository:
                     name=c["name"],
                     weight_pct=Decimal(c["weight_pct"]),
                     display_order=c["display_order"],
+                    question=c["question"],
                 )
                 for c in cur.fetchall()
             ]
@@ -152,7 +162,7 @@ class PgAssignmentRepository:
     def count_pairs(self, assignment_id: str) -> int:
         with self._conn.cursor() as cur:
             cur.execute(
-                "SELECT count(*) AS n FROM pair_assignment WHERE assignment_id = %s",
+                "SELECT count(*) AS n FROM pair_assignment WHERE assignment_id = %s AND retired_at IS NULL",
                 (assignment_id,),
             )
             return cur.fetchone()["n"]
@@ -193,7 +203,7 @@ class PgAssignmentRepository:
                 JOIN criterion cr ON cr.id = p.criterion_id
                 {label_join}
                 LEFT JOIN comparison c ON c.pair_assignment_id = p.id
-                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
+                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s AND p.retired_at IS NULL
                 ORDER BY cr.display_order, cr.name, label_a, label_b
                 """,
                 (assignment_id, str(side), evaluator_email),
@@ -243,8 +253,9 @@ class PgAssignmentRepository:
                     (id, classroom_id, name, description, artifact_url,
                      group_max_score, individual_max_score,
                      group_deadline_utc, individual_deadline_utc,
-                     target_coverage, max_workload, status, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     target_coverage, max_workload, status, created_by,
+                     instructor_weight, min_comparisons, score_floor, score_ceiling, completion_threshold, opens_at_utc)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     assignment.id,
@@ -260,11 +271,33 @@ class PgAssignmentRepository:
                     assignment.max_workload,
                     str(assignment.status),
                     row["id"],
+                    assignment.instructor_weight,
+                    assignment.min_comparisons,
+                    assignment.score_floor,
+                    assignment.score_ceiling,
+                    assignment.completion_threshold,
+                    assignment.opens_at_utc,
                 ),
             )
 
         self.replace_criteria(assignment.id, assignment.criteria)
         return assignment
+
+    def save_artifacts(self, assignment_id: str, classroom_id: str, urls: dict[str, str]) -> None:
+        with self._conn.cursor() as cur:
+            for name, url in urls.items():
+                cur.execute(
+                    "INSERT INTO assignment_artifact (assignment_id, group_id, url) "
+                    "SELECT %s, id, %s FROM group_entity WHERE classroom_id = %s AND name = %s",
+                    (assignment_id, url, classroom_id, name),
+                )
+                if cur.rowcount != 1:
+                    raise ValidationError("ไม่พบกลุ่มในห้องเรียนนี้", field="groupArtifactUrls")
+
+    def artifacts(self, assignment_id: str) -> dict[str, str]:
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT group_id, url FROM assignment_artifact WHERE assignment_id = %s", (assignment_id,))
+            return {str(row["group_id"]): row["url"] for row in cur.fetchall()}
 
     def replace_criteria(self, assignment_id: str, criteria: list[Criterion]) -> None:
         """แทนที่เกณฑ์ทั้งชุด — เหตุผลเดียวกับ replace_roster
@@ -273,13 +306,13 @@ class PgAssignmentRepository:
         มักไม่มี id ของแถวที่เพิ่งเพิ่ม การส่งทั้งชุดจึงตรงกับวิธีที่ UI ใช้จริงกว่า
         """
         with self._conn.cursor() as cur:
-            cur.execute("DELETE FROM criterion WHERE assignment_id = %s", (assignment_id,))
+            cur.execute("UPDATE criterion SET retired_at = now() WHERE assignment_id = %s AND retired_at IS NULL", (assignment_id,))
             for order, c in enumerate(criteria):
                 cur.execute(
                     """
                     INSERT INTO criterion
-                        (id, assignment_id, side, name, weight_pct, display_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                        (id, assignment_id, side, name, weight_pct, display_order, question)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         c.id or str(uuid.uuid4()),
@@ -288,20 +321,38 @@ class PgAssignmentRepository:
                         c.name.strip(),
                         c.weight_pct,
                         c.display_order or order,
+                        c.question,
                     ),
                 )
+
+    def own_progress_for_classroom(self, classroom_id: str, email: str) -> dict[str, dict]:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.assignment_id, COUNT(*) AS assigned,
+                       COUNT(c.id) AS answered,
+                       COUNT(c.id) FILTER (WHERE c.status = 'SUBMITTED') AS submitted,
+                       MAX(c.submitted_at) AS submitted_at
+                FROM pair_assignment p JOIN assignment a ON a.id = p.assignment_id
+                JOIN app_user u ON u.id = p.evaluator_user_id
+                LEFT JOIN comparison c ON c.pair_assignment_id = p.id
+                WHERE a.classroom_id = %s AND u.email_normalized = %s AND p.retired_at IS NULL
+                GROUP BY p.assignment_id
+                """,
+                (classroom_id, email),
+            )
+            return {str(row["assignment_id"]): row for row in cur.fetchall()}
 
     def mark_published(self, assignment_id: str, *, seed: int, at: datetime) -> None:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
                 UPDATE assignment
-                SET status = 'PUBLISHED', pairing_seed = %s
+                SET status = 'PUBLISHED', pairing_seed = %s, published_at = %s
                 WHERE id = %s
                 """,
-                (seed, assignment_id),
+                (seed, at, assignment_id),
             )
-        _ = at  # เก็บพารามิเตอร์ไว้ให้ชั้นบนส่งเวลาเข้ามาได้เมื่อเพิ่มคอลัมน์ published_at
 
     def mark_finalized(self, assignment_id: str, *, at: datetime) -> None:
         with self._conn.cursor() as cur:
@@ -323,14 +374,23 @@ class PgAssignmentRepository:
         ล้างของเดิมก่อนเสมอ ทำให้ generate ซ้ำด้วย seed เดิมได้ผลเดิมโดยไม่สะสมของเก่า
         """
         with self._conn.cursor() as cur:
-            cur.execute("DELETE FROM pair_assignment WHERE criterion_id = %s", (criterion_id,))
+            cur.execute("SELECT count(*) AS n FROM comparison c JOIN pair_assignment p ON p.id = c.pair_assignment_id WHERE p.criterion_id = %s AND p.retired_at IS NULL AND c.status = 'SUBMITTED'", (criterion_id,))
+            if cur.fetchone()['n']:
+                raise ConflictError('ต้องยกเลิกเผยแพร่ก่อนจัดคู่ใหม่เพื่อเก็บคำตอบเดิมไว้')
+            # Only unsubmitted active work can be replaced; retired generations remain intact.
+            cur.execute("DELETE FROM pair_assignment WHERE criterion_id = %s AND retired_at IS NULL", (criterion_id,))
+        self.append_pairs(assignment_id, pairs, criterion_id=criterion_id)
+
+    def append_pairs(self, assignment_id: str, pairs: list[Pair], *, criterion_id: str, source: str = 'AUTO') -> None:
+        """Append replacement pending work without touching already submitted pairs."""
+        with self._conn.cursor() as cur:
             for p in pairs:
                 cur.execute(
                     """
                     INSERT INTO pair_assignment
                         (id, assignment_id, criterion_id, side, item_a_id, item_b_id,
-                         evaluator_user_id, display_left_item_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                         evaluator_user_id, display_left_item_id, generation, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, (SELECT generation FROM assignment WHERE id = %s), %s)
                     """,
                     (
                         str(uuid.uuid4()),
@@ -341,5 +401,7 @@ class PgAssignmentRepository:
                         p.item_b_id,
                         p.evaluator_user_id,
                         p.display_left_item_id,
+                        assignment_id,
+                        source,
                     ),
                 )

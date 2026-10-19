@@ -108,6 +108,7 @@ export function DeadlinePicker({
   onChange: (value: string) => void
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(() => initialParts(value, timezone))
   const [cursor, setCursor] = useState(() => ({ year: pending.year, month: pending.month }))
@@ -133,7 +134,11 @@ export function DeadlinePicker({
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
     }
     document.addEventListener('pointerdown', closeOnOutside)
     document.addEventListener('keydown', closeOnEscape)
@@ -150,6 +155,11 @@ export function DeadlinePicker({
     setOpen(true)
   }
 
+  function closePicker() {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
   function selectDate(date: Pick<LocalParts, 'year' | 'month' | 'day'>) {
     setPending((current) => ({ ...current, ...date }))
     setCursor({ year: date.year, month: date.month })
@@ -163,6 +173,7 @@ export function DeadlinePicker({
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         aria-haspopup="dialog"
@@ -198,7 +209,7 @@ export function DeadlinePicker({
               <p className="font-display text-sm font-semibold">เลือกวันและเวลาส่ง</p>
               <p className="mt-0.5 text-xs text-muted">ปี พ.ศ. · เวลา 24 ชั่วโมง · {timezoneLabel(timezone)}</p>
             </div>
-            <button type="button" aria-label="ปิด" onClick={() => setOpen(false)} className={`grid size-9 place-items-center rounded-lg hover:bg-sand ${FOCUS}`}>
+            <button type="button" aria-label="ปิด" onClick={closePicker} className={`grid size-9 place-items-center rounded-lg hover:bg-sand ${FOCUS}`}>
               <IconClose className="size-4" />
             </button>
           </div>
@@ -298,8 +309,8 @@ export function DeadlinePicker({
           </div>
 
           <div className="flex justify-end gap-2 border-t border-edge px-3.5 py-2.5 max-sm:grid max-sm:grid-cols-2">
-            <button type="button" onClick={() => setOpen(false)} className={btn('ghost', 'sm')}>ยกเลิก</button>
-            <button type="button" disabled={pendingIsPast} onClick={() => { onChange(pendingValue); setOpen(false) }} className={btn('primary', 'sm')}>ยืนยันกำหนดส่ง</button>
+            <button type="button" onClick={closePicker} className={btn('ghost', 'sm')}>ยกเลิก</button>
+            <button type="button" disabled={pendingIsPast} onClick={() => { onChange(pendingValue); closePicker() }} className={btn('primary', 'sm')}>ยืนยันกำหนดส่ง</button>
           </div>
         </div>
       )}

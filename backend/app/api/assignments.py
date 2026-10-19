@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Header, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, HttpUrl
 
 from app.auth import CurrentUser
 from app.db import transaction
@@ -26,8 +26,11 @@ from app.domain.assignment_service import (
     validate_new_assignment,
 )
 from app.domain.audit import AuditAction, AuditEvent
-from app.domain.comparison_service import assert_before_deadline
-from app.domain.errors import NotFoundError
+from app.domain.comparison_service import (
+    assert_accepting_answers,
+    assert_before_deadline,
+)
+from app.domain.errors import ConflictError, NotFoundError, ValidationError
 from app.domain.evaluation_service import build_my_evaluations
 from app.domain.pairing import (
     Side,
@@ -38,7 +41,10 @@ from app.domain.publication import generate_assignment_pairs
 from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
-from app.repositories.pg_classroom_repo import PgClassroomRepository
+from app.repositories.pg_classroom_repo import (
+    PgClassroomRepository,
+    require_writable_classroom,
+)
 from app.repositories.pg_comparison_repo import PgComparisonRepository
 
 log = logging.getLogger("paireval.assignments")
@@ -51,20 +57,28 @@ class CriterionIn(BaseModel):
     name: str = Field(min_length=1)
     weightPct: Decimal = Field(ge=0, le=100)
     displayOrder: int = 0
+    question: str | None = Field(default=None, max_length=2000)
 
 
 class AssignmentIn(BaseModel):
     classroomId: str
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
-    artifactUrl: str | None = None
+    artifactUrl: HttpUrl | None = None
     groupMaxScore: Decimal = Field(ge=0)
     individualMaxScore: Decimal = Field(ge=0)
-    groupDeadlineUtc: datetime
-    individualDeadlineUtc: datetime | None = None
+    groupDeadlineUtc: AwareDatetime
+    individualDeadlineUtc: AwareDatetime | None = None
     targetCoverage: int = Field(default=5, ge=1, le=20)
     maxWorkload: int = Field(default=8, ge=1, le=30)
     criteria: list[CriterionIn] = Field(min_length=1)
+    groupArtifactUrls: dict[str, HttpUrl] = Field(default_factory=dict)
+    instructorWeight: Decimal = Field(default=Decimal('1'), ge=0, le=10)
+    minComparisons: int = Field(default=3, ge=1, le=100)
+    scoreFloor: Decimal = Field(default=Decimal('0.6'), ge=0, le=1)
+    scoreCeiling: Decimal = Field(default=Decimal('1'), ge=0, le=1)
+    completionThreshold: Decimal = Field(default=Decimal('0.9'), gt=0, le=1)
+    opensAtUtc: AwareDatetime | None = None
 
 
 class CriteriaIn(BaseModel):
@@ -77,6 +91,7 @@ class CriterionOut(BaseModel):
     name: str
     weightPct: Decimal
     displayOrder: int
+    question: str | None = None
 
 
 class AssignmentOut(BaseModel):
@@ -87,6 +102,19 @@ class AssignmentOut(BaseModel):
     groupDeadlineUtc: datetime
     individualDeadlineUtc: datetime | None
     criteria: list[CriterionOut]
+    opensAtUtc: datetime | None = None
+    description: str | None = None
+    artifactUrl: str | None = None
+    groupArtifactUrls: dict[str, str] = Field(default_factory=dict)
+    groupMaxScore: Decimal = Decimal(15)
+    individualMaxScore: Decimal = Decimal(5)
+    targetCoverage: int = 5
+    maxWorkload: int = 8
+    instructorWeight: Decimal = Decimal(1)
+    minComparisons: int = 3
+    scoreFloor: Decimal = Decimal('0.6')
+    scoreCeiling: Decimal = Decimal(1)
+    completionThreshold: Decimal = Decimal('0.9')
 
     @staticmethod
     def of(a: Assignment) -> "AssignmentOut":
@@ -97,6 +125,12 @@ class AssignmentOut(BaseModel):
             status=str(a.status),
             groupDeadlineUtc=a.group_deadline_utc,
             individualDeadlineUtc=a.individual_deadline_utc,
+            opensAtUtc=a.opens_at_utc,
+            description=a.description, artifactUrl=a.artifact_url,
+            groupMaxScore=a.group_max_score, individualMaxScore=a.individual_max_score,
+            targetCoverage=a.target_coverage, maxWorkload=a.max_workload,
+            instructorWeight=a.instructor_weight, minComparisons=a.min_comparisons,
+            scoreFloor=a.score_floor, scoreCeiling=a.score_ceiling, completionThreshold=a.completion_threshold,
             criteria=[
                 CriterionOut(
                     id=c.id,
@@ -104,6 +138,7 @@ class AssignmentOut(BaseModel):
                     name=c.name,
                     weightPct=c.weight_pct,
                     displayOrder=c.display_order,
+                    question=c.question,
                 )
                 for c in a.criteria
             ],
@@ -142,6 +177,10 @@ class EvaluationItemOut(BaseModel):
     rightLabel: str
     completed: bool
     choice: int | None
+    weightPct: Decimal = Decimal(0)
+    question: str | None = None
+    leftArtifactUrl: str | None = None
+    rightArtifactUrl: str | None = None
 
 
 class MyEvaluationsOut(BaseModel):
@@ -155,6 +194,9 @@ class MyEvaluationsOut(BaseModel):
     completedCount: int
     totalCount: int
     items: list[EvaluationItemOut]
+    assignmentName: str = ""
+    readOnly: bool = False
+    opensAtUtc: datetime | None = None
 
 
 def _to_criteria(items: list[CriterionIn]) -> list[Criterion]:
@@ -165,9 +207,24 @@ def _to_criteria(items: list[CriterionIn]) -> list[Criterion]:
             name=c.name,
             weight_pct=c.weightPct,
             display_order=c.displayOrder or order,
+            question=c.question.strip() if c.question else None,
         )
         for order, c in enumerate(items)
     ]
+
+
+
+def _validate_input(body: AssignmentIn) -> list[Criterion]:
+    criteria = _to_criteria(body.criteria)
+    validate_new_assignment(name=body.name, group_deadline_utc=body.groupDeadlineUtc, criteria=criteria)
+    if body.scoreFloor >= body.scoreCeiling:
+        raise ValidationError('คะแนนขั้นต่ำต้องน้อยกว่าคะแนนขั้นสูง', field='scoreFloor')
+    deadlines = [body.groupDeadlineUtc]
+    if body.individualDeadlineUtc:
+        deadlines.append(body.individualDeadlineUtc)
+    if body.opensAtUtc and any(body.opensAtUtc >= deadline for deadline in deadlines):
+        raise ValidationError('เวลาเปิดรับต้องอยู่ก่อนกำหนดส่งทุกฝั่ง', field='opensAtUtc')
+    return criteria
 
 
 def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignment:
@@ -209,10 +266,7 @@ def _load_for_member(conn, assignment_id: str, user_email: str) -> Assignment:
 def create_assignment(
     body: AssignmentIn, user_email: CurrentUser, response: Response
 ) -> AssignmentOut:
-    criteria = _to_criteria(body.criteria)
-    validate_new_assignment(
-        name=body.name, group_deadline_utc=body.groupDeadlineUtc, criteria=criteria
-    )
+    criteria = _validate_input(body)
 
     with transaction() as conn:
         # ต้องเป็นผู้สอนของห้องนั้น — คนนอกได้ 404 ไม่ใช่ 403
@@ -220,12 +274,13 @@ def create_assignment(
             body.classroomId, user_email, Capability.MANAGE_ASSIGNMENT
         )
 
+        require_writable_classroom(conn, body.classroomId)
         assignment = Assignment(
             id=str(uuid.uuid4()),
             classroom_id=body.classroomId,
             name=body.name.strip(),
             description=body.description,
-            artifact_url=body.artifactUrl,
+            artifact_url=str(body.artifactUrl) if body.artifactUrl else None,
             group_max_score=body.groupMaxScore,
             individual_max_score=body.individualMaxScore,
             group_deadline_utc=body.groupDeadlineUtc,
@@ -235,8 +290,16 @@ def create_assignment(
             created_by=user_email,
             status=AssignmentStatus.DRAFT,
             criteria=criteria,
+            instructor_weight=body.instructorWeight,
+            min_comparisons=body.minComparisons,
+            score_floor=body.scoreFloor,
+            score_ceiling=body.scoreCeiling,
+            completion_threshold=body.completionThreshold,
+            opens_at_utc=body.opensAtUtc,
         )
-        PgAssignmentRepository(conn).create(assignment)
+        repo = PgAssignmentRepository(conn)
+        repo.create(assignment)
+        repo.save_artifacts(assignment.id, body.classroomId, {name: str(url) for name, url in body.groupArtifactUrls.items()})
 
     response.headers["Location"] = f"/api/assignments/{assignment.id}"
     return AssignmentOut.of(assignment)
@@ -245,7 +308,31 @@ def create_assignment(
 @router.get("/{assignment_id}", response_model=AssignmentOut)
 def get_assignment(assignment_id: str, user_email: CurrentUser) -> AssignmentOut:
     with transaction() as conn:
-        return AssignmentOut.of(_load_for_instructor(conn, assignment_id, user_email))
+        result = AssignmentOut.of(_load_for_instructor(conn, assignment_id, user_email))
+        with conn.cursor() as cur:
+            cur.execute('SELECT g.name, r.url FROM assignment_artifact r JOIN group_entity g ON g.id = r.group_id WHERE r.assignment_id = %s', (assignment_id,))
+            result.groupArtifactUrls = {row['name']: row['url'] for row in cur.fetchall()}
+        return result
+
+
+@router.put('/{assignment_id}', response_model=AssignmentOut)
+def update_assignment(assignment_id: str, body: AssignmentIn, user_email: CurrentUser) -> AssignmentOut:
+    criteria = _validate_input(body)
+    with transaction() as conn, conn.cursor() as cur:
+        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        require_writable_classroom(conn, assignment.classroom_id)
+        cur.execute('SELECT id FROM assignment WHERE id = %s FOR UPDATE', (assignment_id,))
+        assignment = PgAssignmentRepository(conn).get(assignment_id)
+        assert_editable(assignment)
+        if body.classroomId != assignment.classroom_id:
+            raise ValidationError('ย้ายงานไปห้องเรียนอื่นไม่ได้', field='classroomId')
+        cur.execute('UPDATE assignment SET name=%s, description=%s, artifact_url=%s, group_max_score=%s, individual_max_score=%s, group_deadline_utc=%s, individual_deadline_utc=%s, target_coverage=%s, max_workload=%s, instructor_weight=%s, min_comparisons=%s, score_floor=%s, score_ceiling=%s, completion_threshold=%s, opens_at_utc=%s WHERE id=%s',
+                    (body.name.strip(), body.description, str(body.artifactUrl) if body.artifactUrl else None, body.groupMaxScore, body.individualMaxScore, body.groupDeadlineUtc, body.individualDeadlineUtc, body.targetCoverage, body.maxWorkload, body.instructorWeight, body.minComparisons, body.scoreFloor, body.scoreCeiling, body.completionThreshold, body.opensAtUtc, assignment_id))
+        repo = PgAssignmentRepository(conn)
+        repo.replace_criteria(assignment_id, criteria)
+        cur.execute('DELETE FROM assignment_artifact WHERE assignment_id = %s', (assignment_id,))
+        repo.save_artifacts(assignment_id, assignment.classroom_id, {name: str(url) for name, url in body.groupArtifactUrls.items()})
+        return AssignmentOut.of(repo.get(assignment_id))
 
 
 @router.put("/{assignment_id}/criteria", response_model=AssignmentOut)
@@ -259,6 +346,7 @@ def replace_criteria(
     """
     with transaction() as conn:
         assignment = _load_for_instructor(conn, assignment_id, user_email)
+        require_writable_classroom(conn, assignment.classroom_id)
         assert_editable(assignment)
 
         criteria = _to_criteria(body.criteria)
@@ -336,9 +424,10 @@ def publish_assignment(
 
     with transaction() as conn:
         assignment = _load_for_instructor(conn, assignment_id, user_email)
-        assert_publishable(assignment)
-
+        require_writable_classroom(conn, assignment.classroom_id)
         repo = PgAssignmentRepository(conn)
+        assignment = repo.lock(assignment_id)
+        assert_publishable(assignment)
         groups = repo.groups_with_members(assignment.classroom_id)
 
         created = 0
@@ -366,6 +455,14 @@ def publish_assignment(
                 ip=request.client.host if request.client else None,
             )
         )
+        if assignment.generation > 1:
+            PgAuditRepository(conn).record(AuditEvent(
+                actor_email=user_email, action=AuditAction.PAIRS_REGENERATED,
+                resource_type='assignment', resource_id=assignment.id,
+                classroom_id=assignment.classroom_id,
+                after_state={'generation': assignment.generation, 'pairsCreated': created},
+                ip=request.client.host if request.client else None,
+            ))
 
     log_event(
         log,
@@ -397,7 +494,8 @@ def get_my_evaluations(
         assignment = _load_for_member(conn, assignment_id, user_email)
 
         side_enabled = side is Side.GROUP or assignment.has_individual_side
-        should_query = assignment.status is not AssignmentStatus.DRAFT and side_enabled
+        scheduled = assignment.opens_at_utc is not None and datetime.now(UTC) < assignment.opens_at_utc
+        should_query = assignment.status is not AssignmentStatus.DRAFT and side_enabled and not scheduled
 
         pairs = (
             PgAssignmentRepository(conn).my_pairs(
@@ -407,9 +505,11 @@ def get_my_evaluations(
             else []
         )
 
+        artifacts = PgAssignmentRepository(conn).artifacts(assignment_id) if should_query and side is Side.GROUP else {}
+
     result = build_my_evaluations(
         side=side,
-        status=assignment.status,
+        status=AssignmentStatus.DRAFT if scheduled else assignment.status,
         side_enabled=side_enabled,
         pairs=pairs,
     )
@@ -421,6 +521,9 @@ def get_my_evaluations(
     )
 
     return MyEvaluationsOut(
+        opensAtUtc=assignment.opens_at_utc,
+        readOnly=assignment.status in {AssignmentStatus.FINALIZED, AssignmentStatus.ARCHIVED},
+        assignmentName=assignment.name,
         side=str(result.side),
         opened=result.opened,
         message=result.message,
@@ -439,6 +542,10 @@ def get_my_evaluations(
                 rightLabel=i.right_label,
                 completed=i.completed,
                 choice=i.choice,
+                weightPct=next((c.weight_pct for c in assignment.criteria if c.id == i.criterion_id), Decimal(0)),
+                question=next((c.question for c in assignment.criteria if c.id == i.criterion_id), None),
+                leftArtifactUrl=artifacts.get(i.left_id),
+                rightArtifactUrl=artifacts.get(i.right_id),
             )
             for i in result.items
         ],
@@ -484,11 +591,17 @@ def submit_evaluations(
         if cached is not None:
             return SubmissionResultOut(**cached)
 
+        require_writable_classroom(conn, assignment.classroom_id)
+
+        assignment = PgAssignmentRepository(conn).lock(assignment_id, exclusive=False)
         deadline = (
             assignment.group_deadline_utc
             if body.side is Side.GROUP
             else assignment.individual_deadline_utc
         )
+        assert_accepting_answers(str(assignment.status))
+        if assignment.opens_at_utc and datetime.now(UTC) < assignment.opens_at_utc:
+            raise ConflictError('ยังไม่ถึงเวลาเปิดรับประเมิน', field='opensAtUtc')
         if deadline is not None:
             assert_before_deadline(now=datetime.now(UTC), deadline=deadline)
 
