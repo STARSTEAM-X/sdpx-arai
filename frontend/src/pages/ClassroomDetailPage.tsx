@@ -457,8 +457,7 @@ export default function ClassroomDetailPage() {
                   {myRole === 'TA' ? 'จัดการรายชื่อ' : 'จัดการสมาชิก'}
                 </a>
               )}
-              {/* Figma J12 (ยังไม่มีงาน): สร้างงานมาก่อนดูคะแนน · J16 (มีงานแล้ว): ดูคะแนนมาก่อนสร้างงานเพิ่ม */}
-              {canFinalizeScores && assignmentCount > 0 && scoresLink}
+              {canFinalizeScores && scoresLink}
               {canManageAssignment && !isArchived && (
                 <a
                   href="#assignments"
@@ -471,7 +470,6 @@ export default function ClassroomDetailPage() {
                   {assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}
                 </a>
               )}
-              {canFinalizeScores && !assignmentCount && scoresLink}
             </div>
 
             {myRole === 'OWNER' && !hasStudents && (
