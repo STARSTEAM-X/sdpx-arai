@@ -100,8 +100,13 @@ def create_session(body: SessionRequest) -> dict:
             expectedAud=GOOGLE_CLIENT_ID,
             got=hint,
         )
+        # ห้ามส่ง str(exc) กลับไป — มีข้อความของ PyJWT และขั้นที่ตรวจตก (SEC-03, WS-08)
         raise HTTPException(
-            status_code=401, detail={"code": exc.code, "message": str(exc)}
+            status_code=401,
+            detail={
+                "code": exc.code,
+                "message": "ยืนยันบัญชี Google ไม่สำเร็จ กรุณาลองเข้าสู่ระบบอีกครั้ง",
+            },
         ) from exc
 
     with transaction() as conn:
