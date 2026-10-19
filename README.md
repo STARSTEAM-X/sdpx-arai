@@ -20,11 +20,12 @@
 ทั้งสอง service ใช้ branch `develop`. CI สั่ง deploy หลังตรวจผ่าน
 ตาม [`render.yaml`](render.yaml); Auto-Deploy และ Blueprint Auto Sync ปิดแล้ว.
 การตั้งค่าบัญชีและชื่อ secrets ที่ใช้บันทึกอยู่ใน [`docs/cicd.md`](docs/cicd.md).
-ป้ายสถานะบนหน้าแรกแสดง commit SHA ที่ API กำลังรันอยู่ — ใช้เช็คได้ทันทีว่า deploy ตามทันหรือยัง
+`GET /api/health` ตอบ commit SHA ที่ API กำลังรันอยู่ — ใช้เช็คได้ทันทีว่า deploy ตามทันหรือยัง
+(ป้ายสถานะ API บนหน้าแรกถูกเอาออกตามแบบ Figma)
 
 > `paireval-api` เป็น web service บน free plan ซึ่ง Render จะพักเมื่อไม่มีคนใช้
 > request แรกหลังพักจึงช้าเป็นสิบวินาที ส่วนหน้าเว็บเป็น static site เสิร์ฟผ่าน CDN ไม่มีอาการนี้
-> ถ้าป้ายสถานะบนหน้าแรกค้างที่ "กำลังโหลด" อยู่ครู่หนึ่ง แปลว่า API กำลังตื่น ไม่ใช่พัง
+> ถ้า request แรกค้างอยู่ครู่หนึ่ง แปลว่า API กำลังตื่น ไม่ใช่พัง
 
 ## สถานะ
 
@@ -119,7 +120,7 @@ cp .env.example .env
 npm run dev
 ```
 
-เปิด `http://localhost:5173` — ถ้าตั้งค่าถูก จะเห็นป้ายสถานะขึ้นว่า **API พร้อมใช้งาน**
+เปิด `http://localhost:5173` — ตรวจว่า API พร้อมด้วย `http://localhost:8000/api/health`
 
 > ขั้นตอนชุดนี้คือ baseline ที่ WS-05 เอาไปเทียบ — **15 ขั้นตอน 3 terminal และต้องเติมค่าใน `.env` เอง 4 ค่า**
 > ย่อเหลือ `docker compose up` คำสั่งเดียวแล้ว ตัวเลขและวิธีวัดอยู่ใน [`docs/setup-steps.md`](docs/setup-steps.md)
