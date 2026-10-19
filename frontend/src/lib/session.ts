@@ -9,17 +9,49 @@
  */
 
 const KEY = 'paireval.session'
+const SESSION_CHANGED = 'paireval:session-changed'
+const DRAFT_SCOPE = 'paireval.draft-scope'
+
+export function draftScope(): string {
+  let scope = localStorage.getItem(DRAFT_SCOPE)
+  if (!scope) {
+    scope = crypto.randomUUID()
+    localStorage.setItem(DRAFT_SCOPE, scope)
+  }
+  return scope
+}
+
+function clearDrafts() {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith('paireval.answers.')) localStorage.removeItem(key)
+  }
+  localStorage.removeItem(DRAFT_SCOPE)
+}
 
 export function getToken(): string | null {
   return localStorage.getItem(KEY)
 }
 
 export function setToken(token: string): void {
+  if (token !== getToken()) clearDrafts()
   localStorage.setItem(KEY, token)
+  window.dispatchEvent(new Event(SESSION_CHANGED))
 }
 
 export function clearToken(): void {
+  clearDrafts()
   localStorage.removeItem(KEY)
+  window.dispatchEvent(new Event(SESSION_CHANGED))
+}
+
+/** ให้ route guard ทราบเมื่อ login/logout หรือ session ถูกเพิกถอน รวมถึงจากแท็บอื่น */
+export function subscribeToSession(listener: () => void): () => void {
+  window.addEventListener('storage', listener)
+  window.addEventListener(SESSION_CHANGED, listener)
+  return () => {
+    window.removeEventListener('storage', listener)
+    window.removeEventListener(SESSION_CHANGED, listener)
+  }
 }
 
 export function isSignedIn(): boolean {

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { signInWithGoogle } from '../lib/api'
 import { setToken } from '../lib/session'
 
-const GIS_SRC = 'https://accounts.google.com/gsi/client'
+const GIS_SRC = 'https://accounts.google.com/gsi/client?hl=th'
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
 /** เวลาที่รอให้ Google วาดปุ่มเสร็จก่อนจะถือว่าวาดไม่ขึ้น
@@ -19,6 +19,7 @@ declare global {
         id: {
           initialize(config: {
             client_id: string
+            ux_mode: 'popup'
             callback: (res: { credential: string }) => void
           }): void
           renderButton(parent: HTMLElement, options: Record<string, unknown>): void
@@ -61,6 +62,7 @@ function ensureInitialized(clientId: string): void {
 
   window.google.accounts.id.initialize({
     client_id: clientId,
+    ux_mode: 'popup',
     callback: (res) => state.callback?.(res.credential),
   })
   state.initialized = true
@@ -90,11 +92,15 @@ type Props = {
   width?: number
   /** พื้นหลังรอบปุ่ม: ถ้าอยู่บนพื้นสีเข้มให้ใช้ outline เพื่อให้ปุ่มขาวตัดกับพื้น */
   theme?: 'outline' | 'filled_blue' | 'filled_black'
+  shape?: 'rectangular' | 'pill'
+  text?: 'signin_with' | 'signin'
+  appearance?: 'google' | 'brand'
 }
 
-export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' }: Props) {
+export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline', shape = 'rectangular', text = 'signin_with', appearance = 'google' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
 
   // ห่อด้วย useCallback เพื่อไม่ให้ effect รันซ้ำทุกครั้งที่ parent re-render
   // ถ้ารันซ้ำ Google จะ render ปุ่มซ้อนกันหลายอัน
@@ -137,12 +143,15 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
           type: 'standard',
           theme,
           size: 'large',
-          text: 'signin_with',
-          shape: 'rectangular',
+          text,
+          shape,
           logo_alignment: 'left',
           locale: 'th',
           width,
+          // หน้าแรกมีปุ่ม Google อีกแห่ง เลือก callback ของปุ่มที่กดจริงก่อนเปิด popup
+          click_listener: () => { gisState().callback = handleCredential; setError(null) },
         })
+        setReady(true)
 
         // GSI ไม่มี error callback ให้ดักตอนวาดปุ่มไม่สำเร็จ
         // เคสที่เจอบ่อยที่สุดคือ origin ปัจจุบันไม่ได้อยู่ใน Authorized JavaScript origins
@@ -153,7 +162,7 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
         renderCheck = setTimeout(() => {
           const box = containerRef.current
           if (cancelled || !box) return
-          if (box.getBoundingClientRect().height > 0) return
+          if (Array.from(box.children).some((child) => child.getBoundingClientRect().height > 0)) return
 
           setError(
             `Google ปฏิเสธการวาดปุ่มสำหรับ origin ${window.location.origin} — ` +
@@ -173,13 +182,19 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline' 
       const state = gisState()
       if (state.callback === handleCredential) state.callback = null
     }
-  }, [handleCredential, theme, width])
+  }, [handleCredential, theme, width, shape, text])
 
   return (
-    <div data-testid="google-signin">
-      {/* Google บังคับให้ใช้ปุ่มที่เขา render เอง จัดสไตล์เองไม่ได้
-          ทำได้แค่เลือก theme / size / shape ที่เขาเตรียมไว้ */}
-      <div ref={containerRef} />
+    <div data-testid="google-signin" className={appearance === 'brand' ? 'relative' : undefined}>
+      <div className={appearance === 'brand' ? 'relative min-h-10 rounded-full bg-cta text-white transition-colors hover:bg-cta-hover focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600' : undefined} style={appearance === 'brand' ? { width } : undefined}>
+        {appearance === 'brand' && (
+          <span aria-hidden="true" className="pointer-events-none flex min-h-10 items-center justify-center whitespace-nowrap px-4 font-display text-sm font-semibold">{ready || error ? 'เข้าสู่ระบบด้วย Google' : 'กำลังเตรียม Google…'}</span>
+        )}
+        {/* ใช้ความสูง 40px เท่าปุ่ม large ของ GIS เพื่อให้พื้นที่สีส้มทั้งหมดกดได้
+            คลิกจริงตกที่ปุ่มของ SDK เพื่อเปิด popup ด้วย user gesture
+            ไม่สั่ง click() หรืออ่าน DOM ภายใน iframe ของ Google */}
+        <div ref={containerRef} className={appearance === 'brand' ? 'absolute inset-0 z-10 overflow-hidden rounded-full opacity-0' : undefined} />
+      </div>
       {error && (
         <p role="alert" data-testid="signin-error" className="mt-2 text-sm text-red-700">
           {error}
