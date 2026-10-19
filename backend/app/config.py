@@ -94,6 +94,20 @@ AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "true").strip()
 # URL ของ webhook มักมี token ในตัว ตั้งผ่าน environment ของ Render (sync: false) ห้ามใส่ในไฟล์
 ALERT_WEBHOOK_URL: str = os.getenv("ALERT_WEBHOOK_URL", "").strip()
 
+# GAP-03 / PRD §7.9 — ส่งอีเมลแจ้งเตือนผ่าน Gmail API (HTTPS) เพราะ Render แผนฟรีบล็อก SMTP ขาออก
+# ต้องตั้งครบทั้ง 3 ค่าถึงจะเปิด worker · ว่าง = แจ้งเตือนในเว็บอย่างเดียวเหมือนเดิม
+# client secret และ refresh token เป็นความลับ ตั้งผ่าน environment ของ Render (sync: false) ห้ามใส่ในไฟล์
+GMAIL_CLIENT_ID: str = os.getenv("GMAIL_CLIENT_ID", "").strip()
+GMAIL_CLIENT_SECRET: str = os.getenv("GMAIL_CLIENT_SECRET", "").strip()
+GMAIL_REFRESH_TOKEN: str = os.getenv("GMAIL_REFRESH_TOKEN", "").strip()
+# address ของบัญชี Gmail ที่ออก token — ใส่แล้วผู้รับเห็นชื่อผู้ส่งเป็น PairEval · ว่างได้
+EMAIL_FROM: str = os.getenv("EMAIL_FROM", "").strip()
+EMAIL_ENABLED: bool = bool(GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN)
+# Gmail ส่วนตัวส่งได้ราว 500 ฉบับ/วัน — เผื่อไว้ให้ส่งอีเมลเองได้ด้วย ฉบับที่เกินจะรอรอบถัดไป
+EMAIL_DAILY_CAP: int = int(os.getenv("EMAIL_DAILY_CAP", "400"))
+# ลิงก์ในอีเมลชี้ไปหน้าเว็บ (FR-NOTIF-06) · ว่าง = origin แรกของ CORS_ORIGINS ซึ่งคือ paireval-web
+WEB_BASE_URL: str = (os.getenv("WEB_BASE_URL", "").strip() or (CORS_ORIGINS[:1] or [""])[0]).rstrip("/")
+
 # OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
 # มันฝังอยู่ในทุกหน้าที่ใช้ Google Sign-In อยู่แล้ว
 # ขอบเขตความปลอดภัยคือรายการ Authorized JavaScript origins ที่ตั้งใน Google Cloud Console

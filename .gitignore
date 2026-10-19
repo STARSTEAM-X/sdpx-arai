@@ -34,3 +34,5 @@ docs/coverage/*/
 # เครื่องมือ/ฐานข้อมูลและ session สำหรับทดสอบบนเครื่อง — ห้าม commit
 .local/
 performance/.secrets/
+# Gmail OAuth client / refresh token (GAP-03) — ค่าจริงอยู่ใน environment ของ Render เท่านั้น
+backend/.secrets/

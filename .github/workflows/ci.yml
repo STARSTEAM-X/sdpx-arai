@@ -323,6 +323,7 @@ jobs:
     - name: Remove summaries from previous runs
       run: rm -f performance/staging-smoke.json performance/staging-baseline.json
     - name: Prepare private staging sessions (test endpoints remain closed)
+      id: fixture
       working-directory: backend
       env:
         ENVIRONMENT: production
@@ -333,7 +334,9 @@ jobs:
       run: python -m app.perf_fixture --base-url "$BASE_URL" --domain "$PERF_EMAIL_DOMAIN"
     - name: Smoke against deployed staging
       run: k6 run --summary-export=performance/staging-smoke.json performance/smoke.js
+    # smoke ตกไม่ควรทำให้ไม่ได้ตัวเลข journey — job ยังแดงเพราะ step smoke ตก
     - name: 'Staging journey: 0 -> 5 -> 10 -> 0 VUs, PRD thresholds'
+      if: ${{ !cancelled() && steps.fixture.outcome == 'success' }}
       run: k6 run --summary-export=performance/staging-baseline.json performance/load-test.js
     - name: Keep only public metric data
       id: metrics_safe

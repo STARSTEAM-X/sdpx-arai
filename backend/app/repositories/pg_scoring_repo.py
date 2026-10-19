@@ -260,6 +260,31 @@ class PgScoringRepository:
             row = cur.fetchone()
             return ParticipationCount(assigned=row["assigned"], submitted=row["submitted"])
 
+    def participation_by_evaluator(self, assignment_id: str, side: Side) -> dict[str, ParticipationCount]:
+        """`participation` ของทุกผู้ประเมินในงานใน query เดียว (key = email_normalized)
+
+        ใช้ตอนประกอบคะแนนทั้งห้อง — ยิงทีละคนคือ N+1 ที่ทำให้ `/scores` ช้า (WS-07 load test)
+        คนที่ไม่มีคู่ในฝั่งนี้จะไม่มี key — ผู้เรียกต้องถือว่าเป็น 0/0 เหมือนที่ `participation` คืน
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT e.email_normalized,
+                       count(*) AS assigned,
+                       count(*) FILTER (WHERE c.status = 'SUBMITTED') AS submitted
+                FROM pair_assignment p
+                JOIN app_user e ON e.id = p.evaluator_user_id
+                LEFT JOIN comparison c ON c.pair_assignment_id = p.id
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s
+                GROUP BY e.email_normalized
+                """,
+                (assignment_id, str(side)),
+            )
+            return {
+                r["email_normalized"]: ParticipationCount(assigned=r["assigned"], submitted=r["submitted"])
+                for r in cur.fetchall()
+            }
+
     def group_id_for_student(self, classroom_id: str, email_normalized: str) -> str | None:
         with self._conn.cursor() as cur:
             cur.execute(
@@ -375,6 +400,45 @@ class PgScoringRepository:
                 (assignment_id, str(side), item_id, is_final, is_final, assignment_id),
             )
             return Decimal(cur.fetchone()["total"])
+
+    def effective_components_by_item(
+        self, assignment_id: str, side: Side, *, is_final: bool
+    ) -> dict[str, Decimal]:
+        """`effective_component_for_item` ของทุก item ในฝั่งนี้ใน query เดียว (key = item_id)
+
+        ลำดับความสำคัญเดียวกันทุกประการ: override ทั้ง item → override รายเกณฑ์ → ค่าคำนวณ
+        FULL JOIN เพราะ item ที่ถูก override ทั้งก้อนมีผลแม้ยังไม่มีแถว computed_score
+        item ที่ไม่มีทั้งสองอย่างจะไม่มี key — ผู้เรียกต้องถือว่าเป็น 0 เหมือนตัวรายคน
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH item_override AS (
+                    SELECT DISTINCT ON (item_id) item_id, override_value
+                    FROM score_override
+                    WHERE retired_at IS NULL AND assignment_id = %s AND side = %s AND criterion_id IS NULL
+                    ORDER BY item_id, created_at DESC
+                ), computed AS (
+                    SELECT cs.item_id, COALESCE(SUM(COALESCE((
+                        SELECT so.override_value FROM score_override so
+                        WHERE so.retired_at IS NULL AND so.assignment_id = cs.assignment_id AND so.side = cs.side
+                          AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
+                        ORDER BY so.created_at DESC LIMIT 1
+                    ), cs.weighted_score)), 0) AS total
+                    FROM computed_score cs
+                    WHERE cs.assignment_id = %s AND cs.side = %s AND cs.is_final = %s
+                      AND (NOT %s OR cs.computed_at = (
+                          SELECT MAX(computed_at) FROM computed_score
+                          WHERE assignment_id = %s AND is_final = true
+                      ))
+                    GROUP BY cs.item_id
+                )
+                SELECT COALESCE(o.item_id, c.item_id) AS item_id, COALESCE(o.override_value, c.total) AS total
+                FROM computed c FULL JOIN item_override o ON o.item_id = c.item_id
+                """,
+                (assignment_id, str(side), assignment_id, str(side), is_final, is_final, assignment_id),
+            )
+            return {str(r["item_id"]): Decimal(r["total"]) for r in cur.fetchall()}
 
     def computed_value_for_target(
         self, assignment_id: str, side: Side, item_id: str, criterion_id: str | None,
@@ -539,6 +603,27 @@ class PgScoringRepository:
                 (assignment_id, str(side), item_id, item_id),
             )
             return cur.fetchone()["n"]
+
+    def evaluator_counts_by_item(self, assignment_id: str, side: Side) -> dict[str, int]:
+        """`evaluator_count_for_item` ของทุก item ในฝั่งนี้ใน query เดียว (key = item_id)
+
+        คู่หนึ่งมีสอง item จึงคลี่ item_a/item_b ออกเป็นสองแถวก่อนนับผู้ประเมินที่ต่างกัน
+        — ตรงกับเงื่อนไข `item_a_id = x OR item_b_id = x` ของตัวรายคน; item ที่ไม่มีใครส่งคำตอบจะไม่มี key (= 0)
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT i.item_id, count(DISTINCT c.evaluator_user_id) AS n
+                FROM comparison c
+                JOIN pair_assignment p ON p.id = c.pair_assignment_id
+                CROSS JOIN LATERAL (VALUES (p.item_a_id), (p.item_b_id)) AS i(item_id)
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s
+                  AND c.status = 'SUBMITTED' AND NOT EXISTS (SELECT 1 FROM assignment_exclusion x WHERE x.assignment_id = p.assignment_id AND x.evaluator_user_id = c.evaluator_user_id AND x.excluded)
+                GROUP BY i.item_id
+                """,
+                (assignment_id, str(side)),
+            )
+            return {str(r["item_id"]): r["n"] for r in cur.fetchall()}
 
     def export_comparisons(self, assignment_id: str) -> list[ComparisonExportRow]:
         """raw comparison ทั้งหมดที่ SUBMITTED แล้วของงานนี้ — FR-EXPORT-03

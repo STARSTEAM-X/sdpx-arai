@@ -66,6 +66,17 @@ services:
         # NFR-OBS-02 — incoming webhook (Slack/Discord/Better Stack) ที่รับ alert · มี token ในตัว จึงกรอกใน Dashboard
         # ว่างไว้ได้: alert ยังออกเป็น log event `alert` ระดับ ERROR
         sync: false
+      # GAP-03 อีเมลแจ้งเตือนผ่าน Gmail API — ได้ค่าจาก scripts/gmail/get_refresh_token.py (docs/email-notifications.md)
+      # ต้องครบ 3 ค่าถึงจะส่ง · ว่าง = แจ้งเตือนในเว็บอย่างเดียว · staging ตั้งใจไม่ใส่ จะได้ไม่ส่งหา roster ทดสอบ
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: EMAIL_FROM
+        # address ของบัญชี Gmail ที่ออก token — ผู้รับเห็นชื่อผู้ส่งเป็น PairEval · ว่างได้
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID
@@ -84,5 +95,5 @@ databases:
     plan: free
     region: singapore
     postgresMajorVersion: "18"
-    diskSizeGB: 1
-    storageAutoscalingEnabled: false
+    # แผน Free กำหนด disk/autoscaling เองไม่ได้ — Render ปฏิเสธ Blueprint ใหม่ถ้าใส่ diskSizeGB
+    # (render.yaml ของ staging มีได้เพราะผูกกับ DB ที่มีอยู่แล้ว)
