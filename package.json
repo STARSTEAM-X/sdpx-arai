@@ -12,6 +12,6 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.62.1",
-    "@redocly/cli": "^2.47.0"
+    "@redocly/cli": "^2.64.1"
   }
 }
