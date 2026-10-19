@@ -55,13 +55,15 @@ test.describe('US-02 สร้างห้องเรียน', () => {
   })
 
   // AC จาก US-11: Given ไม่ได้แนบ token, When เรียก endpoint ที่ต้องใช้สิทธิ์, Then ตอบ 401
-  // ฝั่ง UI แปลว่า: ยังไม่ login ต้องสร้างห้องเรียนไม่ได้
-  test('ผู้ที่ยังไม่ login สร้างห้องเรียนไม่ได้', async ({ page }) => {
+  // requirement login ล่าสุด: ยังไม่ login ต้องกลับหน้าแรก ไม่แสดงหน้าภายในหรือฟอร์มสร้าง
+  test('ผู้ที่ยังไม่ login เข้าหน้าห้องเรียนไม่ได้', async ({ page }) => {
     const classrooms = new ClassroomsPage(page)
     await classrooms.goto()
 
-    await expect(classrooms.signInRequired).toBeVisible()
-    await expect(classrooms.submitButton).toBeDisabled()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.getByTestId('main-cta')).toBeVisible()
+    await expect(classrooms.nameInput).toHaveCount(0)
+    await expect(classrooms.submitButton).toHaveCount(0)
   })
 })
 

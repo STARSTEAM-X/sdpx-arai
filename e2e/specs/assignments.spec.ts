@@ -17,7 +17,7 @@ const DEADLINE = '2027-01-31T16:59:00Z'
 
 /** เลือกกำหนดส่งผ่าน UI จริง เพื่อคุมทั้งปฏิทินไทยและเวลา 24 ชั่วโมง */
 async function chooseDeadline(page: Page) {
-  await page.getByLabel('กำหนดส่ง').click()
+  await page.getByLabel('กำหนดส่ง', { exact: true }).click()
 
   const now = new Date()
   const bangkok = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
@@ -302,7 +302,7 @@ test.describe('US-05 ดูความเป็นไปได้ก่อน�
         ...Array.from({ length: 9 }, (_, i) => `stu${i + 1}@kmitl.ac.th,group-${(i % 3) + 1}`),
       ].join('\n')
       await seedRoster(api, instructorToken, classroomId, ROSTER_3_GROUPS_OF_3)
-      await signedInPage.goto(`/classrooms/${classroomId}`)
+      await signedInPage.goto(`/classrooms/${classroomId}#assignments`)
 
       await signedInPage.getByLabel('ชื่องานประเมิน').fill('งานทดสอบ anonymity')
       await chooseDeadline(signedInPage)
@@ -527,7 +527,7 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     classroomId,
   }) => {
     await seedRoster(api, instructorToken, classroomId)
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#assignments`)
 
     const panel = signedInPage.getByTestId('assignment-panel')
     await expect(panel).toBeVisible()
@@ -557,7 +557,7 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     classroomId,
   }) => {
     await seedRoster(api, instructorToken, classroomId)
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#assignments`)
 
     await chooseDeadline(signedInPage)
     await signedInPage.getByLabel('น้ำหนักเกณฑ์ฝั่งกลุ่ม (%)').fill('90')
@@ -584,8 +584,9 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
       ([key, token]) => window.localStorage.setItem(key, token),
       ['paireval.session', studentToken] as const,
     )
-    await page.goto(`/classrooms/${classroomId}`)
+    await page.goto(`/classrooms/${classroomId}#assignments`)
 
+    await page.getByText('ข้อมูลห้องและสมาชิก', { exact: true }).click()
     await expect(page.getByTestId('roster-list')).toBeVisible()
     await expect(page.getByTestId('assignment-panel')).toHaveCount(0)
   })

@@ -16,19 +16,19 @@ export class ClassroomsPage {
   readonly errorMessage: Locator
   readonly classroomList: Locator
   readonly emptyState: Locator
-  readonly signInRequired: Locator
+  readonly openCreateButton: Locator
 
   constructor(private readonly page: Page) {
     // เรียงตามลำดับที่แนะนำ: getByRole → getByLabel → getByTestId
     this.heading = page.getByRole('heading', { level: 1, name: 'ห้องเรียนของฉัน' })
     this.nameInput = page.getByLabel('ชื่อห้องเรียน')
     this.timezoneSelect = page.getByRole('button', { name: /^เขตเวลา/ })
-    this.submitButton = page.getByRole('button', { name: 'สร้างห้องเรียน' })
+    this.submitButton = page.getByRole('button', { name: 'สร้างห้องเรียน', exact: true })
     // role="alert" ทำให้ screen reader อ่านข้อความผิดพลาดให้เอง — ได้ a11y ติดมาด้วย
     this.errorMessage = page.getByRole('alert')
     this.classroomList = page.getByTestId('classroom-list')
     this.emptyState = page.getByTestId('empty-state')
-    this.signInRequired = page.getByTestId('signin-required')
+    this.openCreateButton = page.getByRole('button', { name: 'เปิดหน้าต่างสร้างห้องเรียน', exact: true })
   }
 
   async goto(): Promise<void> {
@@ -37,7 +37,11 @@ export class ClassroomsPage {
 
   /** กรอกฟอร์มแล้วกดสร้าง — ครอบทั้งชุดเพราะ test แทบทุกตัวทำสามขั้นนี้ติดกัน */
   async createClassroom(name: string, timezone = 'Asia/Bangkok'): Promise<void> {
+    // Figma J03 เปลี่ยนฟอร์มเป็น dialog; เปิดก่อนกรอก โดยคง assertions ที่ spec เดิมทั้งหมด
+    if (!(await this.submitButton.isVisible())) await this.openCreateButton.click()
     await this.nameInput.fill(name)
+    await this.page.getByLabel('รหัสวิชา').fill('CE-SDPX')
+    await this.page.getByRole('textbox', { name: /^ภาคเรียน/ }).fill('1/2569')
     await this.timezoneSelect.click()
     await this.page.getByRole('option', { name: timezone }).click()
     await this.submitButton.click()

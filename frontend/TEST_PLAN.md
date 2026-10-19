@@ -1,75 +1,55 @@
 # Test Plan — Frontend
 
-## สถานะตรงไปตรงมา
+## การทดสอบปัจจุบัน — 2026-10-19
 
-**Coverage ของ unit test อยู่ที่ 0.95% (1 จาก 105 statements)**
+Frontend29 tests ใน 5 ไฟล์: assignment12, datetime3, scale6, comparisonQueue7 และ evaluationPairs1 ไม่เพิ่ม DOM test runner หรือ project dependencies ใหม่ Browser tests ใช้ Playwright เดิมและ API/Postgres จริงใน disposable stack
 
-ไม่ใช่ตัวเลขที่น่าภูมิใจ แต่เป็นตัวเลขจริง และตั้งใจให้เป็นแบบนี้ในตอนนี้
-
-ตอนแรกรายงานขึ้น **100%** เพราะ vitest นับเฉพาะไฟล์ที่ test import เข้ามา
-ซึ่งมีแค่ `src/lib/scale.ts` ไฟล์เดียว — ตัวเลขแบบนั้นหลอกตัวเองมากกว่าไม่มีตัวเลข
-จึงตั้ง `coverage.all = true` ใน `vite.config.ts` ให้นับไฟล์ที่ยังไม่ถูกทดสอบด้วย
-
-## Functions ที่ต้อง Test
-
-### 1. `COMPARISON_SCALE` — `src/lib/scale.ts` ✅ ทำแล้ว
-
-มาตรวัด 6 ระดับเป็น **domain constant** ไม่ใช่ของตกแต่ง UI
-จึงย้ายออกจาก component มาไว้ที่ `lib/` และมี test คุ้มครอง
-
-| กฎ | อ้าง | Test |
-|---|---|---|
-| มี 6 ระดับพอดี | D1 | `มี 6 ระดับพอดี` |
-| **ไม่มีตัวเลือกกลาง** ทุกตัวต้องชี้ว่าฝั่งไหนดีกว่า | D1 | `ไม่มีตัวเลือกกลาง — ทุกตัวเลือกต้องชี้ว่าฝั่งไหนดีกว่า` |
-| แบ่ง A/B ฝั่งละ 3 ระดับ | D1 | `แบ่งฝั่ง A และ B เท่ากันฝั่งละ 3 ระดับ` |
-| ความห่างสองฝั่งสมมาตร ไม่เอนไปทางใด | D1 | `ความห่างของสองฝั่งสมมาตรกัน` |
-| id ไม่ซ้ำ | — | `id ไม่ซ้ำกัน` |
-
-### 2. `useApiHealth()` — `src/lib/api.ts` ⬜ ยังไม่ทำ
-
-| กฎที่ควรมี test | สถานะ |
+| กลุ่ม | สิ่งที่ตรวจ |
 |---|---|
-| API ตอบ 200 → state เป็น `ok` พร้อม version | ⬜ |
-| API ตอบ 500 → state เป็น `error` | ⬜ |
-| unmount ก่อนได้คำตอบ → ต้องไม่ setState (AbortController) | ⬜ |
+| Unit | น้ำหนัก/config/request, timezone, forced-choice6 ระดับ, writer race/flush/retry/session/retired drafts และการคง orientation ต่อคู่ |
+| Existing E2E |130 กรณี ครอบคลุม classroom/roster/role/assignment/pairing/submissions/scoring/export/anonymity รวม design5 และ login7 |
+| Implementation regression |24 กรณี: functional16, reference state1, responsive matrix7 ขนาด; script/results/evidence อยู่ใน implementation-reports |
+| Responsive / axe |375×812,430×932,768×1024,1366×768,1440×900,1920×1080 และ 390×844;105 route/view states และ 7visible-score states รวม 112axeJSON reports |
+| Visual |HomePixelmatch แบบไม่ resize และ 11unscaled comparison boards ของข้อมูลจริง ไม่ใช่เปอร์เซ็นต์ compliance |
 
-**ยังไม่ทำเพราะ** ต้องติดตั้ง jsdom เพิ่มเพื่อรัน hook นอก browser
-และการเพิ่ม dependency ต้องถามก่อนตามกติกาข้อ 5 ใน `AGENTS.md`
+ทดสอบ autosave ก่อน submit,สลับ side/reload/SPA ระหว่างบันทึก,offline/reconnect,deadline จริง,keyboard/focus,CSVpreview ก่อนเขียน,role/audit,enrollmentrepair,copy/edit/schedule/extend/unpublish,notificationread/due/recipient,appealexpiry/response/privacy,qualityidentity/exclusion/participation และ additional/instructor comparison
 
-### 3. Components ⬜ ยังไม่ทำ
+การเปลี่ยน testflow มีเหตุผลจาก requirement: ใช้ focusedworkspace,confirmCSVpreview,radio ตามคู่จริง,ระบุ deadlinefieldexact เมื่อมีสองฝั่ง และจำนวนเกณฑ์ในคู่ตาม API จริง คง businessassertions เรื่องผลคะแนน/สิทธิ์/ความเป็นส่วนตัว ไม่ปรับ pairing เพื่อทำ fixture ให้เหมือนภาพ
 
-component ทั้ง 12 ตัวยังไม่มี unit test — **ตั้งใจ**
+Google popup/auth exchange ใช้ GIS/test doubles;กรณีอื่นใช้ test sessions และ/api/me จริง ไม่อ้างว่าทดสอบ GoogleOAuth จริงครบแล้ว useApiHealth ยังไม่มี isolatedhookunit test และ axe ไม่แทน manualaccessibilityreview
 
-เหตุผล: component ตอนนี้เป็น presentational ล้วน ไม่มี logic ที่จะผิดได้
-สิ่งที่มันต้องพิสูจน์คือ "เปิดแล้วเห็นและกดได้จริงไหม" ซึ่ง **E2E ตอบได้ตรงกว่า**
-การเขียน unit test ที่ assert ว่า `<h1>` มีข้อความตามที่ hardcode ไว้
-คือ test ที่ต้อง maintain แต่ไม่ได้ปกป้องอะไร
+ผลตรวจสุดท้ายพร้อมเวลารันและข้อจำกัดอยู่ใน [REGRESSION_TEST_REPORT.md](../implementation-reports/REGRESSION_TEST_REPORT.md) ไม่ใช้ผล WS-03 ย้อนหลังเป็นผลปัจจุบัน
 
-จะเริ่มมี unit test ฝั่ง frontend จริงจังเมื่อ component เริ่มมี state และ logic
-(ตั้งแต่ US-08 ที่มี autosave และการนับความคืบหน้า)
+คำสั่งจาก root:
+
+```powershell
+npm --prefix frontend run typecheck
+npm --prefix frontend run lint
+npm --prefix frontend test
+npm --prefix frontend run build
+npm run lint:api
+docker compose -p paireval-figma-implementation -f compose.test.yaml --profile e2e up -d --build api-test web-test
+docker compose -p paireval-figma-implementation -f compose.test.yaml --profile e2e run --rm --no-deps --build e2e
+docker compose -p paireval-figma-implementation -f compose.test.yaml -f implementation-reports/scripts/compose.audit.yaml --profile e2e run --rm --no-deps e2e
+```
+
+axe-core อยู่เฉพาะ.local/audit-tools ตามที่ผู้ใช้อนุญาต compose.audit.yaml mount แบบ read-only และระบุ AXE_PATH ชุดใหม่ปฏิเสธ APIhost ที่ไม่ใช่ api-test ก่อน seed ห้ามชี้ tests เหล่านี้ไป preview หรือ production
 
 ---
 
-## Fidelity Check (WS-03)
+## หลักฐานย้อนหลัง: Fidelity Check (WS-03)
+
+ตารางนี้เก็บผล mutation ที่รันจริงใน WS-03 ไม่ใช่จำนวน tests หรือผลทดสอบปัจจุบัน
+ในเวลานั้น scale มี 5 tests และใช้ชื่อฝั่ง A/B; implementation ปัจจุบันใช้ left/right
+ตามตำแหน่งที่สุ่มแสดงบนหน้าประเมิน และมี 6 scale tests รวมตรวจข้อความตาม PRD
 
 | # | กฎที่ลบ | ผลจริงที่รันแล้ว |
 |---|---|---|
 | 1 | ลบ 1 ระดับออกจาก `COMPARISON_SCALE` (เหลือ 5) | **3 failed / 2 passed** — `มี 6 ระดับพอดี` · `แบ่งฝั่ง A และ B เท่ากันฝั่งละ 3 ระดับ` · `ความห่างของสองฝั่งสมมาตรกัน` ✅ |
 | 2 | เพิ่มตัวเลือกกลาง `{ id: 7, winner: 'TIE' }` | `tsc` แดงก่อน: `error TS2322: Type '"TIE"' is not assignable to type 'Winner'`<br>และถ้าข้าม typecheck ไป **2 failed / 3 passed** — `มี 6 ระดับพอดี` · `ไม่มีตัวเลือกกลาง` ✅ |
 
-กู้คืนทั้งสองครั้งแล้ว → **5 passed** เท่าเดิม
+ผลหลังคืนโค้ดทั้งสองครั้งใน WS-03 → **5 passed** เท่าเดิม
 
 > เคสที่ 2 ป้องกันสองชั้น และชั้นแรกที่จับได้คือ **type system** ไม่ใช่ test —
-> `Winner = 'A' | 'B'` ทำให้เพิ่มตัวเลือกกลางแล้ว `tsc` แดงตั้งแต่ยังไม่ได้รัน test
+> `Winner = 'A' | 'B'` ใน WS-03 ทำให้เพิ่มตัวเลือกกลางแล้ว `tsc` แดงตั้งแต่ยังไม่ได้รัน test
 > นี่คือเหตุผลที่ย้าย constant ออกมาไว้ใน `lib/` พร้อม type ที่แคบ แทนที่จะปล่อยเป็น array ของ string ใน component
-
----
-
-## ตัวเลขล่าสุด
-
-| | ค่า |
-|---|---|
-| จำนวน test | 5 |
-| เวลารัน | 0.18 วินาที |
-| Coverage (unit) | 0.95% — ดูเหตุผลด้านบน |
-| Coverage ที่ได้จาก E2E | จะวัดใน WS-04 |

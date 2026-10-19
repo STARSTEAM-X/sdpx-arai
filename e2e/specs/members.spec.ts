@@ -379,7 +379,7 @@ test.describe('หน้าเว็บซ่อนสิ่งที่ role �
       ['paireval.session', token] as const,
     )
 
-    await page.goto(`/classrooms/${classroomId}`)
+    await page.goto(`/classrooms/${classroomId}#members`)
 
     await expect(page.getByTestId('roster-import')).toBeVisible()
     // ถ้าหน้าจอกับ server ไม่ตรงกัน TA จะเห็นปุ่มที่กดแล้วได้ 403 เสมอ
@@ -398,16 +398,17 @@ test.describe('หน้าเว็บซ่อนสิ่งที่ role �
       ['paireval.session', token] as const,
     )
 
-    await page.goto(`/classrooms/${classroomId}`)
+    await page.goto(`/classrooms/${classroomId}#members`)
 
     await expect(page.getByTestId('roster-import')).toBeVisible()
+    await page.getByRole('link', { name: 'งานประเมิน', exact: true }).click()
     await expect(page.getByTestId('assignment-panel')).toBeVisible()
   })
 })
 
 test.describe('จัดการผู้ร่วมสอนบนหน้าเว็บ', () => {
   test('เจ้าของห้องเพิ่ม TA แล้วเห็นในรายการทันที', async ({ signedInPage, classroomId }) => {
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#members`)
 
     const panel = signedInPage.getByTestId('member-panel')
     await expect(panel).toBeVisible()
@@ -426,7 +427,7 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
   })
 
   test('ถอดผู้ร่วมสอนออกได้แล้วหายจากรายการ', async ({ signedInPage, classroomId }) => {
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#members`)
 
     await signedInPage.getByLabel('อีเมล').fill('co.ui@kmitl.ac.th')
     await signedInPage.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
@@ -440,7 +441,7 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
   })
 
   test('ปุ่มถอดของเจ้าของห้องคนสุดท้ายถูกปิดไว้', async ({ signedInPage, classroomId }) => {
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#members`)
 
     const ownerRow = signedInPage
       .getByTestId('instructor-list')
@@ -458,7 +459,7 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
     classroomId,
   }) => {
     await importRoster(api, instructorToken, classroomId)
-    await signedInPage.goto(`/classrooms/${classroomId}`)
+    await signedInPage.goto(`/classrooms/${classroomId}#members`)
 
     await signedInPage.getByLabel('อีเมล').fill('somchai@uni.ac.th')
     await signedInPage.getByRole('button', { name: 'บทบาท', exact: true }).click()
@@ -480,9 +481,10 @@ test.describe('จัดการผู้ร่วมสอนบนหน้�
       ['paireval.session', token] as const,
     )
 
-    await page.goto(`/classrooms/${classroomId}`)
+    await page.goto(`/classrooms/${classroomId}#members`)
 
-    await expect(page.getByTestId('assignment-panel')).toBeVisible()
     await expect(page.getByTestId('member-panel')).toHaveCount(0)
+    await page.getByRole('link', { name: 'งานประเมิน', exact: true }).click()
+    await expect(page.getByTestId('assignment-panel')).toBeVisible()
   })
 })

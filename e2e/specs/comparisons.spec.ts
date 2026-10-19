@@ -205,7 +205,7 @@ test.describe('US-08 ประเมินคู่ด้วยมาตรว�
       )
       await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/evaluate`)
 
-      await page.getByRole('radio', { name: 'ขวาดีกว่า', exact: true }).click()
+      await page.getByRole('radio').nth(4).click()
 
       // ไม่ใช้ waitForTimeout — expect รอเองจนกว่า debounce (2s) จะยิง PUT เสร็จ
       await expect(page.getByText(/บันทึกแล้ว/)).toBeVisible({ timeout: 5000 })
@@ -232,7 +232,7 @@ test.describe('US-08 ประเมินคู่ด้วยมาตรว�
       )
       await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/evaluate`)
 
-      await expect(page.getByRole('radio', { name: 'ขวาดีกว่ามาก', exact: true })).toHaveAttribute(
+      await expect(page.getByRole('radio').nth(5)).toHaveAttribute(
         'aria-checked',
         'true',
       )

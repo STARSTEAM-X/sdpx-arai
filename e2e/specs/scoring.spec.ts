@@ -381,7 +381,7 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
         ['paireval.session', studentToken] as const,
       )
 
-      await page.goto(`/classrooms/${classroomId}`)
+      await page.goto(`/classrooms/${classroomId}#scores`)
       const link = page.getByTestId(`score-link-${assignmentId}`)
       await expect(link).toBeVisible()
       await link.click()
@@ -405,7 +405,7 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
         ([key, token]) => window.localStorage.setItem(key, token),
         ['paireval.session', instructorToken] as const,
       )
-      await page.goto(`/classrooms/${classroomId}`)
+      await page.goto(`/classrooms/${classroomId}#scores`)
 
       const card = page.getByTestId('assignment-scoring-card')
       await expect(card).toBeVisible()
@@ -432,7 +432,7 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
         ([key, token]) => window.localStorage.setItem(key, token),
         ['paireval.session', instructorToken] as const,
       )
-      await page.goto(`/classrooms/${classroomId}`)
+      await page.goto(`/classrooms/${classroomId}#scores`)
 
       const card = page.getByTestId('assignment-scoring-card')
       await card.getByRole('button', { name: 'ดูคะแนนที่คำนวณ' }).click()
