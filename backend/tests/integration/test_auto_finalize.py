@@ -119,7 +119,7 @@ def test_owner_is_warned_three_days_before(db, monkeypatch):
 
 
 def test_no_warning_while_auto_finalize_is_disabled(db, monkeypatch):
-    # ADR-002: ปิดฟีเจอร์ไว้ (ค่าเริ่มต้น) ต้องไม่มีการเตือนว่าระบบจะประกาศเอง
+    # ADR-002: ปิดฟีเจอร์ด้วย AUTO_FINALIZE_ENABLED=false ต้องไม่มีการเตือนว่าระบบจะประกาศเอง
     monkeypatch.setattr(pg_notification_repo, "AUTO_FINALIZE_ENABLED", False)
     _, owner = _assignment(db, closed_days_ago=12)
     assert not [e for e in PgNotificationRepository(db).list_for_user(owner) if e["kind"] == "auto_finalize"]

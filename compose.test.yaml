@@ -96,7 +96,7 @@ services:
       # network stack ร่วมกับ web-test หน้าเว็บจึงอยู่ที่ http://localhost:8080 ในสายตามัน
       CORS_ORIGINS: http://localhost:8080
       SESSION_SECRET: test-only-secret-value-that-is-long-enough-32b
-      # ปิดเป็นค่าเริ่มต้นในทุกที่ (ADR-002) แต่เปิดใน E2E เพื่อให้ J24 ยังถูกทดสอบเมื่อทีมเลือกเปิดใช้
+      # เปิดเป็นค่าเริ่มต้นแล้ว (ADR-002 / PRD OQ-3) — ตั้งไว้ชัด ๆ ให้ E2E ของ J24 ไม่ขึ้นกับค่าเริ่มต้น
       AUTO_FINALIZE_ENABLED: "true"
       # FR-API-04 — E2E ใช้ token อาจารย์คนเดียวยิงหลายร้อยครั้งต่อนาทีโดยชอบธรรม · ตัวจำกัดมี unit test คุม
       RATE_LIMIT_PER_MINUTE: "100000"
