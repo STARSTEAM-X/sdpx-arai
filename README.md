@@ -138,25 +138,29 @@ npm run dev
 
 ตรวจว่า port ไหนถูกใช้อยู่: `netstat -ano | findstr LISTENING`
 
-### ถ้าปุ่ม Sign in with Google ไม่ขึ้น
+### ถ้ากดเข้าสู่ระบบด้วย Google แล้วขึ้น `redirect_uri_mismatch`
 
-console จะขึ้น `403` พร้อมข้อความ
-`[GSI_LOGGER]: The given origin is not allowed for the given client ID`
+ปุ่มสีส้มพาทั้งหน้าไปหน้า login ของ Google แล้ว Google ส่ง id_token กลับมาที่
+`<origin>/auth/google/callback` (OpenID Connect, `response_type=id_token`
+— โค้ดอยู่ที่ `frontend/src/lib/googleSignIn.ts`) ไม่ได้ใช้ปุ่มของ Google Identity Services
+เพราะ GIS เมินคลิกบนปุ่มที่ถูกซ่อนไว้ใต้ปุ่มของเรา (กัน clickjacking)
 
-แปลว่า origin ที่เปิดอยู่ยังไม่ได้ถูกลงทะเบียนกับ OAuth client — เป็นการตั้งค่าฝั่ง Google
-ไม่ใช่บั๊กในโค้ด แก้ที่ [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
-เลือก OAuth 2.0 Client ID ตัวที่อยู่ใน `frontend/.env` → **Authorized JavaScript origins** →
+Google จะยอมส่งกลับเฉพาะ URI ที่ลงทะเบียนไว้ ถ้ายังไม่ได้ลงทะเบียนจะขึ้นหน้า error `redirect_uri_mismatch`
+เป็นการตั้งค่าฝั่ง Google ไม่ใช่บั๊กในโค้ด แก้ที่ [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
+เลือก OAuth 2.0 Client ID ตัวที่อยู่ใน `frontend/.env` → **Authorized redirect URIs** →
 เพิ่มให้ครบทุก origin ที่ใช้จริง:
 
 ```
-http://localhost:5173
-http://127.0.0.1:5173
+http://localhost:5173/auth/google/callback
+http://127.0.0.1:5173/auth/google/callback
+https://paireval-web.onrender.com/auth/google/callback
+https://paireval-web-production.onrender.com/auth/google/callback
 ```
 
-`localhost` กับ `127.0.0.1` Google นับเป็นคนละ origin ต้องใส่ทั้งคู่ถ้าเปิดทั้งสองแบบ
-ใส่ origin เท่านั้น ห้ามมี path หรือ `/` ปิดท้าย และถ้าเปลี่ยน port ต้องเพิ่ม port นั้นด้วย
+`localhost` กับ `127.0.0.1` Google นับเป็นคนละ URI ต้องใส่ทั้งคู่ถ้าเปิดทั้งสองแบบ
+ต้องตรงทุกตัวอักษร ห้ามมี `/` ปิดท้าย และถ้าเปลี่ยน port ต้องเพิ่ม port นั้นด้วย
 
-กด Save แล้วรอสัก 5 นาทีให้ค่าใหม่มีผล จากนั้น hard refresh (`Ctrl+Shift+R`)
+กด Save แล้วรอสัก 5 นาทีให้ค่าใหม่มีผล จากนั้นลองกดเข้าสู่ระบบอีกครั้ง
 
 ## Test
 

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 
 import { GoogleSignInButton } from './GoogleSignInButton'
 import { NotificationBell } from './NotificationBell'
@@ -9,12 +9,10 @@ import { IconDoorExit, LogoMark } from './icons'
 import { Avatar, FOCUS } from './Ui'
 
 export function SiteNav() {
-  const navigate = useNavigate()
   const location = useLocation()
   // อ่านครั้งเดียวตอน render พอ — หน้านี้เป็น landing ที่ไม่ได้เปลี่ยนสถานะ login ระหว่างใช้งาน
-  // ยกเว้นตอนกดปุ่มใน CtaBand ซึ่งพาไป /classrooms ทันทีอยู่แล้ว
+  // ปุ่มเข้าสู่ระบบพาออกไปหน้า Google แล้วหน้า callback พาไป /classrooms เอง
   const signedIn = isSignedIn()
-  const handleSignedIn = useCallback(() => navigate('/classrooms'), [navigate])
   const [me, setMe] = useState<Me | null>(null)
 
   useEffect(() => {
@@ -51,7 +49,7 @@ export function SiteNav() {
             </div>
           ) : (
             <div id="signin" className="relative flex min-h-11 w-49 shrink-0 items-center [&_[role=alert]]:absolute [&_[role=alert]]:top-full [&_[role=alert]]:right-0 [&_[role=alert]]:w-72 [&_[role=alert]]:rounded-2xl [&_[role=alert]]:bg-white [&_[role=alert]]:p-4 [&_[role=alert]]:shadow-lg">
-              <GoogleSignInButton onSignedIn={handleSignedIn} width={196} shape="pill" text="signin" />
+              <GoogleSignInButton returnTo="/classrooms" width={196} />
             </div>
           )}
         </div>

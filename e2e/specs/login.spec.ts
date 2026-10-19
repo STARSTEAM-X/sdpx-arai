@@ -4,47 +4,37 @@ import { expect, issueToken, test } from '../fixtures'
 import { testUsers } from '../seed/test-data'
 
 const SESSION_KEY = 'paireval.session'
-const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client?hl=th'
-const CHOOSER_PATH = '/__test-google-account-chooser'
+const PENDING_KEY = 'paireval.google-signin'
+const GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth**'
 
-/** ตรวจสัญญาระหว่าง UI กับ GIS เท่านั้น ไม่ได้ยืนยันตัวตนกับ Google จริง
+/** ตัวแทนหน้า login ของ Google — จับคำขอที่ปุ่มพาออกไป แล้วส่งกลับไปที่ redirect_uri เหมือนผู้ใช้เลือกบัญชีเสร็จ
+ *  ตรวจสัญญาระหว่าง UI กับ Google เท่านั้น ไม่ได้ยืนยันตัวตนกับ Google จริง
  *  backend unit tests ตรวจ boundary ของ Google ID-token validator แยกต่างหาก */
-async function mockGoogleButton(page: Page) {
-  await page.context().route(`**${CHOOSER_PATH}`, (route) => route.fulfill({
-    contentType: 'text/html; charset=utf-8',
-    body: '<!doctype html><meta charset="utf-8"><title>Google chooser test double</title><h1>เลือกบัญชี Google</h1>',
-  }))
-  await page.route(GOOGLE_SCRIPT, (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: `
-      window.google = { accounts: { id: {
-        initialize(config) {
-          window.__testGoogleCredential = config.callback;
-        },
-        renderButton(parent, options) {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.textContent = 'เข้าสู่ระบบด้วย Google';
-          button.addEventListener('click', () => {
-            options.click_listener?.();
-            window.open('${CHOOSER_PATH}', '_blank', 'popup,width=500,height=600');
-          });
-          parent.appendChild(button);
-        }
-      } } };
-    `,
-  }))
+async function mockGoogleAuthorize(page: Page, reply: (request: URL) => Record<string, string>): Promise<URL[]> {
+  const requests: URL[] = []
+  await page.route(GOOGLE_AUTHORIZE, (route) => {
+    const request = new URL(route.request().url())
+    requests.push(request)
+    const target = `${request.searchParams.get('redirect_uri')}#${new URLSearchParams(reply(request))}`
+    return route.fulfill({
+      contentType: 'text/html; charset=utf-8',
+      body: `<!doctype html><title>Google test double</title><script>location.replace(${JSON.stringify(target)})</script>`,
+    })
+  })
+  return requests
 }
 
-async function returnGoogleCredential(page: Page) {
-  await page.evaluate(() => {
-    const callback = (window as unknown as {
-      __testGoogleCredential?: (response: { credential: string }) => void
-    }).__testGoogleCredential
-    if (!callback) throw new Error('GIS test double ยังไม่ได้ initialize')
-    callback({ credential: 'synthetic-google-id-token' })
-  })
+/** id_token ที่มี nonce ตรงกับคำขอ — ลายเซ็นไม่จริง ใช้ได้เฉพาะกับ /api/auth/session ที่ mock ไว้ */
+function syntheticIdToken(nonce: string): string {
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({ nonce, email: testUsers.instructor.email })}.synthetic-signature`
 }
+
+/** ผู้ใช้เลือกบัญชีที่หน้า Google สำเร็จ */
+const approve = (request: URL) => ({
+  id_token: syntheticIdToken(request.searchParams.get('nonce') ?? ''),
+  state: request.searchParams.get('state') ?? '',
+})
 
 async function mockApiResponse(page: Page, path: string, status: number, body: object) {
   await page.route(`**${path}`, (route) => {
@@ -209,8 +199,8 @@ test.describe('การเข้าสู่ระบบและการป�
     await expect(nextAccount).toHaveAttribute('aria-label', nextLabel)
   })
 
-  test('ปุ่มเข้าสู่ระบบเปิด Google ทันทีและเปลี่ยนหน้าหลังยืนยัน session สำเร็จ', async ({ page, api, instructorToken }, testInfo) => {
-    await mockGoogleButton(page)
+  test('ปุ่มสีส้มพาไป Google แล้วกลับมาเปลี่ยนหน้าหลังยืนยัน session สำเร็จ', async ({ page, api, instructorToken }, testInfo) => {
+    const authorize = await mockGoogleAuthorize(page, approve)
     const me = await api.get('/api/me', { headers: { authorization: `Bearer ${instructorToken}` } })
     expect(me.ok()).toBeTruthy()
     const profile = await me.json()
@@ -218,8 +208,8 @@ test.describe('การเข้าสู่ระบบและการป�
     await page.goto('/')
     const googleButton = page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })
     await expect(googleButton).toBeVisible()
-    // toBeVisible นับ opacity 0 ว่ามองเห็น แต่ GIS จริงจะเมินคลิกบนปุ่มที่ถูกซ่อน
-    // จึงตรวจเองว่าไม่มี ancestor ใดทำให้ปุ่มโปร่งใส
+    // ปุ่มเดิมซ่อนปุ่มของ Google ไว้ใต้ปุ่มสีส้มแบบ opacity 0 แล้ว Google เมินคลิก — toBeVisible นับ opacity 0
+    // ว่ามองเห็น จึงตรวจเองว่าไม่มี ancestor ใดทำให้ปุ่มโปร่งใส
     expect(await googleButton.evaluate((el) => {
       for (let node: Element | null = el; node; node = node.parentElement) {
         if (Number(getComputedStyle(node).opacity) < 1) return false
@@ -228,28 +218,33 @@ test.describe('การเข้าสู่ระบบและการป�
     })).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('login-home.png') })
 
-    const popupPromise = page.waitForEvent('popup')
-    await page.getByRole('navigation', { name: 'เมนูหลัก' })
-      .getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true }).click()
-    const popup = await popupPromise
-    await expect(popup.getByRole('heading', { name: 'เลือกบัญชี Google' })).toBeVisible()
-    await expect(page).toHaveURL(/\/$/)
-    expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBeNull()
-
     const exchange = page.waitForRequest((request) => (
       new URL(request.url()).pathname === '/api/auth/session' && request.method() === 'POST'
     ))
-    await returnGoogleCredential(page)
-    expect((await exchange).postDataJSON()).toEqual({ idToken: 'synthetic-google-id-token' })
+    await googleButton.click()
+    const sent = (await exchange).postDataJSON()
+
+    // คำขอที่ไป Google: ขอ id_token กลับมาที่ callback ของ origin นี้ พร้อม state/nonce ที่สุ่มไว้
+    expect(authorize).toHaveLength(1)
+    const [request] = authorize
+    expect(request.searchParams.get('response_type')).toBe('id_token')
+    expect(request.searchParams.get('client_id')).toBeTruthy()
+    expect(request.searchParams.get('redirect_uri')).toBe(`${new URL(page.url()).origin}/auth/google/callback`)
+    expect(request.searchParams.get('state')).toMatch(/^[\w-]{20,}$/)
+    expect(request.searchParams.get('nonce')).toMatch(/^[\w-]{20,}$/)
+    expect(sent).toEqual({ idToken: syntheticIdToken(request.searchParams.get('nonce') ?? '') })
+
     await expect(page).toHaveURL(/\/classrooms$/)
     // RequireSession และหน้าห้องเรียนต้องอ่าน profile จาก API จริงด้วย token ที่ได้
     await expect(page.getByRole('heading', { name: 'ห้องเรียนของฉัน', exact: true })).toBeVisible()
     await expect(page.getByTestId('current-user')).toHaveAttribute('aria-label', /^บัญชีของ /)
-    await popup.close()
+    // id_token ต้องไม่ค้างอยู่ใน URL และ state/nonce ใช้ได้ครั้งเดียว
+    expect(page.url()).not.toContain('id_token')
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), PENDING_KEY)).toBeNull()
   })
 
-  test('ยืนยัน Google session ไม่สำเร็จยังอยู่หน้าแรกและแจ้งข้อผิดพลาด', async ({ page }) => {
-    await mockGoogleButton(page)
+  test('ยืนยัน Google session ไม่สำเร็จกลับหน้าแรกและแจ้งข้อผิดพลาดที่ปุ่ม', async ({ page }) => {
+    await mockGoogleAuthorize(page, approve)
     await mockApiResponse(page, '/api/auth/session', 401, {
       error: {
         code: 'INVALID_GOOGLE_TOKEN',
@@ -261,11 +256,8 @@ test.describe('การเข้าสู่ระบบและการป�
     // Figma Home Guest มีปุ่มเข้าสู่ระบบเพียงจุดเดียวบนแถบเมนู
     await expect(page.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })).toHaveCount(1)
 
-    const popupPromise = page.waitForEvent('popup')
     await page.getByRole('navigation', { name: 'เมนูหลัก' })
       .getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true }).click()
-    const popup = await popupPromise
-    await returnGoogleCredential(page)
 
     await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('alert')).toHaveText('ไม่สามารถยืนยันบัญชี Google ได้')
     // แจ้งครั้งเดียวที่จุดที่กด ไม่ซ้ำที่อื่นบนหน้า
@@ -273,6 +265,37 @@ test.describe('การเข้าสู่ระบบและการป�
     await expect(page).toHaveURL(/\/$/)
     expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBeNull()
     await expect(page.getByTestId('classroom-list')).toHaveCount(0)
-    await popup.close()
+    // ข้อความมาจาก history state — reload แล้วต้องไม่ค้าง
+    await page.reload()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('state ที่ส่งกลับมาไม่ตรงกับที่เริ่มไว้ต้องไม่นำ token ไปแลก session (CSRF)', async ({ page }) => {
+    const exchanges: string[] = []
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/auth/session') exchanges.push(request.method())
+    })
+    // จำลองลิงก์ callback ที่ผู้โจมตีเตรียม token ของตัวเองไว้ — state ไม่ใช่ค่าที่แท็บนี้สุ่ม
+    await mockGoogleAuthorize(page, (request) => ({ ...approve(request), state: 'forged-state' }))
+    await page.goto('/')
+    await page.getByRole('navigation', { name: 'เมนูหลัก' })
+      .getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true }).click()
+
+    await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('alert'))
+      .toHaveText(/คำขอเข้าสู่ระบบไม่ตรงกับที่เริ่มจากหน้านี้/)
+    await expect(page).toHaveURL(/\/$/)
+    expect(exchanges).toEqual([])
+    expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBeNull()
+  })
+
+  test('กดยกเลิกที่หน้า Google กลับหน้าแรกพร้อมแจ้งว่ายกเลิก', async ({ page }) => {
+    await mockGoogleAuthorize(page, (request) => ({ error: 'access_denied', state: request.searchParams.get('state') ?? '' }))
+    await page.goto('/')
+    await page.getByRole('navigation', { name: 'เมนูหลัก' })
+      .getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true }).click()
+
+    await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('alert')).toHaveText('ยกเลิกการเข้าสู่ระบบด้วย Google แล้ว')
+    await expect(page).toHaveURL(/\/$/)
+    expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBeNull()
   })
 })
