@@ -50,13 +50,15 @@ AUTO_FINALIZE_AFTER = timedelta(days=14)
 AUTO_FINALIZE_WARN_BEFORE = timedelta(days=3)
 
 
-def auto_finalize_at(*, deadline: datetime, status: str, finalized_at: datetime | None) -> datetime | None:
-    """วันที่ระบบจะประกาศผลให้อัตโนมัติ — None เมื่อไม่เข้าเงื่อนไข
+def auto_finalize_at(
+    *, deadline: datetime, status: str, finalized_at: datetime | None, enabled: bool = True
+) -> datetime | None:
+    """วันที่ระบบจะประกาศผลให้อัตโนมัติ — None เมื่อไม่เข้าเงื่อนไขหรือปิดฟีเจอร์ไว้ (ADR-002)
 
     งานที่เคยประกาศแล้ว (finalized_at ไม่ว่าง) จะไม่ถูกประกาศอัตโนมัติอีก
     แม้อาจารย์ reopen กลับมาแก้ — การประกาศรอบหลังเป็นการตัดสินใจของอาจารย์เท่านั้น
     """
-    if status not in ("PUBLISHED", "OPEN", "CLOSED") or finalized_at is not None:
+    if not enabled or status not in ("PUBLISHED", "OPEN", "CLOSED") or finalized_at is not None:
         return None
     return deadline + AUTO_FINALIZE_AFTER
 

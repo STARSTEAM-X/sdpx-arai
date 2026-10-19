@@ -2,9 +2,9 @@
 from app.domain.quality import criterion_agreement, favoritism
 
 
-def _row(a, b, choice, evaluator='e1', side='GROUP', left=None):
+def _row(a, b, choice, evaluator='e1', side='GROUP', left=None, status='SUBMITTED'):
     return {'item_a_id': a, 'item_b_id': b, 'display_left_item_id': left or a, 'choice': choice,
-            'evaluator_user_id': evaluator, 'side': side}
+            'evaluator_user_id': evaluator, 'side': side, 'status': status}
 
 
 def test_full_agreement_is_one_and_not_flagged():
@@ -63,3 +63,26 @@ def test_favoritism_even_answers_are_not_flagged():
 
 def test_favoritism_without_individual_side_is_not_assessed():
     assert favoritism([_row('A', 'B', 2)]) == {'assessed': False, 'flagged': {}}
+
+
+def _gaps_rows(evaluators: int) -> list[dict]:
+    """ผู้ประเมินแต่ละคนเทียบเพื่อน T กับ P หนึ่งครั้ง → ได้ส่วนต่าง 2 ค่าต่อคน (T และ P)"""
+    return [_row('T', 'P', 2 if i == 0 else 5, f'e{i}', side='INDIVIDUAL') for i in range(evaluators)]
+
+
+def test_favoritism_with_too_few_gaps_is_not_assessed_rather_than_not_found():
+    # N-1: ส่วนต่าง 5 ค่า (หรือน้อยกว่า 10) ติดธง z > 2 ไม่ได้ทางคณิตศาสตร์ → ต้องเป็น "ยังตรวจไม่ได้"
+    for evaluators in (2, 3, 4):
+        assert favoritism(_gaps_rows(evaluators)) == {'assessed': False, 'flagged': {}}
+
+
+def test_favoritism_needs_at_least_ten_gaps():
+    assert favoritism(_gaps_rows(5))['assessed'] is True  # 5 คน × 2 ค่า = 10
+
+
+def test_unsubmitted_rows_are_ignored_everywhere():
+    # N-3: แถวที่ยังไม่ส่ง (choice เป็น None) ต้องไม่ทำให้ฟังก์ชันพัง และไม่ถูกนับ
+    draft = _row('A', 'B', None, 'e9', status='DRAFT')
+    rows = [_row(a, b, 2, f'e{k}') for a, b in (('A', 'B'), ('A', 'C'), ('B', 'C')) for k in range(3)]
+    assert criterion_agreement(rows + [draft]) == criterion_agreement(rows)
+    assert favoritism([dict(draft, side='INDIVIDUAL')]) == {'assessed': False, 'flagged': {}}

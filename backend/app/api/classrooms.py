@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.auth import CurrentUser
-from app.config import ALLOWED_EMAIL_DOMAINS
+from app.config import ALLOWED_EMAIL_DOMAINS, AUTO_FINALIZE_ENABLED
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess, capabilities_of
 from app.domain.assignment_service import Assignment
@@ -249,6 +249,7 @@ class AssignmentSummaryOut(BaseModel):
                 deadline=max(a.group_deadline_utc, a.individual_deadline_utc or a.group_deadline_utc),
                 status=str(a.status),
                 finalized_at=a.finalized_at,
+                enabled=AUTO_FINALIZE_ENABLED,
             ),
         )
 

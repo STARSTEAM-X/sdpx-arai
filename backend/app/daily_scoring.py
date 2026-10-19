@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.auto_finalize import run_due_auto_finalizes
+from app.config import AUTO_FINALIZE_ENABLED
 from app.db import transaction
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.scoring_orchestrator import run_recompute
@@ -85,7 +86,7 @@ async def daily_scoring_loop() -> None:
                 log.info("daily scoring recomputed %s assignment(s)", count)
         except Exception:
             log.exception("daily scoring failed")
-        if tick % AUTO_FINALIZE_EVERY_TICKS == 0:
+        if AUTO_FINALIZE_ENABLED and tick % AUTO_FINALIZE_EVERY_TICKS == 0:
             try:
                 finalized = await asyncio.to_thread(run_due_auto_finalizes)
                 if finalized:

@@ -151,8 +151,11 @@ def answer(aid, email, *, all_pairs=True, submit=True, style="normal"):
                 left_better = rank.get(p["leftLabel"], 9) < rank.get(p["rightLabel"], 9)
                 choice = (2 if left_better else 5) if (k + len(email)) % 5 else (3 if left_better else 4)
                 ms = 9000 + 1500 * k
+            elif side == "GROUP":
+                # ความคิดสร้างสรรค์: เพื่อนกลุ่มเดียวกันเลือกคนละฝั่งของคู่เดียวกัน → QS-07 "ผู้ประเมินเห็นไม่ตรงกัน"
+                choice = 5 if email.split("@")[0] in {"prae", "fah", "jay"} else 2
+                ms = 9000 + 1500 * k
             else:
-                # ความคิดสร้างสรรค์และรายบุคคล: คำตอบกระจาย → QS-07 "ผู้ประเมินเห็นไม่ตรงกัน"
                 choice = [2, 5, 3, 4, 1, 6, 2, 5][(k + len(email)) % 8]
                 ms = 9000 + 1500 * k
             call("PUT", f"/api/comparisons/{p['pairAssignmentId']}", t, {"choice": choice, "timeOnTaskMs": ms})
@@ -196,7 +199,7 @@ sql(f"UPDATE assignment SET group_deadline_utc = '{iso(now - timedelta(hours=2))
 
 open_one = assignment("งานกลุ่มครั้งที่ 1", now + timedelta(days=1, hours=10), rich=True)
 answer(open_one, "nok@kmitl.ac.th", all_pairs=False, submit=False)
-for email in ("ton@kmitl.ac.th", "prae@kmitl.ac.th", "mod@kmitl.ac.th", "fah@kmitl.ac.th", "jay@kmitl.ac.th"):
+for email in ("ton@kmitl.ac.th", "prae@kmitl.ac.th", "mod@kmitl.ac.th", "fah@kmitl.ac.th", "phu@kmitl.ac.th", "jay@kmitl.ac.th"):
     answer(open_one, email)
 answer(open_one, "bee@kmitl.ac.th", style="rushed")
 print("  recompute", call("POST", f"/api/assignments/{open_one}:recompute", ins)[0])

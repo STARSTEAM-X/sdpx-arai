@@ -8,8 +8,14 @@ def evaluator_key(assignment_id: str, user_id: str, secret: str) -> str:
     return hmac.new(secret.encode(), f'quality:{assignment_id}:{user_id}'.encode(), hashlib.sha256).hexdigest()
 
 
+def _submitted(rows: list[dict]) -> list[dict]:
+    """DR-01: เฉพาะคำตอบที่ส่งแล้วและมีตัวเลือกเท่านั้นที่เข้าการคำนวณ — ทุกฟังก์ชันในโมดูลนี้กรองเอง ไม่ฝากไว้กับผู้เรียก"""
+    return [row for row in rows if row.get('status') == 'SUBMITTED' and row.get('choice') is not None]
+
+
 def signals(rows: list[dict]) -> dict:
-    submitted = [row for row in rows if row['status'] == 'SUBMITTED' and row['choice'] is not None]
+    """สัญญาณรายผู้ประเมิน QS-02–05 — รับทุกแถวของผู้ประเมินคนเดียว (กรองที่ส่งแล้วเอง)"""
+    submitted = _submitted(rows)
     flags = []
     unassessed = ['QS-06', 'QS-07']
     if submitted:
@@ -74,9 +80,11 @@ def criterion_agreement(rows: list[dict]) -> dict:
     สำหรับข้อมูลเปรียบเทียบเป็นคู่: ต่อคู่ที่มี n คำตอบ (a เลือกชิ้นหนึ่ง n−a เลือกอีกชิ้น)
     นับคู่ผู้ประเมินที่เห็นตรงกัน C(a,2)+C(n−a,2) จากทั้งหมด C(n,2) แล้ว u = 2p − 1
     (1 = เห็นตรงกันทุกคู่ · ใกล้ 0 หรือติดลบ = แตกกันเหมือนสุ่ม)
+    รับทุกแถวของเกณฑ์เดียว กรองเฉพาะที่ส่งแล้วเอง (DR-01) · การตัดคำตอบที่ผู้สอนยกเว้นเป็นหน้าที่ของผู้เรียก
     """
     distribution = [0] * 6
     votes: dict[tuple[str, str], Counter] = defaultdict(Counter)
+    rows = _submitted(rows)
     for row in rows:
         distribution[row['choice'] - 1] += 1
         votes[tuple(sorted((str(row['item_a_id']), str(row['item_b_id']))))][_winner(row)] += 1
@@ -100,7 +108,10 @@ def criterion_agreement(rows: list[dict]) -> dict:
 
 
 FAVORITISM_Z = 2.0
-FAVORITISM_MIN_SAMPLES = 5
+# z คิดด้วย population SD จึงมีเพดาน max z = √(N−1): N=5 ได้สูงสุด 2.0 พอดี ติดธง z > 2 ไม่ได้เลย
+# ขั้นต่ำทางคณิตศาสตร์คือ 6 แต่ z-test บน 6 จุดยังอ่อนเกินไป จึงใช้ 10 (เพดาน z = 3)
+# ต่ำกว่านี้ต้องรายงานว่า "ยังตรวจไม่ได้" ไม่ใช่ "ไม่พบ" (PRD §8.2 ห้ามพังเงียบ)
+FAVORITISM_MIN_SAMPLES = 10
 
 
 def favoritism(rows: list[dict]) -> dict:
@@ -110,10 +121,11 @@ def favoritism(rows: list[dict]) -> dict:
     ส่วนต่างที่เป็น z > 2 (เทียบส่วนต่างของทุกคู่ e–t ในงาน) = ให้ t สูงผิดปกติ
     ใช้ได้เมื่อ t ถูกคนอื่นประเมินด้วย (กลุ่ม 3 คนแต่ละคนเทียบเพื่อนได้ครั้งเดียวต่อเกณฑ์)
     และมีส่วนต่างให้เทียบอย่างน้อย FAVORITISM_MIN_SAMPLES ค่า ไม่งั้นถือว่ายังตรวจไม่ได้
+    รับทุกแถวของงาน กรองเฉพาะที่ส่งแล้วเอง (DR-01) · การตัดคำตอบของผู้สอน/ที่ถูกยกเว้นเป็นหน้าที่ของผู้เรียก
     คืน {'assessed': bool, 'flagged': {evaluator_user_id: ส่วนต่างสูงสุดเป็น % }}
     """
     stats: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])  # (evaluator, target) → [wins, n]
-    for row in rows:
+    for row in _submitted(rows):
         if str(row['side']) != 'INDIVIDUAL':
             continue
         winner = _winner(row)

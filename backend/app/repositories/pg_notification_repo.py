@@ -1,6 +1,7 @@
 """In-app events projected from real assignment transitions; no scores in the payload."""
 from psycopg import Connection
 
+from app.config import AUTO_FINALIZE_ENABLED
 from app.domain.finalize_service import AUTO_FINALIZE_AFTER, AUTO_FINALIZE_WARN_BEFORE
 
 
@@ -91,6 +92,8 @@ class PgNotificationRepository:
             )
             events.extend(cur.fetchall())
             # Figma J24: เตือนเจ้าของห้องก่อนระบบประกาศผลให้อัตโนมัติ (เฉพาะงานที่ยังไม่เคยประกาศ)
+            if not AUTO_FINALIZE_ENABLED:
+                return sorted(events, key=lambda event: event["occurred_at"], reverse=True)[:100]
             cur.execute(
                 "SELECT a.id AS assignment_id, a.classroom_id, a.name AS assignment_name, "
                 "c.name AS classroom_name, 'auto_finalize' AS kind, c.timezone, "
