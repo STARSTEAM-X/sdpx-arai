@@ -155,7 +155,11 @@ function ScoresPanel({
                       <td className="px-4 py-3.5 text-right font-mono tabular">{evaluations}</td>
                       <td className="px-4 py-3.5 text-right font-mono tabular">{Number(s.component).toFixed(3)}</td>
                       <td className="px-5 py-3.5 text-right">
-                        {s.flags.includes('LOW_CONFIDENCE') ? (
+                        {s.overridden ? (
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-ok-50 px-3 py-1.5 font-display text-[13.5px] font-semibold text-ok-700">
+                            ✓ แก้โดยอาจารย์
+                          </span>
+                        ) : s.flags.includes('LOW_CONFIDENCE') ? (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-caution-soft px-3 py-1.5 font-display text-[13.5px] font-semibold text-warn">
                             ◷ มีคู่ข้อมูลน้อย
                           </span>
@@ -631,18 +635,8 @@ export function AssignmentScoringCard({
       {finalizing && (
         <FinalizeDialog
           name={finalizing.name}
-          summary={[
-            { label: 'สถานะตอนนี้', value: STATUS_LABEL[finalizing.status] },
-            ...(finalizing.studentCount != null
-              ? [
-                  {
-                    label: 'นักศึกษาที่ส่งแล้ว',
-                    value: `${finalizing.submittedStudents ?? 0} / ${finalizing.studentCount} คน`,
-                  },
-                ]
-              : []),
-            { label: 'หลังประกาศ', value: 'นักศึกษาเห็นคะแนนและยื่นอุทธรณ์ได้ 7 วัน' },
-          ]}
+          assignmentId={finalizing.id}
+          studentCount={finalizing.studentCount ?? null}
           onClose={() => setFinalizing(null)}
           onConfirm={(confirmLowConfidence) => finalize(finalizing.id, confirmLowConfidence)}
         />

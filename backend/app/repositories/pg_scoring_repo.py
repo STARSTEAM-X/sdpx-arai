@@ -415,6 +415,20 @@ class PgScoringRepository:
             )
             return list(cur.fetchall())
 
+    def overridden_items(self, assignment_id: str) -> set[tuple[str, str]]:
+        """(side, item_id) ที่มีการแก้คะแนนด้วยมือที่ยังมีผล — ป้าย "แก้โดยอาจารย์" (Figma J31)"""
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT side, item_id FROM score_override WHERE assignment_id = %s AND retired_at IS NULL",
+                        (assignment_id,))
+            return {(r["side"], str(r["item_id"])) for r in cur.fetchall()}
+
+    def formula_version(self, assignment_id: str, *, is_final: bool) -> str | None:
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT formula_version FROM computed_score WHERE assignment_id = %s AND is_final = %s "
+                        "ORDER BY computed_at DESC LIMIT 1", (assignment_id, is_final))
+            row = cur.fetchone()
+            return row["formula_version"] if row else None
+
     def criterion_breakdown(self, assignment_id: str, *, is_final: bool) -> list[dict]:
         """คะแนนรายเกณฑ์ของทุก item (Figma J25 แถวกางรายละเอียด) — q, จำนวนผลประเมิน และคะแนนส่วนนี้
         ใช้ชุดเดียวกับ `list_computed_scores` (final = snapshot ล่าสุด) และคิด override รายเกณฑ์แล้ว"""

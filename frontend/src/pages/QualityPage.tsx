@@ -243,11 +243,11 @@ export default function QualityPage() {
           <BackChevron to={`/classrooms/${classroomId}/assignments/${assignmentId}`} label="กลับหน้างานประเมิน" inline />
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-[32px] font-bold max-sm:text-2xl">
-              {view === 'coverage' ? 'Coverage รายคู่' : 'รายงานคุณภาพการประเมิน'}
+              {view === 'coverage' ? 'coverage รายคู่' : 'รายงานคุณภาพการประเมิน'}
             </h1>
             <p className="mt-2 text-[15px] text-ink-2">
               {view === 'coverage'
-                ? `${assignment?.name ?? ''} · จำนวนผลประเมินต่อคู่เทียบกับเป้าหมาย`
+                ? 'ดูว่าแต่ละคู่ได้รับการประเมินกี่ครั้ง และสั่งเพิ่มได้'
                 : 'สัญญาณที่ระบบตรวจพบ — เป็นข้อมูลให้ตัดสิน ไม่ใช่การลงโทษอัตโนมัติ'}
             </p>
           </div>
@@ -452,8 +452,9 @@ export default function QualityPage() {
                   <div className="border-b border-edge bg-surface-cream px-5 py-4">
                     <h2 className="font-display text-[16px] font-semibold">ทุกคู่ในงานนี้</h2>
                     <p className="mt-1 text-[13.5px] text-ink-2">
-                      คู่ที่ได้รับน้อยกว่าเป้าหมายจะถูกทำเครื่องหมายว่าข้อมูลไม่พอ · สั่งให้คนอื่นประเมินเพิ่ม
-                      หรืออาจารย์ประเมินเองก็ได้
+                      {data.pairCoverage.length
+                        ? `คู่ที่ได้รับน้อยกว่า ${data.pairCoverage[0].expectedCount} ครั้งจะถูกทำเครื่องหมายว่าข้อมูลไม่พอ · สั่งให้คนอื่นประเมินเพิ่ม หรืออาจารย์ประเมินเองก็ได้`
+                        : 'คู่ที่ได้รับน้อยกว่าเป้าหมายจะถูกทำเครื่องหมายว่าข้อมูลไม่พอ'}
                     </p>
                   </div>
                   <div className="relative overflow-x-auto" role="region" aria-label="ตารางความครอบคลุมรายคู่" tabIndex={0}>
@@ -463,11 +464,12 @@ export default function QualityPage() {
                       </caption>
                       <thead className="bg-table-head">
                         <tr>
-                          {['คู่ที่เทียบ', 'เกณฑ์', 'ส่งแล้ว / มอบหมาย', 'สถานะ', ''].map((label, index) => (
+                          {['คู่ที่เทียบ', 'เกณฑ์', 'ส่งแล้ว / มอบหมาย', 'ผลเฉลี่ย', 'สถานะ', ''].map((label, index) => (
                             <th
                               key={index}
                               scope="col"
-                              className={`px-5 py-3 font-normal ${index === 2 || index === 3 ? 'text-right' : ''}`}
+                              title={index === 3 ? 'คะแนนเฉลี่ยที่ฝั่งแรกของคู่ได้ (0–1) จากคำตอบที่นับเข้าคะแนน' : undefined}
+                              className={`px-5 py-3 font-normal ${index >= 2 && index <= 4 ? 'text-right' : ''}`}
                             >
                               {label}
                             </th>
@@ -485,9 +487,14 @@ export default function QualityPage() {
                               <td className="px-5 py-3.5">{pair.criterionName}</td>
                               <td className="px-5 py-3.5 text-right font-mono tabular">
                                 {pair.submittedCount} / {pair.assignedCount}
-                                <span className="block font-body text-[11.5px] text-muted">
-                                  เป้าหมาย {pair.expectedCount}
-                                </span>
+                                {pair.expectedCount !== data.pairCoverage[0].expectedCount && (
+                                  <span className="block font-body text-[11.5px] text-muted">
+                                    เป้าหมาย {pair.expectedCount}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-mono tabular">
+                                {pair.meanScoreA === null ? '—' : pair.meanScoreA.toFixed(2)}
                               </td>
                               <td className="px-5 py-3.5 text-right">
                                 {short ? (
@@ -530,6 +537,17 @@ export default function QualityPage() {
                   )}
                 </Card>
               )
+            )}
+            {view === 'coverage' && (
+              // Figma J26 — ปุ่มส่งออกใต้การ์ด
+              <div className="mt-5 flex justify-end">
+                <Link
+                  to={`/classrooms/${classroomId}/assignments/${assignmentId}/export`}
+                  className={btn('ghost', 'md', 'border-brand-600 px-6 text-accent-ink')}
+                >
+                  ส่งออก
+                </Link>
+              </div>
             )}
           </>
         )}

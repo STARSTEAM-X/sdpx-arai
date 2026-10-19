@@ -40,6 +40,12 @@ class SubmittedComparison:
     is_instructor: bool
 
 
+def item_point(choice: int, *, shown_left: bool) -> Decimal:
+    """คะแนนที่ item หนึ่งได้จากคำตอบหนึ่งข้อ ตามตาราง PRD §9.1 — ใช้ร่วมกับรายงาน coverage (Figma J26)"""
+    s_left, s_right = _POINTS_BY_CHOICE[choice]
+    return s_left if shown_left else s_right
+
+
 def _point_for_item(c: SubmittedComparison, item_id: str) -> Decimal:
     s_left, s_right = _POINTS_BY_CHOICE[c.choice]
     return s_left if c.display_left_item_id == item_id else s_right

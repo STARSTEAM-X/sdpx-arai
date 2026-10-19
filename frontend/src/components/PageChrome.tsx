@@ -29,13 +29,13 @@ export function OrangeHero({
   const Heading = headingLevel === 1 ? 'h1' : 'h2'
   return (
     <div
-      className={`relative isolate flex min-h-37 items-center rounded-3xl bg-[linear-gradient(110deg,#ff7d3d_0%,#ffb558_100%)] px-12.5 py-6 max-sm:min-h-28 max-sm:px-5 ${className}`}
+      className={`relative isolate flex min-h-37 items-center rounded-3xl bg-[linear-gradient(110deg,#ff7d3d_0%,#ffb558_100%)] px-12.5 py-6 max-sm:min-h-28 max-sm:px-5 max-sm:py-5 ${className}`}
     >
       <div className={`relative z-10 ${textWidth}`}>
-        <Heading className={`font-display leading-tight font-bold text-white max-sm:text-[22px] ${titleSize}`}>
+        <Heading className={`font-display leading-tight font-bold text-white max-sm:text-[20px] max-sm:leading-7 ${titleSize}`}>
           {title}
         </Heading>
-        {subtitle && <div className="mt-1.5 text-[15px] leading-6 text-white max-sm:text-[13px]">{subtitle}</div>}
+        {subtitle && <div className="mt-1.5 text-[15px] leading-6 text-white max-sm:text-[13px] max-sm:leading-[21px]">{subtitle}</div>}
       </div>
       {image && (
         <img

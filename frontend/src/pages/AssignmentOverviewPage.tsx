@@ -91,6 +91,11 @@ export default function AssignmentOverviewPage() {
   const deadlineText = item ? formatDeadline(item.groupDeadlineUtc, timezone) : ''
 
   const status = finalized ? 'ประกาศผลแล้ว' : closed ? 'ปิดรับแล้ว' : draft ? 'ฉบับร่าง' : 'เปิดให้ประเมิน'
+  // Figma J31b — ประกาศผลเมื่อ · ยื่นอุทธรณ์ได้ภายใน 7 วันหลังประกาศ (กฎเดียวกับ backend/app/api/appeals.py)
+  const finalizedText = item?.finalizedAt ? thaiDate(item.finalizedAt, { timeZone: timezone }) : null
+  const appealUntil = item?.finalizedAt
+    ? thaiDate(new Date(Date.parse(item.finalizedAt) + 7 * 86400000).toISOString(), { timeZone: timezone, year: false, time: true })
+    : null
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
@@ -121,7 +126,13 @@ export default function AssignmentOverviewPage() {
                 tone="warn"
                 icon="💬"
                 title={`มีคำร้องอุทธรณ์รอตอบ ${openAppeals} คำร้อง`}
-                body={`ประกาศผลแล้ว · ตอบแล้ว ${appeals.length - openAppeals} จาก ${appeals.length}`}
+                body={[
+                  finalizedText ? `ประกาศผลแล้ว ${finalizedText}` : 'ประกาศผลแล้ว',
+                  appealUntil ? `นักศึกษายื่นได้ถึง ${appealUntil}` : null,
+                  `ตอบแล้ว ${appeals.length - openAppeals} จาก ${appeals.length}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
                 action={
                   <Link to={`${base}/assignments/${assignmentId}#appeals`} className={btn('ghost', 'sm', 'px-6')}>
                     ดูคำร้อง
@@ -180,8 +191,10 @@ export default function AssignmentOverviewPage() {
                   <p className="mt-2 text-[15px] text-ink-2">
                     {[
                       room?.name,
-                      status,
-                      closed
+                      finalized && finalizedText ? `ประกาศผลแล้ว ${finalizedText}` : status,
+                      finalized
+                        ? null
+                        : closed
                         ? `กำหนดส่ง ${deadlineText}`
                         : item.publishedAt
                           ? `${finalized ? 'ประกาศผลแล้ว' : 'เผยแพร่'} ${thaiDate(item.publishedAt)}`
@@ -298,6 +311,7 @@ export default function AssignmentOverviewPage() {
                   classroomId={classroomId}
                   assignmentId={assignmentId}
                   readOnly={room?.status === 'ARCHIVED'}
+                  until={appealUntil}
                 />
               </div>
             )}

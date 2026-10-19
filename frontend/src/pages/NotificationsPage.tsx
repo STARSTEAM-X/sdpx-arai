@@ -26,12 +26,24 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context="การแจ้งเตือน" />
-      <main className="mx-auto max-w-200 px-7 pt-8 pb-16 max-sm:px-4">
-        <div className="relative mb-5 flex items-center gap-3">
-          <BackChevron to="/classrooms" label="กลับห้องเรียนของฉัน" />
-          <div>
-            <h1 className="font-display text-[26px] font-bold">การแจ้งเตือน</h1>
-            <p className="mt-1 text-sm text-ink-2">ยังไม่ได้อ่าน {items.filter((item) => !item.read).length} รายการ</p>
+      <main className="mx-auto max-w-200 px-7 pt-8 pb-16 max-sm:px-4 max-sm:pt-5">
+        <div className="relative mb-5 flex items-center gap-3 max-sm:items-start max-sm:gap-1.5">
+          <div className="max-sm:hidden">
+            <BackChevron to="/classrooms" label="กลับห้องเรียนของฉัน" />
+          </div>
+          {/* Figma M02 — มือถือใช้ลูกศรเล็กหน้าหัวข้อ แบบเดียวกับ M03 */}
+          <Link
+            to="/classrooms"
+            aria-label="กลับห้องเรียนของฉัน"
+            className={`grid min-h-11 w-7 shrink-0 place-items-center rounded text-brand-600 sm:hidden ${FOCUS}`}
+          >
+            <svg viewBox="0 0 24 28" className="h-7 w-6" aria-hidden="true">
+              <path d="M17 3 6 14l11 11" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <div className="max-sm:pt-1.5">
+            <h1 className="font-display text-[26px] font-bold max-sm:text-[20px]">การแจ้งเตือน</h1>
+            <p className="mt-1 text-sm text-ink-2 max-sm:mt-0 max-sm:text-[13px]">ยังไม่ได้อ่าน {items.filter((item) => !item.read).length} รายการ</p>
           </div>
         </div>
         {error && (

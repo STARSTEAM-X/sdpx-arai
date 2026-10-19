@@ -2269,6 +2269,10 @@ components:
         submittedAt:
           type: [string, 'null']
           format: date-time
+        finalizedAt:
+          type: [string, 'null']
+          format: date-time
+          description: เวลาประกาศผล (Figma J31b) — นักศึกษายื่นอุทธรณ์ได้ภายใน 7 วันหลังจากนี้
 
     Criterion:
       type: object

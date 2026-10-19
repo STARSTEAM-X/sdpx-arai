@@ -7,6 +7,7 @@ from psycopg import Connection
 from app.domain.assignment_service import Assignment
 from app.domain.extra_pairs import eligible_evaluators
 from app.domain.pairing import Side
+from app.domain.scoring_service import item_point
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 
 
@@ -37,6 +38,10 @@ def coverage_rows(conn: Connection, assignment: Assignment, rows: list[dict], la
             # J28: แยกผลที่อาจารย์ประเมินเอง และคู่ที่ส่งให้คนอื่นแล้วยังรอคำตอบ ("รอผล")
             instructor = sum(row['status'] == 'SUBMITTED' and row.get('by_instructor', False) for row in assigned)
             pending = sum(row['status'] != 'SUBMITTED' and not row['excluded'] for row in assigned)
+            # J26 "ผลเฉลี่ย" — คะแนนเฉลี่ยที่ฝั่งแรกของคู่ได้ (0–1) จากคำตอบที่นับเข้าคะแนน
+            points = [item_point(row['choice'], shown_left=str(row['display_left_item_id']) == a) for row in assigned
+                      if row['status'] == 'SUBMITTED' and not row['excluded'] and row['choice'] is not None]
+            mean = float(sum(points) / len(points)) if points else None
             expected = assignment.target_coverage if criterion.side is Side.GROUP else max(1, len(eligible_evaluators(groups, criterion.side, a, b)))
             already_assigned = {str(row['evaluator_user_id']) for row in assigned}
             eligible = eligible_evaluators(groups, criterion.side, a, b) - already_assigned
@@ -44,6 +49,6 @@ def coverage_rows(conn: Connection, assignment: Assignment, rows: list[dict], la
                 'itemAId': a, 'itemBId': b, 'itemALabel': labels.get(a, a), 'itemBLabel': labels.get(b, b),
                 'artifactAUrl': artifacts.get(a), 'artifactBUrl': artifacts.get(b),
                 'assignedCount': len(assigned), 'submittedCount': submitted, 'expectedCount': expected,
-                'instructorCount': instructor, 'pendingCount': pending,
+                'instructorCount': instructor, 'pendingCount': pending, 'meanScoreA': mean,
                 'eligibleCount': sum(workloads[(criterion.id, user_id)] < assignment.max_workload for user_id in eligible)})
     return result

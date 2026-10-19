@@ -375,6 +375,7 @@ export type AssignmentSummary = {
   submittedCount?: number
   submittedAt?: string | null
   publishedAt?: string | null
+  finalizedAt?: string | null
   submittedStudents?: number | null
   studentCount?: number | null
 }
@@ -579,11 +580,14 @@ export type ComputedScoreItem = {
   flags: string[]
   /** Figma J25 — คะแนนรายเกณฑ์ของ item นี้ */
   criteria?: CriterionScore[]
+  /** มีการแก้คะแนนด้วยมือที่ยังมีผล (Figma J31 ป้าย "แก้โดยอาจารย์") */
+  overridden?: boolean
 }
 
 export type Scores = {
   isFinal: boolean
   items: ComputedScoreItem[]
+  formulaVersion?: string | null
 }
 
 /** คะแนนที่คำนวณล่าสุดของทุก item ในงาน — เฉพาะอาจารย์เรียกได้ (US-13)
@@ -729,7 +733,7 @@ export const resolveAppeal = (classroomId: string, appealId: string, status: 'RE
 export type AuditRecord = { id: string; actorEmail: string; actorName?: string | null; action: string; resourceType: string; resourceId: string | null; beforeState: Record<string, unknown> | null; afterState: Record<string, unknown> | null; reason: string | null; occurredAt: string }
 export const getAudit = (classroomId: string) => apiFetch<{ items: AuditRecord[] }>(`/api/classrooms/${encodeURIComponent(classroomId)}/audit`)
 export type Reviewer = { key: string; label: string; excluded: boolean; reviewedAt: string | null; assignedCount: number; submittedCount: number; flags: string[]; unassessed: string[]; meanTimeMs: number | null; timedCount: number; checkedTriples: number; cycles: number; answers: { criterionName: string; side: CriterionSide; leftLabel: string; rightLabel: string; choice: number; timeOnTaskMs: number | null; status: string }[] }
-export type CoveragePair = { criterionId: string; criterionName: string; side: CriterionSide; itemAId: string; itemBId: string; itemALabel: string; itemBLabel: string; artifactAUrl: string | null; artifactBUrl: string | null; assignedCount: number; submittedCount: number; expectedCount: number; eligibleCount: number; instructorCount: number; pendingCount: number }
+export type CoveragePair = { criterionId: string; criterionName: string; side: CriterionSide; itemAId: string; itemBId: string; itemALabel: string; itemBLabel: string; artifactAUrl: string | null; artifactBUrl: string | null; assignedCount: number; submittedCount: number; expectedCount: number; eligibleCount: number; instructorCount: number; pendingCount: number; meanScoreA: number | null }
 export type PairSelection = { criterionId: string; itemAId: string; itemBId: string; reason: string }
 export const assignAdditional = (assignmentId: string, input: PairSelection & { count: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/additional-evaluations`, { method: 'POST', body: JSON.stringify(input) })
 export const submitInstructorComparison = (assignmentId: string, input: PairSelection & { choice: number; timeOnTaskMs?: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/instructor-comparisons`, { method: 'POST', body: JSON.stringify(input) })

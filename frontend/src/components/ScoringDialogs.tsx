@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useModal } from './useModal'
 
-import { ApiError, type ComputedScoreItem, type Scores, getAssignment } from '../lib/api'
+import { ApiError, type ComputedScoreItem, type QualityReport, type Scores, getAssignment, getQuality, getScores } from '../lib/api'
 import { CTRL, Spinner, btn } from './Ui'
 
 
@@ -273,12 +273,14 @@ export function OverrideScoreDialog({
 /** Figma J31 · ยืนยันประกาศผลคะแนน — ถ้ามีคู่ข้อมูลน้อย server จะบอก แล้วให้ยืนยันซ้ำในกล่องเดิม */
 export function FinalizeDialog({
   name,
-  summary,
+  assignmentId,
+  studentCount,
   onClose,
   onConfirm,
 }: {
   name: string
-  summary: { label: string; value: string }[]
+  assignmentId: string
+  studentCount: number | null
   onClose: () => void
   /** คืนข้อความเตือนถ้า server ขอให้ยืนยันเรื่องข้อมูลน้อย (ยังไม่ประกาศ) */
   onConfirm: (confirmLowConfidence: boolean) => Promise<string | null>
@@ -286,13 +288,58 @@ export function FinalizeDialog({
   const [warning, setWarning] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scores, setScores] = useState<Scores | null>(null)
+  const [quality, setQuality] = useState<QualityReport | null>(null)
+  useEffect(() => {
+    let active = true
+    void Promise.all([getScores(assignmentId), getQuality(assignmentId)])
+      .then(([nextScores, nextQuality]) => {
+        if (!active) return
+        setScores(nextScores)
+        setQuality(nextQuality)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [assignmentId])
+  // Figma J31 — สรุปสิ่งที่ควรรู้ก่อนประกาศ จากข้อมูลจริงของรายงานคะแนนและรายงานคุณภาพ
+  const shortPairs = quality?.pairCoverage.filter((p) => p.submittedCount < p.expectedCount) ?? []
+  const unreviewed = quality?.evaluators.filter((e) => e.flags.length && !e.excluded && !e.reviewedAt) ?? []
+  const notes = [
+    ...(quality?.pairCoverage
+      .filter((p) => p.instructorCount > 0)
+      .map(
+        (p) =>
+          `คู่ ${p.itemALabel} – ${p.itemBLabel} ได้ผลประเมิน ${p.submittedCount - p.instructorCount} ครั้ง · อาจารย์ประเมินเองแล้วจึงครบ ${p.submittedCount}`,
+      ) ?? []),
+    ...(scores?.items
+      .filter((item) => item.overridden)
+      .map((item) => `คะแนน ${item.itemLabel} แก้ด้วยมือแล้ว (${Number(item.component).toFixed(3)})`) ?? []),
+    ...(unreviewed.length
+      ? [
+          `ยังมีสัญญาณคุณภาพที่ไม่ได้ตรวจ ${unreviewed.length} รายการ (${unreviewed.map((e) => e.label).join(', ')}) · ประกาศได้ แต่ควรตรวจก่อน`,
+        ]
+      : []),
+  ]
+  const summary = [
+    { label: 'กลุ่มที่คำนวณแล้ว', value: scores ? `${scores.items.filter((i) => i.side === 'GROUP').length} กลุ่ม` : '—' },
+    { label: 'นักศึกษา', value: studentCount === null ? '—' : `${studentCount} คน` },
+    { label: 'คู่ที่ข้อมูลยังไม่พอ', value: quality ? `${shortPairs.length} คู่` : '—' },
+    { label: 'เวอร์ชันสูตรคำนวณ', value: scores?.formulaVersion ?? '—' },
+  ]
   return (
     <Shell
       id="finalize-title"
       testId="finalize-dialog"
       tinted
       title="ประกาศผลคะแนน"
-      subtitle={<>{name} · หลังประกาศผล คะแนนจะถูกล็อก · ถ้าต้องแก้ ต้องเปิดผลใหม่ (ระบุเหตุผล) แล้วประกาศอีกครั้ง</>}
+      subtitle={
+        <>
+          {name} · หลังประกาศผล คะแนนจะถูกล็อก · ถ้าต้องแก้ ต้องเปิดผลใหม่ (ระบุเหตุผล) แล้วประกาศอีกครั้ง ·
+          ผลประกาศเดิมเก็บไว้ตรวจย้อนหลัง
+        </>
+      }
       onClose={onClose}
       footer={(dismiss) => (
         <>
@@ -319,6 +366,16 @@ export function FinalizeDialog({
         </>
       )}
     >
+      {notes.length > 0 && (
+        <div className="mt-3 flex gap-2 rounded-2xl bg-info-soft px-4 py-3 text-[13px] leading-5.5 text-info-ink">
+          <span aria-hidden="true">⚠</span>
+          <ul>
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {warning && (
         <p
           role="alert"

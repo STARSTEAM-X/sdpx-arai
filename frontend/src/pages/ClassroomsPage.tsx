@@ -105,7 +105,7 @@ export default function ClassroomsPage() {
 
   const searchBox = (
     <div className="relative">
-      <IconSearch className="pointer-events-none absolute top-1/2 left-6 size-8 -translate-y-1/2 text-brand-600" />
+      <IconSearch className="pointer-events-none absolute top-1/2 left-6 size-8 -translate-y-1/2 text-brand-600 max-sm:left-4 max-sm:size-4.5" />
       <input
         type="search"
         value={search}
@@ -118,7 +118,7 @@ export default function ClassroomsPage() {
               : 'ค้นหาชื่อห้อง รหัสวิชา หรือชื่ออาจารย์'
         }
         aria-label="ค้นหาห้องเรียน"
-        className={`${CTRL.replace('rounded-xl', 'rounded-full')} min-h-15 pl-20 text-[15px]`}
+        className={`${CTRL.replace('rounded-xl', 'rounded-full')} min-h-15 pl-20 text-[15px] max-sm:min-h-12 max-sm:pl-10.5 max-sm:text-[14px]`}
       />
     </div>
   )
@@ -166,7 +166,7 @@ export default function ClassroomsPage() {
 
         {/* --- นักศึกษา (ST10) และผู้ที่ยังไม่มีห้อง (ST11 / J02) --- */}
         {(studentOnly || noRooms) && (
-          <section aria-labelledby="h-classrooms" className="mt-6">
+          <section aria-labelledby="h-classrooms" className="mt-6 max-sm:mt-3.5">
             <h2 id="h-classrooms" className="sr-only">
               ห้องเรียน
             </h2>
@@ -211,7 +211,7 @@ export default function ClassroomsPage() {
                 ไม่พบห้องเรียนที่ค้นหา
               </p>
             ) : (
-              <ul data-testid="classroom-list" className="mt-6 flex flex-col gap-6">
+              <ul data-testid="classroom-list" className="mt-6 flex flex-col gap-6 max-sm:mt-3.5 max-sm:gap-3.5">
                 {visibleItems.map((c) => (
                   <li key={c.id}>
                     <div className="flex min-h-22.5 flex-wrap items-center gap-x-4 gap-y-3 rounded-3xl border border-edge bg-white px-5 py-4">

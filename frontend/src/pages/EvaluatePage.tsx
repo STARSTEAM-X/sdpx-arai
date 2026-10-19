@@ -201,11 +201,11 @@ export default function EvaluatePage() {
       )}
 
       <main className="mx-auto max-w-290 pt-5 pb-16 max-xl:px-7 max-sm:px-4">
-        <div className="relative flex min-h-[132px] items-center gap-3 max-sm:min-h-0 max-sm:py-4">
+        <div className="relative flex min-h-[132px] items-center gap-3 max-sm:min-h-0 max-sm:items-start max-sm:gap-1.5 max-sm:py-4">
           <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" />
           <div className="relative z-10 min-w-0 flex-1">
-            <h1 className="font-display text-[32px] leading-[1.5] font-bold max-sm:text-2xl">งานที่ต้องประเมิน</h1>
-            <p className="mt-1 font-display text-[15px] font-semibold max-sm:mt-1 max-sm:font-body max-sm:font-normal max-sm:text-ink-2">
+            <h1 className="font-display text-[32px] leading-[1.5] font-bold max-sm:pt-1.5 max-sm:text-[20px] max-sm:leading-7">งานที่ต้องประเมิน</h1>
+            <p className="mt-1 font-display text-[15px] font-semibold max-sm:mt-0 max-sm:text-[13px] max-sm:font-body max-sm:font-normal max-sm:text-ink-2">
               {[current?.assignmentName, classroomName].filter(Boolean).join(' · ')}
             </p>
           </div>

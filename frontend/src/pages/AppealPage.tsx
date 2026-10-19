@@ -71,10 +71,10 @@ export default function AppealPage() {
       <AppNav context="ยื่นอุทธรณ์คะแนน" contextTo={back} classroomId={classroomId} />
       <main className="mx-auto max-w-290 pb-16 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
         <div className="relative flex min-h-52 items-center justify-between gap-6 max-sm:min-h-0 max-sm:py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 max-sm:gap-0">
             <BackChevron to={back} label="กลับหน้าคะแนน" />
             <div>
-              <h1 className="font-display text-[30px] font-bold max-sm:text-2xl">ยื่นอุทธรณ์คะแนน</h1>
+              <h1 className="font-display text-[30px] font-bold max-sm:text-[22px]">ยื่นอุทธรณ์คะแนน</h1>
               <p className="mt-2 text-[15px] text-ink-2 max-sm:hidden">
                 {[
                   score?.assignmentName,
@@ -85,9 +85,9 @@ export default function AppealPage() {
               </p>
               {!appeal && (
                 <p className="mt-1.5 text-[15px] text-err max-sm:text-[13px]">
-                  ยื่นอุทธรณ์ได้ภายใน 7 วันหลังประกาศผล
+                  ยื่นได้ภายใน 7 วันหลังประกาศผล
                   {eligible &&
-                    ` — เหลือเวลาอีก ${Math.floor(remaining / 86400000)} วัน ${Math.floor(remaining / 3600000) % 24} ชั่วโมง`}
+                    ` — เหลืออีก ${Math.floor(remaining / 86400000)} วัน ${Math.floor(remaining / 3600000) % 24} ชั่วโมง`}
                 </p>
               )}
             </div>

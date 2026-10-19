@@ -16,10 +16,13 @@ export function AppealsPanel({
   classroomId,
   assignmentId,
   readOnly,
+  until,
 }: {
   classroomId: string
   assignmentId?: string
   readOnly: boolean
+  /** Figma J35 — วันเวลาสุดท้ายที่ยื่นได้ (แสดงในวงเล็บ) */
+  until?: string | null
 }) {
   const [all, setItems] = useState<Appeal[]>([])
   const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'DONE'>('ALL')
@@ -83,7 +86,7 @@ export function AppealsPanel({
           <h2 id="h-appeals" className="font-display text-[16px] font-semibold">
             คำร้องอุทธรณ์
           </h2>
-          <p className="mt-1 text-[13.5px] text-ink-2">ยื่นได้ภายใน 7 วันหลังประกาศผล · การตอบทุกครั้งบันทึก audit</p>
+          <p className="mt-1 text-[13.5px] text-ink-2">ยื่นได้ภายใน 7 วันหลังประกาศผล{until ? ` (ถึง ${until})` : ''} · การตอบทุกครั้งบันทึก audit</p>
         </div>
         <div role="group" aria-label="กรองคำร้อง" className="flex flex-wrap gap-2">
           {chip('ALL', 'ทั้งหมด', items.length, '')}

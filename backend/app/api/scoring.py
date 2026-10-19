@@ -401,11 +401,13 @@ class ComputedScoreOut(BaseModel):
     flags: list[str]
     # Figma J25 — คอลัมน์รายเกณฑ์และแถวกางรายละเอียด
     criteria: list[CriterionScoreOut] = []
+    overridden: bool = False
 
 
 class ScoresOut(BaseModel):
     isFinal: bool
     items: list[ComputedScoreOut]
+    formulaVersion: str | None = None
 
 
 @router.get("/{assignment_id}/scores", response_model=ScoresOut)
@@ -426,6 +428,8 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
         repo = PgScoringRepository(conn)
         rows = repo.list_computed_scores(assignment_id, is_final=is_final)
         breakdown = repo.criterion_breakdown(assignment_id, is_final=is_final)
+        overridden = repo.overridden_items(assignment_id)
+        formula = repo.formula_version(assignment_id, is_final=is_final)
 
     max_by_side = {Side.GROUP: assignment.group_max_score, Side.INDIVIDUAL: assignment.individual_max_score}
     criteria: dict[tuple[str, str], list[CriterionScoreOut]] = {}
@@ -439,11 +443,13 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
         ))
     return ScoresOut(
         isFinal=is_final,
+        formulaVersion=formula,
         items=[
             ComputedScoreOut(
                 itemId=r.item_id, side=r.side, itemLabel=r.item_label,
                 component=r.component, flags=list(r.flags),
                 criteria=criteria.get((r.item_id, str(r.side)), []),
+                overridden=(str(r.side), r.item_id) in overridden,
             )
             for r in rows
         ],

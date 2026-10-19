@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import noAssignments from '../assets/figma/no-assignments.png'
 import { Card, Pill, btn } from './Ui'
@@ -58,16 +58,70 @@ function ScoreStep({
 
 /** "22 ต.ค. 2569" ตามรูปแบบใน Figma ST30 */
 
+/** Figma ST32 · คะแนนรายบุคคลยังแสดงไม่ได้ (ข้อมูลไม่พอ) */
+function IndividualHidden({
+  score,
+  groupName,
+  onShowGroup,
+}: {
+  score: MyScore
+  groupName: string | null
+  onShowGroup?: () => void
+}) {
+  return (
+    <div
+      data-testid="individual-hidden"
+      className="rounded-3xl border-2 border-dashed border-[#e88a4f] px-6 py-9 text-center"
+    >
+      <img src={noAssignments} alt="" width={220} height={150} className="mx-auto" />
+      <p className="mt-4 font-display text-[19px] font-semibold">คะแนนรายบุคคลยังแสดงไม่ได้</p>
+      <p className="mt-3 text-[15px] text-ink-2">
+        {groupName ? `กลุ่ม ${groupName} ` : ''}มีผู้ประเมินรายบุคคล {score.individualEvaluatorCount ?? 0} คน ·
+        ระบบแสดงคะแนนรายบุคคลเมื่อมีผู้ประเมินอย่างน้อย {score.minComparisons ?? 3} คน
+        เพื่อไม่ให้เดาได้ว่าใครให้คะแนน · คะแนนกลุ่มดูได้ตามปกติ
+      </p>
+      {onShowGroup && (
+        <button
+          type="button"
+          onClick={() => {
+            onShowGroup()
+            requestAnimationFrame(() => document.getElementById('group-score')?.scrollIntoView({ block: 'start' }))
+          }}
+          className={btn('ghost', 'md', 'mt-4 border-brand-600 px-6 text-accent-ink')}
+        >
+          ดูคะแนนกลุ่ม
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** การ์ดคะแนนรวม + คะแนนกลุ่ม + รายบุคคล + การมีส่วนร่วม — ใช้ร่วมกันใน ST30 และ ST33 */
-export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName: string | null }) {
+export function ScoreBreakdown({
+  score,
+  groupName,
+  expanded,
+  onExpand,
+}: {
+  score: MyScore
+  groupName: string | null
+  /** ควบคุมจากหน้าแม่ได้ (ST32 ซ่อนภาพหัวและปุ่มอุทธรณ์จนกว่าจะกดดูคะแนนกลุ่ม) */
+  expanded?: boolean
+  onExpand?: () => void
+}) {
   const participationPercent = score.participationRatio
     ? Math.min(100, Math.max(0, Number(score.participationRatio) * 100))
     : 0
+  // Figma ST32 — ข้อมูลรายบุคคลไม่พอ: แสดงเฉพาะคำอธิบายก่อน กด "ดูคะแนนกลุ่ม" จึงเห็นรายละเอียดทั้งหมด
+  const [ownExpanded, setOwnExpanded] = useState(false)
+  const showGroup = expanded ?? ownExpanded
+  if (score.individualHidden && !showGroup)
+    return <IndividualHidden score={score} groupName={groupName} onShowGroup={onExpand ?? (() => setOwnExpanded(true))} />
   return (
     <>
-      <Card radius="md" className="px-6 py-[31px] text-center max-sm:px-4 max-sm:py-5">
-        <p className="font-display text-[22px] font-semibold max-sm:text-[20px]">คะแนนรวม</p>
-        <div className="mt-5 flex flex-wrap items-baseline justify-center gap-5 font-mono text-5xl leading-[62px] tabular max-sm:mt-3 max-sm:gap-3 max-sm:leading-none text-brand-600 max-sm:text-[44px]">
+      <Card radius="md" className="px-6 py-[31px] text-center max-sm:px-4 max-sm:pt-4 max-sm:pb-2">
+        <p className="font-display text-[22px] font-semibold max-sm:text-[16px] max-sm:leading-6">คะแนนรวม</p>
+        <div className="mt-5 flex flex-wrap items-baseline justify-center gap-5 font-mono text-5xl leading-[62px] tabular max-sm:mt-3 max-sm:gap-2 max-sm:leading-11 text-brand-600 max-sm:text-[44px]">
           {score.finalScore !== null ? (
             <span data-testid="final-score">{scoreNumber(score.finalScore, 2)}</span>
           ) : (
@@ -81,7 +135,7 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
             </span>
           )}
         </div>
-        <p className="mt-5 text-[19px] leading-[30px] text-ink max-sm:text-[17px]">
+        <p className="mt-5 text-[19px] leading-[30px] text-ink max-sm:mt-3 max-sm:text-[14px] max-sm:leading-[18px]">
           {score.finalScore === null
             ? 'จะแสดงเมื่อองค์ประกอบคะแนนครบเกณฑ์ความเป็นส่วนตัว'
             : score.provisional
@@ -112,22 +166,7 @@ export function ScoreBreakdown({ score, groupName }: { score: MyScore; groupName
           </div>
 
           {score.individualHidden ? (
-            // Figma ST32 · คะแนนรายบุคคลยังแสดงไม่ได้ (ข้อมูลไม่พอ)
-            <div
-              data-testid="individual-hidden"
-              className="rounded-3xl border-2 border-dashed border-[#e88a4f] px-6 py-9 text-center"
-            >
-              <img src={noAssignments} alt="" width={220} height={150} className="mx-auto" />
-              <p className="mt-4 font-display text-[19px] font-semibold">คะแนนรายบุคคลยังแสดงไม่ได้</p>
-              <p className="mt-3 text-[15px] text-ink-2">
-                {groupName ? `กลุ่ม ${groupName} ` : ''}มีผู้ประเมินรายบุคคล {score.individualEvaluatorCount ?? 0} คน ·
-                ระบบแสดงคะแนนรายบุคคลเมื่อมีผู้ประเมินอย่างน้อย {score.minComparisons ?? 3} คน
-                เพื่อไม่ให้เดาได้ว่าใครให้คะแนน · คะแนนกลุ่มดูได้ตามปกติ
-              </p>
-              <a href="#group-score" className={btn('ghost', 'md', 'mt-4 border-brand-600 px-6 text-accent-ink')}>
-                ดูคะแนนกลุ่ม
-              </a>
-            </div>
+            <IndividualHidden score={score} groupName={groupName} />
           ) : (
             <ScoreStep
               label="คะแนนรายบุคคล"

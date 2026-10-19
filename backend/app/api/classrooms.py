@@ -227,6 +227,8 @@ class AssignmentSummaryOut(BaseModel):
     submittedAt: datetime | None = None
     # เฉพาะผู้สอน (Figma J16): เผยแพร่เมื่อ · ส่งแล้ว x / y คน
     publishedAt: datetime | None = None
+    # Figma J31b: วันประกาศผล และนักศึกษายื่นอุทธรณ์ได้ถึง +7 วัน
+    finalizedAt: datetime | None = None
     submittedStudents: int | None = None
     studentCount: int | None = None
 
@@ -239,6 +241,7 @@ class AssignmentSummaryOut(BaseModel):
             status=str(a.status),
             groupDeadlineUtc=a.group_deadline_utc,
             individualDeadlineUtc=a.individual_deadline_utc,
+            finalizedAt=a.finalized_at,
         )
 
 
