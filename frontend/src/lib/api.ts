@@ -762,7 +762,17 @@ export type Appeal = {
   createdAt: string; resolvedAt: string | null
 }
 
-export type RosterPreview = RosterImportResult & { rows: { email: string; displayName: string | null; groupName: string }[] }
+/** FR-CLASS-05 (GAP-12) — สิ่งที่จะเปลี่ยนเมื่อยืนยัน เทียบกับรายชื่อนักศึกษาปัจจุบัน */
+export type RosterDiff = {
+  added: string[]
+  moved: { email: string; fromGroup: string | null; toGroup: string }[]
+  unchanged: string[]
+  removed: string[]
+}
+export type RosterPreview = RosterImportResult & {
+  rows: { email: string; displayName: string | null; groupName: string }[]
+  diff: RosterDiff
+}
 export function previewRoster(classroomId: string, file: File): Promise<RosterPreview> {
   const body = new FormData()
   body.append('file', file)

@@ -3134,9 +3134,44 @@ components:
             "$ref": "#/components/schemas/RosterPreviewRow"
           "type": "array"
           "title": "Rows"
+        "diff":
+          "$ref": "#/components/schemas/RosterDiffOut"
       "type": "object"
-      "required": ["imported","groupsCreated","warnings","rows"]
+      "required": ["imported","groupsCreated","warnings","rows","diff"]
       "title": "RosterPreviewOut"
+    "RosterDiffOut":
+      "description": "FR-CLASS-05 (GAP-12) — สิ่งที่จะเปลี่ยนเมื่อกดยืนยัน เทียบกับรายชื่อนักศึกษาปัจจุบัน"
+      "properties":
+        "added":
+          "items":
+            "type": "string"
+          "type": "array"
+        "moved":
+          "items":
+            "$ref": "#/components/schemas/RosterMoveOut"
+          "type": "array"
+        "unchanged":
+          "items":
+            "type": "string"
+          "type": "array"
+        "removed":
+          "items":
+            "type": "string"
+          "type": "array"
+      "type": "object"
+      "required": ["added","moved","unchanged","removed"]
+      "title": "RosterDiffOut"
+    "RosterMoveOut":
+      "properties":
+        "email":
+          "type": "string"
+        "fromGroup":
+          "anyOf": [{"type":"string"},{"type":"null"}]
+        "toGroup":
+          "type": "string"
+      "type": "object"
+      "required": ["email","fromGroup","toGroup"]
+      "title": "RosterMoveOut"
     "RosterWarningOut":
       "properties":
         "type":
