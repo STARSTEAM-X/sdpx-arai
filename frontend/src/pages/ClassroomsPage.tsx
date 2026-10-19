@@ -42,7 +42,7 @@ const SORT_OPTIONS: DropdownOption<SortOrder>[] = [
 /** สถานะห้องเรียนตาม PRD §11 (`ACTIVE|ARCHIVED`) — คนละชุดกับสถานะสมาชิกใน Ui.tsx */
 function ClassroomStatusPill({ status }: { status: string }) {
   if (status === 'ARCHIVED') return <Pill>เก็บถาวร</Pill>
-  return <Pill tone="ok">พร้อมใช้งาน</Pill>
+  return null
 }
 
 const CLASSROOM_ROLE_STYLE: Record<string, { label: string; className: string }> = {

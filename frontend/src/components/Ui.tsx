@@ -186,18 +186,19 @@ const BANNER_TONE = {
 
 export function Banner({
   tone,
+  align = 'start',
   className = '',
   children,
   ...rest
-}: { tone: keyof typeof BANNER_TONE } & ComponentPropsWithoutRef<'div'>) {
+}: { tone: keyof typeof BANNER_TONE; align?: 'start' | 'center' } & ComponentPropsWithoutRef<'div'>) {
   const { box, Icon } = BANNER_TONE[tone]
   return (
     <div
       {...rest}
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm ${box} ${className}`}
+      className={`flex ${align === 'center' ? 'items-center' : 'items-start'} gap-3 rounded-xl border px-4 py-3.5 text-sm ${box} ${className}`}
     >
-      <Icon className="mt-0.5 size-[18px] shrink-0" />
-      <div className="min-w-0">{children}</div>
+      <Icon className={`${align === 'start' ? 'mt-0.5' : ''} size-[18px] shrink-0`} />
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   )
 }

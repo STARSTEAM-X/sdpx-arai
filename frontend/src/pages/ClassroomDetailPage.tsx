@@ -384,7 +384,7 @@ export default function ClassroomDetailPage() {
 
         {myRole === 'OWNER' && activeSection === 'overview' && !hasStudents && <SetupStepper steps={steps} />}
 
-          {isInstructor && activeSection === 'overview' && canManageAssignment && !isArchived && <Banner tone="info" className="mb-6">
+          {isInstructor && activeSection === 'overview' && canManageAssignment && !isArchived && <Banner tone="info" align="center" className="mb-6">
             <div className="flex flex-wrap items-center justify-between gap-3"><span>{assignmentCount ? 'ติดตามงานและการประเมินของห้องเรียน' : 'พร้อมสร้างงานประเมินแรก'}</span><a href="#assignments" className="rounded-full border border-edge-strong bg-white px-5 py-3 text-sm font-semibold text-ink">สร้างงานประเมิน</a></div>
           </Banner>}
 
