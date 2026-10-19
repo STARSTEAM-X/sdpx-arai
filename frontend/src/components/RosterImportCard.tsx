@@ -8,6 +8,7 @@ import {
   type RosterImportResult,
   importRoster,
   previewRoster,
+  type RosterDiff,
   type RosterPreview,
 } from '../lib/api'
 
@@ -229,6 +230,7 @@ export function RosterImportCard({
         {preview && <div className="mt-5 rounded-2xl border border-edge p-4" data-testid="roster-preview">
           <h3 className="font-display font-bold">ตรวจสอบรายชื่อก่อนนำเข้า</h3>
           <p className="mt-2 text-sm text-muted">{preview.imported} คน · {preview.groupsCreated} กลุ่ม · ยังไม่มีการบันทึกข้อมูล</p>
+          <RosterDiffSummary diff={preview.diff} />
           <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-edge"><table className="w-full text-left text-sm"><caption className="sr-only">ตัวอย่างรายชื่อทั้งหมดจากไฟล์ CSV</caption><thead className="sticky top-0 bg-sand"><tr><th className="p-3">อีเมล</th><th className="p-3">ชื่อ</th><th className="p-3">กลุ่ม</th></tr></thead><tbody>{preview.rows.map((row) => <tr key={row.email} className="border-t border-edge"><td className="break-all p-3">{row.email}</td><td className="p-3">{row.displayName ?? '—'}</td><td className="p-3">{row.groupName}</td></tr>)}</tbody></table></div>
           {preview.warnings.map((warning) => <p key={warning.message} className="mt-3 text-sm text-warn">{warning.message}</p>)}
           <Banner tone="warn" className="mt-3">เมื่อยืนยัน รายชื่อนักศึกษาปัจจุบันจะถูกแทนที่ทั้งชุด กรุณาตรวจสอบก่อนดำเนินการ</Banner>
@@ -262,5 +264,37 @@ export function RosterImportCard({
         </div>
       </form>
     </Card>
+  )
+}
+
+/** GAP-12 / FR-CLASS-05 — แสดงสิ่งที่จะเปลี่ยนก่อนยืนยัน: เพิ่มใหม่ / ย้ายกลุ่ม / ไม่เปลี่ยน / จะถูกถอด */
+function RosterDiffSummary({ diff }: { diff: RosterDiff }) {
+  const rows: { key: string; label: string; tone: string; items: string[] }[] = [
+    { key: 'added', label: 'เพิ่มใหม่', tone: 'text-ok-700', items: diff.added },
+    {
+      key: 'moved',
+      label: 'เปลี่ยนกลุ่ม',
+      tone: 'text-warn',
+      items: diff.moved.map((m) => `${m.email} (${m.fromGroup ?? 'ไม่มีกลุ่ม'} → ${m.toGroup})`),
+    },
+    { key: 'removed', label: 'หายจากไฟล์ — จะถูกถอดออกจากห้อง', tone: 'text-err', items: diff.removed },
+  ]
+  return (
+    <div data-testid="roster-diff" className="mt-3 rounded-xl border border-edge p-3 text-sm">
+      <p className="font-semibold">เทียบกับรายชื่อปัจจุบัน</p>
+      <ul className="mt-2 space-y-2">
+        {rows.map((row) => (
+          <li key={row.key} data-testid={`roster-diff-${row.key}`}>
+            <span className={`font-semibold ${row.tone}`}>
+              {row.label}: {row.items.length} คน
+            </span>
+            {row.items.length > 0 && <p className="mt-0.5 break-all text-ink-2">{row.items.join(', ')}</p>}
+          </li>
+        ))}
+        <li data-testid="roster-diff-unchanged" className="text-muted">
+          ไม่เปลี่ยน: {diff.unchanged.length} คน
+        </li>
+      </ul>
+    </div>
   )
 }

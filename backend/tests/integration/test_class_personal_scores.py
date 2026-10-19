@@ -18,6 +18,7 @@ from psycopg import Cursor
 from starlette.requests import Request
 
 from app.api import assignments as assignments_api
+from app.domain.anonymity import K_MIN_FLOOR
 from app.domain.assignment_service import Assignment, Criterion
 from app.domain.models import Classroom, ClassroomMember, MemberRole, RosterRow
 from app.domain.pairing import Side
@@ -76,7 +77,11 @@ def _scenario(db, monkeypatch, *, students: int, individual: bool) -> Assignment
     for index, row in enumerate(rows):
         for side in sides:
             pairs = repo.my_pairs(assignment.id, side=side, evaluator_email=row.email_normalized)
-            for n, pair in enumerate(pairs[: index % 3 + 1]):
+            # ฝั่งรายบุคคลตอบครบทุกคู่: กลุ่ม 4 คนได้คู่ครบทุกคนในกลุ่ม (C(3,2) = 3 คู่) จำนวนผู้ประเมินรายคน
+            # จึงเท่ากับจำนวนเพื่อนในกลุ่มที่กดส่งเสมอ ไม่ขึ้นกับลำดับคู่ที่สุ่มจาก uuid
+            # (ถ้าตอบแค่บางคู่ บางรอบไม่มีใครได้ถึง 3 คน แล้วทุกคนถูกซ่อนตามเกณฑ์ขั้นต่ำของ GAP-01)
+            answered = pairs if side is Side.INDIVIDUAL else pairs[: index % 3 + 1]
+            for n, pair in enumerate(answered):
                 answers.save(pair.pair_assignment_id, choice=1 + (index + n) % 6, time_on_task_ms=6000, now=NOW)
             if index % 4 != 3:  # ทุกคนที่สี่ตอบไว้แต่ไม่กดส่ง
                 answers.submit_all(assignment_id=assignment.id, side=side, evaluator_email=row.email_normalized, now=NOW)
@@ -122,13 +127,14 @@ def _scenario(db, monkeypatch, *, students: int, individual: bool) -> Assignment
             (room.id, ids[rows[-2].email_normalized]),
         )
         if individual:
-            # การจัดคู่ขึ้นกับ uuid ที่สุ่มใหม่ทุกรอบ จำนวนผู้ประเมินรายคนจึงไม่คงที่ — ตั้ง k ให้อยู่ที่ค่าสูงสุด
-            # ที่เกิดจริง ห้องจึงมีทั้งคนที่ถูกซ่อนคะแนน (< k) และไม่ถูกซ่อน (= k) ทุกรอบ ไม่ขึ้นกับดวง
+            # ตั้ง k ให้อยู่ที่ค่าสูงสุดที่เกิดจริง ห้องจึงมีทั้งคนที่ถูกซ่อนคะแนน (< k) และไม่ถูกซ่อน (= k)
+            # k_min ไม่ต่ำกว่า K_MIN_FLOOR เสมอ (GAP-01) จึงต้องมีคนที่ได้ผู้ประเมินถึงเกณฑ์นั้นจริง
             counts = [
                 scoring.evaluator_count_for_item(assignment.id, Side.INDIVIDUAL, ids[r.email_normalized])
                 for r in rows[:-2]
             ]
             assert min(counts) < max(counts), f"scenario ต้องมีจำนวนผู้ประเมินต่างกัน: {counts}"
+            assert max(counts) >= K_MIN_FLOOR, f"scenario ต้องมีคนที่ได้ผู้ประเมินถึง {K_MIN_FLOOR}: {counts}"
             cur.execute("UPDATE assignment SET min_comparisons = %s WHERE id = %s", (max(counts), assignment.id))
     return repo.get(assignment.id)
 

@@ -84,3 +84,27 @@ def test_notify_logs_and_posts_webhook_without_raising(monkeypatch):
     monkeypatch.setattr(alerting, "_post_webhook", lambda payload: sent.append(payload) or 1 / 0)
     alerting.notify([{"alert": "error_rate", "state": "firing"}])  # webhook พังต้องไม่ทำให้ loop ตาย
     assert sent == [{"alert": "error_rate", "state": "firing"}]
+
+
+def test_GAP10_หน้า_Evaluation_มีเป้า_p95_และแจ้งเตือนเมื่อเกิน_2_เท่า():
+    evaluation = ("GET", "/api/assignments/{assignment_id}/my-evaluations")
+    assert evaluation in alerting.P95_TARGET_MS
+
+    monitor = AlertMonitor()
+    slow = alerting.P95_TARGET_MS[evaluation] * alerting.LATENCY_FACTOR + 1
+    for minute in range(5):
+        _traffic(monitor, minute, total=30, route=evaluation, duration=slow)
+    fired = monitor.evaluate(T0 + 5 * 60)
+
+    assert any(c["state"] == "firing" and "my-evaluations" in str(c) for c in fired)
+
+
+def test_GAP10_webhook_ของ_Discord_ใช้ช่อง_content_ส่วน_Slack_ใช้_text():
+    change = {"alert": "error_rate", "state": "firing", "errorRate": 0.02}
+
+    discord = alerting.webhook_body("https://discord.com/api/webhooks/1/abc", change)
+    slack = alerting.webhook_body("https://hooks.slack.com/services/T/B/x", change)
+
+    # Discord ปฏิเสธข้อความที่ไม่มี content ("Cannot send an empty message")
+    assert discord == {"content": "[PairEval] firing: error_rate (errorRate=0.02)"}
+    assert slack["text"].startswith("[PairEval] firing: error_rate") and slack["errorRate"] == 0.02

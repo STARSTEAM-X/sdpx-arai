@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -35,7 +36,23 @@ def validate_target(base_url: str, health: dict, configured_tier: str) -> None:
         raise ValueError("Staging fixture requires explicit database and session credentials")
 
 
-def prepare(base_url: str, output: Path, students: int, domain: str) -> dict:
+def assignment_body(classroom_id: str, run_id: str, *, prd_scale: bool) -> dict:
+    """งานของ load test — `prd_scale` = ขนาดตาม NFR-PERF-04/05: 5 เกณฑ์ต่อฝั่ง เปิดฝั่งบุคคล coverage 5 (GAP-04)
+
+    ค่าเริ่มต้นคง journey เดิมของ WS-07 (ฝั่งกลุ่ม 2 เกณฑ์ coverage 1) เพื่อเทียบผลย้อนหลังได้
+    """
+    base = {"classroomId": classroom_id, "name": f"Load test {run_id}", "groupDeadlineUtc": "2099-01-01T00:00:00Z"}
+    if not prd_scale:
+        return {**base, "groupMaxScore": 15, "individualMaxScore": 0, "targetCoverage": 1, "criteria": [
+            {"side": "GROUP", "name": "UX", "weightPct": 50},
+            {"side": "GROUP", "name": "Code quality", "weightPct": 50},
+        ]}
+    criteria = [{"side": side, "name": f"{side.title()} {i + 1}", "weightPct": 20}
+                for side in ("GROUP", "INDIVIDUAL") for i in range(5)]
+    return {**base, "groupMaxScore": 15, "individualMaxScore": 5, "targetCoverage": 5, "criteria": criteria}
+
+
+def prepare(base_url: str, output: Path, students: int, domain: str, *, prd_scale: bool = False) -> dict:
     output = output.resolve()
     if not output.is_relative_to(PRIVATE_DIR.resolve()):
         raise ValueError("Session fixture must stay in performance/.secrets/")
@@ -78,16 +95,12 @@ def prepare(base_url: str, output: Path, students: int, domain: str) -> dict:
                  f'{csv}\r\n--{boundary}--\r\n').encode()
     api(f"/api/classrooms/{classroom_id}/roster:import", token=teacher, method="POST",
         body=multipart, content_type=f"multipart/form-data; boundary={boundary}")
-    assignment_id = api("/api/assignments", token=teacher, method="POST", body={
-        "classroomId": classroom_id, "name": f"Load test {run_id}",
-        "groupMaxScore": 15, "individualMaxScore": 0,
-        "groupDeadlineUtc": "2099-01-01T00:00:00Z", "targetCoverage": 1,
-        "criteria": [
-            {"side": "GROUP", "name": "UX", "weightPct": 50},
-            {"side": "GROUP", "name": "Code quality", "weightPct": 50},
-        ],
-    })["id"]
+    assignment_id = api("/api/assignments", token=teacher, method="POST",
+                        body=assignment_body(classroom_id, run_id, prd_scale=prd_scale))["id"]
+    # NFR-PERF-04 — เวลาสร้างคู่วัดจากฝั่ง client ของ publish ทั้ง request (รวม network และการเขียน DB)
+    started = time.perf_counter()
     api(f"/api/assignments/{assignment_id}:publish", token=teacher, method="POST")
+    publish_seconds = time.perf_counter() - started
     fixture = {
         "baseUrl": base_url, "classroomId": classroom_id, "assignmentId": assignment_id,
         "teacherToken": teacher, "students": [token for token, _ in sessions[1:]],
@@ -96,7 +109,7 @@ def prepare(base_url: str, output: Path, students: int, domain: str) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(fixture), encoding="utf-8")
     output.chmod(0o600)
-    return {"students": students, "expiresAt": fixture["expiresAt"]}
+    return {"students": students, "expiresAt": fixture["expiresAt"], "publishSeconds": publish_seconds}
 
 
 def main() -> int:
@@ -105,14 +118,16 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=PRIVATE_DIR / "fixture.json")
     parser.add_argument("--students", type=int, default=60)
     parser.add_argument("--domain", default=ALLOWED_EMAIL_DOMAINS[0] if ALLOWED_EMAIL_DOMAINS else "example.com")
+    parser.add_argument("--prd-scale", action="store_true", help="5 เกณฑ์ต่อฝั่ง + ฝั่งบุคคล (NFR-PERF-04/05)")
     args = parser.parse_args()
     try:
-        result = prepare(args.base_url.rstrip("/"), args.output, args.students, args.domain)
+        result = prepare(args.base_url.rstrip("/"), args.output, args.students, args.domain, prd_scale=args.prd_scale)
     except Exception as exc:
         # ห้ามพิมพ์ exception/body: อาจมี URL ของ DB, email หรือ session ปนอยู่
         print(f"Fixture preparation failed ({type(exc).__name__}); check staging configuration", file=sys.stderr)
         return 1
     print(f"Private fixture ready: {result['students']} students; expires {result['expiresAt']}")
+    print(f"NFR-PERF-04 publish (pair generation) took {result['publishSeconds']:.2f}s")
     return 0
 
 

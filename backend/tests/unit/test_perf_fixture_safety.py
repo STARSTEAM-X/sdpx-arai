@@ -41,3 +41,23 @@ def test_fixture_requires_matching_tier_and_https():
 def test_fixture_cannot_write_sessions_to_unprotected_files(tmp_path):
     with pytest.raises(ValueError, match="performance/.secrets/"):
         prepare("http://127.0.0.1:8000", tmp_path / "fixture.json", 60, "example.com")
+
+
+def test_GAP04_prd_scale_ใช้_5_เกณฑ์ต่อฝั่งและเปิดฝั่งบุคคล_ตาม_NFR_PERF_04():
+    from app.perf_fixture import assignment_body
+
+    body = assignment_body("cid", "run", prd_scale=True)
+    group = [c for c in body["criteria"] if c["side"] == "GROUP"]
+    individual = [c for c in body["criteria"] if c["side"] == "INDIVIDUAL"]
+
+    assert len(group) == 5 and len(individual) == 5
+    assert sum(c["weightPct"] for c in group) == 100 and sum(c["weightPct"] for c in individual) == 100
+    assert body["individualMaxScore"] > 0 and body["targetCoverage"] == 5
+
+
+def test_ค่าเริ่มต้นยังเป็น_journey_เดิม():
+    from app.perf_fixture import assignment_body
+
+    body = assignment_body("cid", "run", prd_scale=False)
+
+    assert body["individualMaxScore"] == 0 and len(body["criteria"]) == 2

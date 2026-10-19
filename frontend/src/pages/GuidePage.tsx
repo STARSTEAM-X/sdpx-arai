@@ -9,7 +9,15 @@ import { BackChevron, BulletList, OrangeHero, SectionCard } from '../components/
 import { COLLECTED_DATA, CollectedDataTable } from '../components/PrivacyNotice'
 import { SiteNav } from '../components/SiteNav'
 import { FOCUS, Spinner, btn } from '../components/Ui'
-import { ApiError, type DataCopyRequest, type Me, createDataRequest, getMe, listDataRequests } from '../lib/api'
+import {
+  ApiError,
+  type DataCopyRequest,
+  type Me,
+  createDataRequest,
+  downloadDataCopy,
+  getMe,
+  listDataRequests,
+} from '../lib/api'
 import { isSignedIn } from '../lib/session'
 import { thaiDate, thaiParts } from '../lib/datetime'
 
@@ -346,6 +354,7 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
   const [requests, setRequests] = useState<DataCopyRequest[]>([])
   const [justRequested, setJustRequested] = useState<DataCopyRequest | null>(null)
   const [saving, setSaving] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -376,6 +385,22 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
       setError(err instanceof ApiError ? err.message : 'ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function downloadCopy() {
+    setDownloading(true)
+    setError(null)
+    try {
+      await downloadDataCopy()
+      // ดาวน์โหลดสำเร็จ = ส่งมอบแล้ว · server ปิดคำขอที่ค้างให้ จึงโหลดสถานะใหม่มาแสดง
+      const list = await listDataRequests()
+      setRequests(list.items)
+      setJustRequested(null)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'ดาวน์โหลดสำเนาข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -411,8 +436,8 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
         title="ขอสำเนาข้อมูลของตัวเอง"
         hint={
           justRequested
-            ? `จะส่งสำเนาข้อมูลไปที่ ${me?.email ?? 'อีเมลของคุณ'} ภายใน 30 วันนับจากรับคำขอ`
-            : 'ระบบจะส่งไฟล์ไปที่อีเมลของคุณภายใน 30 วัน'
+            ? `ดาวน์โหลดสำเนาได้ทันที · กำหนดส่งตามกฎหมายคือ ${shortThaiDate(justRequested.dueAt)} (30 วันนับจากรับคำขอ)`
+            : 'ดาวน์โหลดสำเนาข้อมูลของคุณเป็นไฟล์ JSON ได้ทันที · ไม่มีข้อมูลตัวตนของผู้ประเมินคนอื่น'
         }
         bodyClassName="min-h-41 px-6 py-4.5"
       >
@@ -421,7 +446,7 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
             <p>รับคำขอสำเนาข้อมูลแล้ว</p>
             <p className="mt-2 text-ink-2">
               คำขอ #DSAR-{String(justRequested.id).padStart(3, '0')} · รับเมื่อ{' '}
-              {shortThaiDate(justRequested.requestedAt)} · สถานะ: กำลังดำเนินการ
+              {shortThaiDate(justRequested.requestedAt)} · สถานะ: รอดาวน์โหลด
             </p>
           </div>
         ) : requests.length > 0 ? (
@@ -430,7 +455,12 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
             <ul className="mt-2 space-y-2 text-ink-2">
               {requests.slice(0, 3).map((item, index) => (
                 <li key={item.id}>
-                  ครั้งที่ {requests.length - index} {longThaiDate(item.requestedAt)}
+                  ครั้งที่ {requests.length - index} {longThaiDate(item.requestedAt)} ·{' '}
+                  {item.status === 'SENT'
+                    ? `ส่งแล้ว${item.fulfilledAt ? ` ${shortThaiDate(item.fulfilledAt)}` : ''}`
+                    : item.overdue
+                      ? 'เลยกำหนด 30 วัน — กดดาวน์โหลดเพื่อรับสำเนา'
+                      : `รอดาวน์โหลด (ภายใน ${shortThaiDate(item.dueAt)})`}
                 </li>
               ))}
             </ul>
@@ -446,7 +476,16 @@ function PrivacyTab({ signedIn }: { signedIn: boolean }) {
         </p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          data-testid="data-copy-download"
+          onClick={() => void downloadCopy()}
+          disabled={downloading}
+          className={btn('ghost', 'md', 'min-h-12')}
+        >
+          {downloading && <Spinner />}ดาวน์โหลดสำเนาข้อมูล
+        </button>
         {justRequested ? (
           <Link to="/classrooms" className={btn('primary', 'md', 'min-h-12 w-53.5')}>
             กลับห้องเรียน

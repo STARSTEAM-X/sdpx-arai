@@ -20,6 +20,7 @@ import {
   type AssignmentDraft,
   draftBlocker,
   draftCriteria,
+  groupEnabled,
   individualEnabled,
   toCreateInput,
   weightChecks,
@@ -405,12 +406,17 @@ export function AssignmentPanel({
                   className={input}
                 />
               </Field>
-              <Field id="assignment-group-max" label="คะแนนเต็มฝั่งกลุ่ม">
+              <Field
+                id="assignment-group-max"
+                label="คะแนนเต็มฝั่งกลุ่ม"
+                help="ใส่ 0 ถ้าไม่ต้องการประเมินระดับกลุ่ม เช่น ห้องที่มีเพียง 2 กลุ่ม"
+              >
                 <input
                   id="assignment-group-max"
                   type="number"
                   min={0}
                   value={draft.groupMaxScore ?? 15}
+                  aria-describedby="assignment-group-max-help"
                   onChange={(e) => set('groupMaxScore', Number(e.target.value))}
                   className={input}
                 />
@@ -434,7 +440,7 @@ export function AssignmentPanel({
             </div>
           </section>
 
-          <CriteriaEditor side="GROUP" draft={draft} onChange={onDraftChange} />
+          {groupEnabled(draft) && <CriteriaEditor side="GROUP" draft={draft} onChange={onDraftChange} />}
           {individual && <CriteriaEditor side="INDIVIDUAL" draft={draft} onChange={onDraftChange} />}
 
           <section className={card}>
@@ -501,7 +507,11 @@ export function AssignmentPanel({
                   />
                 </Unit>
               </Field>
-              <Field id="min-comparisons" label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)">
+              <Field
+                id="min-comparisons"
+                label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)"
+                help="ตั้งต่ำกว่า 3 ได้เพื่อลดธงข้อมูลไม่พอ แต่นักศึกษาจะเห็นคะแนนรายบุคคลเมื่อมีผู้ประเมินอย่างน้อย 3 คนเสมอ (FR-ANON-02)"
+              >
                 <Unit unit="คน" className="max-w-95">
                   <input
                     id="min-comparisons"

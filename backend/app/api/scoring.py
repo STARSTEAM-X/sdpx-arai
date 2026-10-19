@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from app.auth import CurrentUser
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
-from app.domain.anonymity import pseudonymize_evaluators
+from app.domain.anonymity import k_min, pseudonymize_evaluators
 from app.domain.assignment_service import Assignment, AssignmentStatus
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import NotFoundError, ValidationError
@@ -43,8 +43,7 @@ log = logging.getLogger("paireval.scoring")
 router = APIRouter(prefix="/api/assignments", tags=["scoring"])
 
 # k-anonymity threshold (FR-ANON-02) — PRD ไม่มีคอลัมน์แยกสำหรับค่านี้ ใช้ min_comparisons
-# ของ assignment ตัวเดียวกัน เพราะทั้งคู่มีความหมายเดียวกัน: "ต้องมีอย่างน้อย N observation
-# ก่อนถึงจะเชื่อ/แสดงผลลัพธ์ได้"
+# ของ assignment แต่ห้ามต่ำกว่า 3 — ดู app/domain/anonymity.py:k_min (GAP-01)
 
 
 def _load_for_instructor(conn, assignment_id: str, user_email: str) -> Assignment:
@@ -569,7 +568,7 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
                               group_id=group_id, group_label=None, is_final=is_final)
         group_component = mine.group_component
         evaluator_count = mine.evaluator_count
-        # US-15 AC — ผู้ประเมิน < k_min (ใช้ min_comparisons ร่วมกัน) ต้องไม่เห็นตัวเลขรายบุคคลและคะแนนรวม
+        # US-15 AC — ผู้ประเมิน < k_min (max(3, min_comparisons)) ต้องไม่เห็นตัวเลขรายบุคคลและคะแนนรวม
         individual_hidden = mine.individual_hidden
         individual_component = None if individual_hidden else mine.individual_component
         m = mine.participation_multiplier
@@ -580,7 +579,7 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         details = []
         group_overridden = bool(group_id and scoring_repo.latest_override_value(assignment_id, Side.GROUP, group_id, None) is not None)
         individual_overridden = bool(not individual_hidden and assignment.has_individual_side and my_user_id and scoring_repo.latest_override_value(assignment_id, Side.INDIVIDUAL, my_user_id, None) is not None)
-        targets = [(Side.GROUP, group_id, assignment.group_max_score)]
+        targets = [(Side.GROUP, group_id, assignment.group_max_score)] if assignment.has_group_side else []
         if not individual_hidden and assignment.has_individual_side:
             targets.append((Side.INDIVIDUAL, my_user_id, assignment.individual_max_score))
         for side, item_id, maximum in targets:
@@ -598,7 +597,8 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         finalized=is_final,
         provisional=not is_final,
         individualEvaluatorCount=evaluator_count,
-        minComparisons=assignment.min_comparisons,
+        # ข้อความบนหน้าคะแนนประกาศเกณฑ์นี้ — ต้องเป็นค่าที่ใช้ซ่อนจริง ไม่ใช่ค่าดิบของ config
+        minComparisons=k_min(assignment.min_comparisons),
         groupComponent=group_component,
         individualComponent=None if individual_hidden else individual_component,
         individualHidden=individual_hidden,

@@ -16,6 +16,8 @@ import ReportPage from './pages/ReportPage'
 import GuidePage from './pages/GuidePage'
 import GroupPage from './pages/GroupPage'
 import AssignmentOverviewPage from './pages/AssignmentOverviewPage'
+import GoogleCallbackPage from './pages/GoogleCallbackPage'
+import { GOOGLE_CALLBACK_PATH } from './lib/googleSignIn'
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/guide" element={<GuidePage />} />
       <Route path="/guide/:tab" element={<GuidePage />} />
+      {/* redirect URI ที่ลงทะเบียนไว้กับ OAuth client — ต้องอยู่นอก RequireSession เพราะยังไม่มี session */}
+      <Route path={GOOGLE_CALLBACK_PATH} element={<GoogleCallbackPage />} />
       <Route element={<RequireSession />}>
         <Route path="/classrooms" element={<ClassroomsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />

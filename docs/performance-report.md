@@ -224,3 +224,33 @@ PR #19 ปิดโดยไม่ merge; candidate คงเกณฑ์ปก�
 NFR 200 users, page p95/p99, pairing/recompute SLA ยังไม่ได้วัดในรอบนี้.
 การทดลองเดิมของ branch supitcha อยู่ใน [performance-history-ws07.md](performance-history-ws07.md);
 ตัวเลขและข้อสรุปเดิมไม่ใช่ผล deploy ของ candidate นี้.
+
+## รอบ 2026-10-20 — NFR-PERF-04/05 ที่ขนาด PRD และเครื่องมือวัด 200 users (GAP-04)
+
+### แยก CPU ของ engine ออกจาก SQL I/O (ตอบข้อที่ค้างจากตาราง "ข้อเสนอ AI" ด้านบน)
+
+ข้อมูล: 50 กลุ่ม × 4 คน = 200 นักศึกษา · 5 เกณฑ์ฝั่งกลุ่ม + 5 เกณฑ์ฝั่งบุคคล · coverage 5 · ได้ 10,000 คู่ ·
+วัด 3 รอบ ใช้ median · เครื่อง dev Windows 11 · Postgres 18 ใน Docker ตัวใหม่ที่ไม่มีข้อมูลอื่น
+
+| สิ่งที่วัด | median | เป้า PRD | หมายเหตุ |
+|---|---:|---:|---|
+| engine สร้างคู่ล้วน (`generate_assignment_pairs`) | 0.51 วิ | — | ไม่มี DB |
+| `POST :publish` ทั้ง request ก่อนแก้ | 9.26 วิ (1 รอบ) | ≤ 10 วิ | INSERT ทีละแถว 10,000 round trip |
+| `POST :publish` ทั้ง request **หลังแก้** | **3.08 วิ** (2.98 / 3.08 / 3.09) | ≤ 10 วิ | `executemany` + อ่าน generation ครั้งเดียว (`pg_assignment_repo.append_pairs`) |
+| engine คำนวณคะแนนล้วน (10,000 ผลประเมิน) | 0.21 วิ | — | ไม่มี DB |
+| `POST :recompute` ทั้ง request (ยังไม่มีผลประเมิน) | 2.94 วิ | ≤ 30 วิ | `scripts/ci/time_recompute.py` |
+
+ข้อสรุป: เวลา publish ~95% อยู่ที่ SQL I/O ไม่ใช่ pairing — จึงรับข้อเสนอ bulk INSERT ที่เคยเลื่อนไว้
+พฤติกรรมเหมือนเดิม (แถวและค่าที่เขียนชุดเดียวกัน) ยืนยันด้วย unit 704 + integration ทั้งชุด
+
+**ข้อจำกัด:** ตัวเลขชุดนี้มาจากเครื่อง dev ไม่ใช่ Render · recompute วัดตอนยังไม่มีผลประเมิน จึงเป็นขอบล่าง
+
+### วัดบนเว็บจริง (staging) — รันมือ
+
+workflow ใหม่ [`.github/workflows/perf-nfr.yml`](../.github/workflows/perf-nfr.yml) (Actions → Performance at PRD scale)
+ใช้ secret ชุดเดียวกับ job `performance` · สร้าง fixture 204 คนแบบ `--prd-scale` → จับเวลา publish (NFR-PERF-04) →
+journey ที่ `PEAK_VUS=200` (NFR-PERF-01 ผ่าน `my_evaluations`) → recompute หลังมีผลประเมินจริง (NFR-PERF-05)
+
+| วันที่ | run | publish | journey 200 VUs | recompute |
+|---|---|---|---|---|
+| _รอรันครั้งแรก_ | | | | |

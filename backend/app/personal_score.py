@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from psycopg import Connection
 
+from app.domain.anonymity import individual_hidden
 from app.domain.assignment_service import Assignment
 from app.domain.pairing import Side
 from app.domain.scoring_service import (
@@ -121,8 +122,9 @@ def _assemble(
     group_p: ParticipationCount, indiv_p: ParticipationCount,
 ) -> PersonalScore:
     """ส่วนที่เป็นสูตรล้วน — ทั้งรายคนและทั้งห้องผ่านตรงนี้ ตัวเลขจึงออกมาชุดเดียวกันเสมอ"""
-    # US-15: นักศึกษาไม่เห็นคะแนนรายบุคคลของตัวเองถ้าผู้ประเมินยังน้อยกว่า k_min
-    hidden = evaluator_count is not None and evaluator_count < assignment.min_comparisons
+    # US-15: นักศึกษาไม่เห็นคะแนนรายบุคคลของตัวเองถ้าผู้ประเมินยังน้อยกว่า k_min (ไม่ต่ำกว่า 3 · GAP-01)
+    hidden = evaluator_count is not None and individual_hidden(
+        evaluator_count=evaluator_count, min_comparisons=assignment.min_comparisons)
     multiplier = compute_participation(
         assigned_group=group_p.assigned, submitted_group=group_p.submitted,
         assigned_individual=indiv_p.assigned, submitted_individual=indiv_p.submitted,

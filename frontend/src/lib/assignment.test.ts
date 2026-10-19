@@ -4,6 +4,7 @@ import {
   DEFAULT_DRAFT,
   type AssignmentDraft,
   draftBlocker,
+  groupEnabled,
   individualEnabled,
   toCreateInput,
   weightChecks,
@@ -102,5 +103,26 @@ describe('แปลงเป็น body ของ API', () => {
 
   it('ตัดช่องว่างหัวท้ายของชื่องานก่อนส่ง', () => {
     expect(toCreateInput(draft({ name: '  งานที่ 2  ' }), 'room-1').name).toBe('งานที่ 2')
+  })
+})
+
+describe('คะแนนเต็มฝั่งกลุ่ม (GAP-11)', () => {
+  it('0 = ปิดฝั่งกลุ่ม ใช้กับห้องที่มี 2 กลุ่มซึ่งประเมินฝั่งกลุ่มไม่ได้', () => {
+    expect(groupEnabled(draft({ groupMaxScore: 0 }))).toBe(false)
+    expect(groupEnabled(draft({ groupMaxScore: 15 }))).toBe(true)
+    expect(groupEnabled(draft())).toBe(true)
+  })
+
+  it('ปิดแล้วไม่ตรวจน้ำหนักและไม่ส่งเกณฑ์ฝั่งกลุ่ม', () => {
+    const d = draft({ groupMaxScore: 0, groupWeight: 40 })
+
+    expect(weightChecks(d).map((c) => c.side)).toEqual(['INDIVIDUAL'])
+    expect(toCreateInput(d, 'room-1').criteria.every((c) => c.side === 'INDIVIDUAL')).toBe(true)
+  })
+
+  it('ปิดทั้งสองฝั่งต้องบอกเหตุผล', () => {
+    expect(draftBlocker(draft({ groupMaxScore: 0, individualMaxScore: 0 }), 10)).toBe(
+      'ต้องเปิดการประเมินอย่างน้อย 1 ฝั่ง (คะแนนเต็มมากกว่า 0)',
+    )
   })
 })

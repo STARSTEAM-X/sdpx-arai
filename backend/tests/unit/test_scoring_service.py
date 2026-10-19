@@ -256,3 +256,30 @@ class TestGoldenS10:
         # FR-SCORE-11 — group_component (12.798) เหมือนของนกทุกประการ ไม่ถูกลดเพราะต้นไม่ประเมิน
         # ต่างกันเฉพาะที่ M ของต้นเอง (ดู test ก่อนหน้าที่นกได้ M=1 เต็ม)
         assert round(final, 2) == Decimal("10.97")
+
+
+class TestFRPair13SmallGroupAlwaysLowConfidence:
+    """GAP-09 / FR-PAIR-13 — กลุ่ม m = 3 ต้องติด LOW_CONFIDENCE เสมอ ไม่ขึ้นกับ min_comparisons"""
+
+    def test_GAP09_กลุ่ม_3_คน_ตั้ง_min_comparisons_1_ยังติดธง(self):
+        from app.domain.scoring_service import group_size_forces_low_confidence
+
+        comparisons = [cmp("u1", "u2", "u1", 2)]  # สภาพของกลุ่ม 3 คน: coverage = 1
+        criteria = [CriterionConfig(id="c1", weight_pct=Decimal(100))]
+
+        result = compute_item_component(
+            comparisons, "u1", Side.INDIVIDUAL, criteria,
+            max_score_side=Decimal(5), floor=Decimal("0.6"), ceiling=Decimal("1.0"),
+            instructor_weight=Decimal(1), min_comparisons=1,
+            force_low_confidence=group_size_forces_low_confidence(3),
+        )
+
+        assert LOW_CONFIDENCE in result.flags
+        # ธงไม่เปลี่ยนตัวเลข — S8 ยังคำนวณต่อตามปกติ
+        assert result.criteria[0].quality_index is not None
+
+    def test_กลุ่ม_4_คนขึ้นไปไม่ถูกบังคับ(self):
+        from app.domain.scoring_service import group_size_forces_low_confidence
+
+        assert group_size_forces_low_confidence(3) is True
+        assert group_size_forces_low_confidence(4) is False

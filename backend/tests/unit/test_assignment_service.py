@@ -189,3 +189,62 @@ class TestAssertEditable:
             assert_editable(make_assignment(status=status))
 
         assert "DRAFT" in exc.value.message
+
+
+class TestGAP11DisableGroupSide:
+    """GAP-11 — ปิดฝั่งกลุ่มด้วย groupMaxScore = 0 แบบสมมาตรกับ individualMaxScore = 0 (FR-ASSIGN-07)
+
+    ห้องที่มี 2 กลุ่มประเมินฝั่งกลุ่มไม่ได้ทางคณิตศาสตร์ (FR-PAIR-02: ไม่มีผู้มีสิทธิ์ประเมิน)
+    แต่ฝั่งรายบุคคลยังทำได้ — ต้องปิดฝั่งกลุ่มได้เพื่อไม่ให้ทั้งงานเผยแพร่ไม่ได้
+    """
+
+    def test_GAP11_ปิดฝั่งกลุ่มแล้วไม่ต้องมีเกณฑ์ฝั่งนั้น(self):
+        a = make_assignment(group_max_score=Decimal(0), criteria=[crit(Side.INDIVIDUAL, "100")])
+
+        assert_publishable(a)
+        assert not a.has_group_side
+
+    def test_ปิดฝั่งกลุ่มแต่ยังมีเกณฑ์ค้างอยู่ถูกปฏิเสธ(self):
+        a = make_assignment(group_max_score=Decimal(0))
+
+        with pytest.raises(ValidationError) as exc:
+            assert_publishable(a)
+
+        assert exc.value.field == "groupMaxScore"
+
+    def test_ปิดทั้งสองฝั่งถูกปฏิเสธ(self):
+        a = make_assignment(group_max_score=Decimal(0), individual_max_score=Decimal(0), criteria=[])
+
+        with pytest.raises(ValidationError) as exc:
+            assert_publishable(a)
+
+        assert exc.value.field == "groupMaxScore"
+
+    def test_GAP11_ห้อง_2_กลุ่ม_ปิดฝั่งกลุ่มแล้วสร้างคู่รายบุคคลได้(self):
+        from app.domain.pairing import GroupInfo
+        from app.domain.publication import generate_assignment_pairs
+
+        groups = [
+            GroupInfo(id=f"g{i}", name=chr(65 + i), member_ids=[f"u{i}_{j}" for j in range(5)])
+            for i in range(2)
+        ]
+        a = make_assignment(group_max_score=Decimal(0), criteria=[crit(Side.INDIVIDUAL, "100")])
+
+        batches = list(generate_assignment_pairs(a, groups, seed=1))
+
+        assert batches
+        assert all(criterion.side is Side.INDIVIDUAL for criterion, _ in batches)
+        assert all(pair.side is Side.INDIVIDUAL for _, pairs in batches for pair in pairs)
+
+    def test_ห้อง_2_กลุ่ม_เปิดฝั่งกลุ่มยังถูกปฏิเสธพร้อมเหตุผล(self):
+        # พฤติกรรมเดิมของ §8.2 ต้องคงอยู่ — C3 ยังรอคำตัดสินของอาจารย์
+        from app.domain.pairing import GroupInfo
+        from app.domain.publication import generate_assignment_pairs
+
+        groups = [
+            GroupInfo(id=f"g{i}", name=chr(65 + i), member_ids=[f"u{i}_{j}" for j in range(5)])
+            for i in range(2)
+        ]
+
+        with pytest.raises(ValidationError):
+            list(generate_assignment_pairs(make_assignment(), groups, seed=1))

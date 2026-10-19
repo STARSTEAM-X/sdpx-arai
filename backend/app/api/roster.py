@@ -14,6 +14,7 @@ from app.config import ALLOWED_EMAIL_DOMAINS
 from app.db import transaction
 from app.domain.errors import ValidationError
 from app.domain.models import RosterImportResult, RosterMember
+from app.domain.roster_diff import diff_roster
 from app.domain.roster_service import RosterService
 from app.observability import log_event, user_ref
 from app.repositories.pg_classroom_repo import PgClassroomRepository
@@ -80,8 +81,24 @@ class RosterPreviewRow(BaseModel):
     groupName: str
 
 
+class RosterMoveOut(BaseModel):
+    email: str
+    fromGroup: str | None
+    toGroup: str
+
+
+class RosterDiffOut(BaseModel):
+    """FR-CLASS-05 (GAP-12) — สิ่งที่จะเปลี่ยนเมื่อกดยืนยัน เทียบกับรายชื่อปัจจุบัน"""
+
+    added: list[str]
+    moved: list[RosterMoveOut]
+    unchanged: list[str]
+    removed: list[str]
+
+
 class RosterPreviewOut(RosterImportOut):
     rows: list[RosterPreviewRow]
+    diff: RosterDiffOut
 
 
 @router.post("/{classroom_id}/roster:preview", response_model=RosterPreviewOut)
@@ -91,13 +108,25 @@ async def preview_roster(classroom_id: str, user_email: CurrentUser,
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise ValidationError("เลือกไฟล์ CSV ที่ไม่ว่างและมีขนาดไม่เกิน 2 MB", field="file")
     with transaction() as conn:
-        result = RosterService(PgClassroomRepository(conn), _allowed_domains(conn, classroom_id)).preview_csv(
+        repo = PgClassroomRepository(conn)
+        result = RosterService(repo, _allowed_domains(conn, classroom_id)).preview_csv(
             classroom_id=classroom_id, actor_email=user_email, raw=raw,
         )
-    return RosterPreviewOut(**RosterImportOut.of(result).model_dump(), rows=[
-        RosterPreviewRow(email=row.email_normalized, displayName=row.display_name, groupName=row.group_name)
-        for row in result.rows
-    ])
+        # preview_csv ตรวจสิทธิ์ MANAGE_ROSTER แล้ว จึงอ่านรายชื่อปัจจุบันตรง ๆ ได้
+        diff = diff_roster(repo.list_roster(classroom_id), result.rows)
+    return RosterPreviewOut(
+        **RosterImportOut.of(result).model_dump(),
+        rows=[
+            RosterPreviewRow(email=row.email_normalized, displayName=row.display_name, groupName=row.group_name)
+            for row in result.rows
+        ],
+        diff=RosterDiffOut(
+            added=diff.added,
+            moved=[RosterMoveOut(email=e, fromGroup=a, toGroup=b) for e, a, b in diff.moved],
+            unchanged=diff.unchanged,
+            removed=diff.removed,
+        ),
+    )
 
 
 def _allowed_domains(conn, classroom_id: str) -> list[str]:

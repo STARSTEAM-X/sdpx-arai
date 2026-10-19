@@ -95,5 +95,5 @@ databases:
     plan: free
     region: singapore
     postgresMajorVersion: "18"
-    diskSizeGB: 1
-    storageAutoscalingEnabled: false
+    # แผน Free กำหนด disk/autoscaling เองไม่ได้ — Render ปฏิเสธ Blueprint ใหม่ถ้าใส่ diskSizeGB
+    # (render.yaml ของ staging มีได้เพราะผูกกับ DB ที่มีอยู่แล้ว)

@@ -383,15 +383,21 @@ class PgAssignmentRepository:
 
     def append_pairs(self, assignment_id: str, pairs: list[Pair], *, criterion_id: str, source: str = 'AUTO') -> None:
         """Append replacement pending work without touching already submitted pairs."""
+        if not pairs:
+            return
         with self._conn.cursor() as cur:
-            for p in pairs:
-                cur.execute(
-                    """
-                    INSERT INTO pair_assignment
-                        (id, assignment_id, criterion_id, side, item_a_id, item_b_id,
-                         evaluator_user_id, display_left_item_id, generation, source)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, (SELECT generation FROM assignment WHERE id = %s), %s)
-                    """,
+            cur.execute("SELECT generation FROM assignment WHERE id = %s", (assignment_id,))
+            generation = cur.fetchone()["generation"]
+            # executemany ส่งทุกแถวใน pipeline เดียว — เดิม execute ทีละแถว ห้อง 200 คน × 5 เกณฑ์
+            # (~10,000 คู่) ใช้เวลา publish ~9 วิบนเครื่อง เกือบชนเพดาน NFR-PERF-04 (≤ 10 วิ) · GAP-04
+            cur.executemany(
+                """
+                INSERT INTO pair_assignment
+                    (id, assignment_id, criterion_id, side, item_a_id, item_b_id,
+                     evaluator_user_id, display_left_item_id, generation, source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                [
                     (
                         str(uuid.uuid4()),
                         assignment_id,
@@ -401,7 +407,9 @@ class PgAssignmentRepository:
                         p.item_b_id,
                         p.evaluator_user_id,
                         p.display_left_item_id,
-                        assignment_id,
+                        generation,
                         source,
-                    ),
-                )
+                    )
+                    for p in pairs
+                ],
+            )

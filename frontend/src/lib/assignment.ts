@@ -47,6 +47,11 @@ export const DEFAULT_DRAFT: AssignmentDraft = {
   individualWeight: 100,
 }
 
+/** คะแนนเต็มฝั่งกลุ่มเป็น 0 = ปิดฝั่งกลุ่ม (GAP-11) — ห้อง 2 กลุ่มไม่มีผู้มีสิทธิ์ประเมินฝั่งกลุ่มเลย */
+export function groupEnabled(draft: AssignmentDraft): boolean {
+  return (draft.groupMaxScore ?? 15) > 0
+}
+
 /** คะแนนเต็มรายบุคคลเป็น 0 = ปิดการประเมินฝั่งบุคคลทั้งฝั่ง ไม่ใช่แค่ให้คะแนนเต็ม 0 */
 export function individualEnabled(draft: AssignmentDraft): boolean {
   return draft.individualMaxScore > 0
@@ -76,15 +81,17 @@ export function weightChecks(draft: AssignmentDraft): WeightCheck[] {
     return total < 100 ? `ขาดอีก ${100 - total}%` : `เกินมา ${total - 100}%`
   }
 
-  const checks: WeightCheck[] = [
-    {
+  const checks: WeightCheck[] = []
+
+  if (groupEnabled(draft)) {
+    checks.push({
       side: 'GROUP',
       label: 'ฝั่งกลุ่ม',
       total: groupTotal,
       ok: Math.abs(groupTotal - 100) <= 0.01,
       message: describe(groupTotal),
-    },
-  ]
+    })
+  }
 
   if (individualEnabled(draft)) {
     checks.push({
@@ -106,7 +113,8 @@ export function draftBlocker(draft: AssignmentDraft, studentCount: number): stri
   if (!draft.deadline) return 'ยังไม่ได้ระบุกำหนดส่ง'
   if (draft.opensAt !== undefined && !draft.opensAt) return 'ยังไม่ได้ระบุวันและเวลาเปิดรับ'
   if ((draft.scoreFloor ?? 0.6) >= (draft.scoreCeiling ?? 1)) return 'คะแนนขั้นต่ำต้องน้อยกว่าคะแนนขั้นสูง'
-  const criteria = [...draftCriteria(draft, 'GROUP'), ...(individualEnabled(draft) ? draftCriteria(draft, 'INDIVIDUAL') : [])]
+  if (!groupEnabled(draft) && !individualEnabled(draft)) return 'ต้องเปิดการประเมินอย่างน้อย 1 ฝั่ง (คะแนนเต็มมากกว่า 0)'
+  const criteria = [...(groupEnabled(draft) ? draftCriteria(draft, 'GROUP') : []), ...(individualEnabled(draft) ? draftCriteria(draft, 'INDIVIDUAL') : [])]
   if (!criteria.length || criteria.some((c) => !c.name.trim())) return 'กรุณาระบุชื่อเกณฑ์ทุกข้อ'
   if (criteria.some((c) => !Number.isFinite(c.weightPct) || c.weightPct < 0 || c.weightPct > 100)) return 'น้ำหนักเกณฑ์ต้องอยู่ระหว่าง 0 ถึง 100'
   if (draft.artifactUrl && !/^https?:\/\//i.test(draft.artifactUrl)) return 'ลิงก์ผลงานต้องขึ้นต้นด้วย https:// หรือ http://'
@@ -121,6 +129,7 @@ export function draftBlocker(draft: AssignmentDraft, studentCount: number): stri
  */
 export function toCreateInput(draft: AssignmentDraft, classroomId: string, timezone?: string) {
   const individual = individualEnabled(draft)
+  const group = groupEnabled(draft)
 
   return {
     classroomId,
@@ -143,7 +152,7 @@ export function toCreateInput(draft: AssignmentDraft, classroomId: string, timez
     completionThreshold: draft.completionThreshold ?? 0.9,
     opensAtUtc: draft.opensAt ? (timezone ? classroomLocalToUtc(draft.opensAt, timezone) : new Date(draft.opensAt).toISOString()) : null,
     criteria: [
-      ...draftCriteria(draft, 'GROUP').map((c, displayOrder) => ({ ...c, name: c.name.trim(), side: 'GROUP' as CriterionSide, displayOrder })),
+      ...(group ? draftCriteria(draft, 'GROUP') : []).map((c, displayOrder) => ({ ...c, name: c.name.trim(), side: 'GROUP' as CriterionSide, displayOrder })),
       ...(individual ? draftCriteria(draft, 'INDIVIDUAL').map((c, displayOrder) => ({ ...c, name: c.name.trim(), side: 'INDIVIDUAL' as CriterionSide, displayOrder })) : []),
     ],
   }
