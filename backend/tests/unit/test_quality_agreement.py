@@ -8,10 +8,11 @@ def _row(a, b, choice, evaluator='e1', side='GROUP', left=None, status='SUBMITTE
 
 
 def test_full_agreement_is_one_and_not_flagged():
-    rows = [_row(a, b, 2, f'e{k}') for a, b in (('A', 'B'), ('A', 'C'), ('B', 'C')) for k in range(3)]
+    # 3 คู่ × ผู้ประเมิน 4 คน = เทียบได้ 3 × C(4,2) = 18 ครั้ง (ผ่านขั้นต่ำ 10)
+    rows = [_row(a, b, 2, f'e{k}') for a, b in (('A', 'B'), ('A', 'C'), ('B', 'C')) for k in range(4)]
     result = criterion_agreement(rows)
     assert result['agreement'] == 1.0 and result['flags'] == []
-    assert result['distribution'] == [0, 9, 0, 0, 0, 0]
+    assert result['distribution'] == [0, 12, 0, 0, 0, 0]
 
 
 def test_split_votes_flag_qs07():
@@ -25,7 +26,8 @@ def test_split_votes_flag_qs07():
 
 def test_winner_follows_display_side_not_item_order():
     # e2 เห็น B อยู่ซ้าย เลือกซ้าย = B ชนะ → ขัดกับ e1 ที่เลือก A
-    rows = [_row('A', 'B', 2, 'e1'), _row('A', 'B', 2, 'e2', left='B')] * 3
+    # 10 คู่ × ผู้ประเมิน 2 คน = เทียบได้ 10 ครั้ง (ขั้นต่ำพอดี)
+    rows = [_row('A', 'B', 2, 'e1'), _row('A', 'B', 2, 'e2', left='B')] * 10
     rows = [dict(r, item_a_id=f"{r['item_a_id']}{i // 2}", item_b_id=f"{r['item_b_id']}{i // 2}",
                  display_left_item_id=f"{r['display_left_item_id']}{i // 2}") for i, r in enumerate(rows)]
     assert criterion_agreement(rows)['agreement'] == -1.0
@@ -86,3 +88,17 @@ def test_unsubmitted_rows_are_ignored_everywhere():
     rows = [_row(a, b, 2, f'e{k}') for a, b in (('A', 'B'), ('A', 'C'), ('B', 'C')) for k in range(3)]
     assert criterion_agreement(rows + [draft]) == criterion_agreement(rows)
     assert favoritism([dict(draft, side='INDIVIDUAL')]) == {'assessed': False, 'flagged': {}}
+
+
+def test_qs07_three_rater_pairs_is_not_assessed():
+    # รีวิวรอบ 2 ข้อ B: 3 คู่ผู้ประเมินเห็นต่างกันหมดก็ยังไม่ติดธง — ข้อมูลน้อยเกินจะสรุป
+    rows = [_row(a, b, choice, f'e{choice}') for a, b in (('A', 'B'), ('A', 'C'), ('B', 'C')) for choice in (2, 5)]
+    result = criterion_agreement(rows)
+    assert result['agreement'] is None and result['flags'] == []
+
+
+def test_qs07_ten_rater_pairs_can_flag():
+    # คู่เดียว 5 คน เลือกซ้าย 3 ขวา 2 → C(5,2) = 10 คู่ผู้ประเมิน · ตรงกัน C(3,2)+C(2,2) = 4 → u = −0.2
+    rows = [_row('A', 'B', choice, f'e{k}') for k, choice in enumerate((2, 2, 2, 5, 5))]
+    result = criterion_agreement(rows)
+    assert result['agreement'] == -0.2 and result['flags'] == ['QS-07']

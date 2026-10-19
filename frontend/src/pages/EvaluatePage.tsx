@@ -185,6 +185,7 @@ export default function EvaluatePage() {
   ).length
   const lastPair = position >= pairs.length - 1
   const deadlineText = current?.deadlineUtc ? formatDeadline(current.deadlineUtc, timezone) : ''
+  const msLeft = current?.deadlineUtc ? Date.parse(current.deadlineUtc) - now : 0
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
@@ -333,6 +334,12 @@ export default function EvaluatePage() {
                     {deadlineText && (
                       <p className="mt-4 text-[15px] text-ink-2 max-sm:mt-3 max-sm:text-[13px]">
                         กำหนดส่ง {deadlineText.replace(/ (\d{1,2}:\d{2})$/, ' เวลา $1')}
+                        {/* FR-EVAL-10 — นับถอยหลังเมื่อเหลือไม่ถึง 48 ชม. */}
+                        {msLeft > 0 && msLeft < 48 * 3600000 && (
+                          <span data-testid="deadline-countdown" className="ml-2 font-semibold text-warn">
+                            · เหลืออีก {Math.floor(msLeft / 3600000)} ชม. {Math.floor(msLeft / 60000) % 60} นาที
+                          </span>
+                        )}
                         <span className="block text-[12px] text-muted">
                           {timezone === 'Asia/Bangkok' ? 'เวลาไทย ' : ''}({timezone})
                         </span>

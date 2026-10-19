@@ -6,7 +6,7 @@ import { AppealsPanel } from '../components/AppealsPanel'
 import { BackChevron, ForbiddenState, forbiddenCopy } from '../components/PageChrome'
 import { ReportTabs } from '../components/ReportTabs'
 import { FinalizeDialog, OverrideScoreDialog, ReopenDialog } from '../components/ScoringDialogs'
-import { ScoresTable } from '../components/ScoresTable'
+import { ScoresTable, StudentSummaryTable } from '../components/ScoresTable'
 import { Banner, FOCUS, Spinner, btn } from '../components/Ui'
 import {
   ApiError,
@@ -270,6 +270,7 @@ export default function ReportPage() {
         ) : (
           <>
             <ScoresTable key={side} scores={scores} side={side} />
+            {view === 'individual' && <StudentSummaryTable scores={scores} />}
             {/* Figma J25 — ปุ่มใต้ตาราง: คำนวณ · แก้คะแนน · ส่งออก · ประกาศผล */}
             <div className="mt-5 flex flex-wrap justify-end gap-2.5">
               {writable && canFinalize && (

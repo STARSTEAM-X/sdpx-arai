@@ -23,6 +23,15 @@ These are local originals, not generated replacements or expiring Figma image UR
 | `coverage-heading.png` | J26 / Art / Owner heading · `334:2057` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
 | `score-report-heading.png` | J25 / Art / Owner heading · `334:1956` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
 | `appeals-heading.png` | J35 / Art / Owner heading · `334:4859` | PNG, 156 × 165 (cropped by the frame); exported 2026-10-19 directly from Figma |
+| `closed.png` | asset ในผล design context ของ node `224:5389` | PNG, 288 × 212; exported 2026-10-19 directly from Figma |
+| `no-assignments.png` | asset ในผล design context ของ node `91:398` | PNG, 220 × 150; exported 2026-10-19 directly from Figma |
+| `create-classroom.png` | asset ในผล design context ของ node `321:10771` | PNG, 504 × 255; exported 2026-10-19 directly from Figma |
+| `privacy.png` | asset ในผล design context ของ node `321:10860` (ใช้ใน ST03 / ST23 / M06) | PNG, 326 × 227; exported 2026-10-19 directly from Figma |
+| `guide-hero.png` | ST05 คู่มือ · asset ในผล design context ของ node `321:18124` | PNG, 452 × 323; exported 2026-10-19 directly from Figma |
+| `guide-submit-confirm.png` | ST05 คู่มือ · asset ในผล design context ของ node `321:18207` | PNG, 624 × 434; exported 2026-10-19 directly from Figma |
+| `guide-submit-success.png` | ST05 คู่มือ · asset ในผล design context ของ node `321:18202` | PNG, 600 × 275; exported 2026-10-19 directly from Figma |
+| `members-heading.png` | J09 / Art / Owner heading · screenshot ของ node `330:1072` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
+| `forbidden.png` | screenshot ของ node `343:3957` (หน้าไม่มีสิทธิ์ T09 / C14) | PNG, 256 × 192; exported 2026-10-19 directly from Figma |
 
 Illustration library page: `20:190`. Home Guest frame: `175:3`.
 Figma is still being revised; use the node IDs to re-export assets when the design changes.

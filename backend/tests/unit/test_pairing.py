@@ -108,8 +108,9 @@ class TestIndividualFeasibility:
     def test_P7_coverage_เท่ากับขนาดกลุ่มลบสอง_ไม่ใช่บังคับ_5(
         self, size: int, expected_coverage: int
     ):
-        # ตารางนี้ลอกมาจาก PRD §8.3 ตรง ๆ
-        f = solve_individual_feasibility(make_groups(size, size), target_coverage=5)
+        # ตารางนี้ลอกมาจาก PRD §8.3 ตรง ๆ — คอลัมน์ "coverage สูงสุด" คือกรณีไม่ติดเพดาน k_max
+        # (กลุ่ม 6–7 คนเกินเพดาน default 8 จึงถูกตัดตาม FR-PAIR-14 — ทดสอบแยกใน TestIndividualWorkloadCap)
+        f = solve_individual_feasibility(make_groups(size, size), target_coverage=5, max_workload=30)
 
         assert f.achievable_coverage == expected_coverage
 
@@ -374,3 +375,59 @@ class TestInvariantsAcrossManyShapes:
         )
 
         assert generate_group_pairs(groups, **kw) == generate_group_pairs(groups, **kw)
+
+
+
+class TestIndividualWorkloadCap:
+    """FR-PAIR-14 — ถ้า C(m−1, 2) > k_max ต้องสุ่มเลือก k_max คู่ต่อเกณฑ์ coverage สมดุล และรายงานตัวเลขที่ลดลง"""
+
+    def counts(self, pairs):
+        per_pair: dict[tuple[str, str], int] = {}
+        per_evaluator: dict[str, int] = {}
+        for p in pairs:
+            per_pair[(p.item_a_id, p.item_b_id)] = per_pair.get((p.item_a_id, p.item_b_id), 0) + 1
+            per_evaluator[p.evaluator_user_id] = per_evaluator.get(p.evaluator_user_id, 0) + 1
+        return per_pair, per_evaluator
+
+    @pytest.mark.parametrize("size", [6, 7, 8])
+    def test_ภาระไม่เกิน_k_max_และทุกคนได้เท่ากัน(self, size: int):
+        pairs = generate_individual_pairs(make_groups(size), criterion_id="c1", seed=7, max_workload=8)
+        _, per_evaluator = self.counts(pairs)
+        assert set(per_evaluator.values()) == {8}
+
+    @pytest.mark.parametrize("size", [6, 7, 8])
+    def test_P3_coverage_ยังสมดุล_ทุกคู่ในกลุ่มต่างกันไม่เกิน_1(self, size: int):
+        pairs = generate_individual_pairs(make_groups(size), criterion_id="c1", seed=7, max_workload=8)
+        per_pair, _ = self.counts(pairs)
+        assert len(per_pair) == size * (size - 1) // 2  # ทุกคู่ในกลุ่มยังได้รับการประเมิน
+        assert max(per_pair.values()) - min(per_pair.values()) <= 1
+
+    def test_P2_P4_ไม่ประเมินคู่ที่มีตัวเอง_และไม่ได้คู่ซ้ำ(self):
+        pairs = generate_individual_pairs(make_groups(8), criterion_id="c1", seed=7, max_workload=8)
+        assert all(p.evaluator_user_id not in (p.item_a_id, p.item_b_id) for p in pairs)
+        assert len({(p.evaluator_user_id, p.item_a_id, p.item_b_id) for p in pairs}) == len(pairs)
+
+    def test_P5_seed_เดิมได้ผลเดิม_seed_ต่างได้ผลต่าง(self):
+        def run(seed):
+            return generate_individual_pairs(make_groups(8), criterion_id="c1", seed=seed, max_workload=8)
+        assert run(11) == run(11)
+        assert run(11) != run(12)
+
+    def test_กลุ่มที่ไม่เกินเพดานยังประเมินครบทุกคู่เหมือนเดิม(self):
+        pairs = generate_individual_pairs(make_groups(5, 8), criterion_id="c1", seed=7, max_workload=8)
+        in_group5 = [p for p in pairs if p.evaluator_user_id <= "u005"]
+        assert len(in_group5) == 5 * 6  # C(4, 2) = 6 คู่ต่อคน ไม่ถูกตัด
+
+    def test_feasibility_รายงาน_coverage_ที่ลดลงเป็นตัวเลข(self):
+        f = solve_individual_feasibility(make_groups(8, 8), target_coverage=5, max_workload=8)
+        # m = 8: 28 คู่ · 8 คน × 8 คู่ = 64 → ทุกคู่ได้อย่างน้อย ⌊64 / 28⌋ = 2
+        assert f.achievable_coverage == 2
+        assert f.workload_per_evaluator == 8
+        assert f.total_comparisons == 2 * 8 * 8
+        assert "21 → 8 คู่ต่อคน" in (f.reason or "")
+        assert "coverage 6 → 2" in (f.reason or "")
+
+    def test_FR_PAIR_15_เตือนกลุ่มนอกช่วง_4_ถึง_7(self):
+        assert solve_individual_feasibility(make_groups(5, 6)).group_size_note is None
+        note = solve_individual_feasibility(make_groups(3, 5, 8)).group_size_note
+        assert note and "กลุ่ม 1 3 คน" in note and "กลุ่ม 3 8 คน" in note

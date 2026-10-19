@@ -6,7 +6,7 @@ from psycopg import Connection
 
 from app.domain.assignment_service import Assignment
 from app.domain.extra_pairs import eligible_evaluators
-from app.domain.pairing import Side
+from app.domain.pairing import Side, individual_coverage
 from app.domain.scoring_service import item_point
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 
@@ -42,7 +42,8 @@ def coverage_rows(conn: Connection, assignment: Assignment, rows: list[dict], la
             points = [item_point(row['choice'], shown_left=str(row['display_left_item_id']) == a) for row in assigned
                       if row['status'] == 'SUBMITTED' and not row['excluded'] and row['choice'] is not None]
             mean = float(sum(points) / len(points)) if points else None
-            expected = assignment.target_coverage if criterion.side is Side.GROUP else max(1, len(eligible_evaluators(groups, criterion.side, a, b)))
+            # ฝั่งบุคคล: กลุ่ม m คนมีผู้มีสิทธิ์ m − 2 คน · coverage ที่คาดหวังลดลงตามเพดานภาระ (FR-PAIR-14)
+            expected = assignment.target_coverage if criterion.side is Side.GROUP else max(1, individual_coverage(len(eligible_evaluators(groups, criterion.side, a, b)) + 2, assignment.max_workload))
             already_assigned = {str(row['evaluator_user_id']) for row in assigned}
             eligible = eligible_evaluators(groups, criterion.side, a, b) - already_assigned
             result.append({'criterionId': criterion.id, 'criterionName': criterion.name, 'side': str(criterion.side),

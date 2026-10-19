@@ -160,3 +160,57 @@ test('J26 / J27: ปุ่มท้ายการ์ดทำกับคู่
   await dialog.getByRole('button', { name: 'ประเมินเอง' }).click()
   await expect(dialog.getByRole('heading')).toHaveText('ผู้สอนประเมินเอง')
 })
+
+test('FR-REPORT-02: สรุปรายบุคคลของอาจารย์แสดง M และคะแนนรวมตรงกับที่นักศึกษาเห็น', async ({
+  api,
+  signedInPage: page,
+  instructorToken,
+  classroomId,
+}) => {
+  await importRoster(api, instructorToken, classroomId, ROSTER)
+  const deadline = new Date(Date.now() + 4000).toISOString()
+  const assignmentId = await createGroupAssignment(api, instructorToken, classroomId, deadline)
+  // rep6 ไม่ตอบเลย → ตัวคูณการมีส่วนร่วม M < 1
+  await answerAll(
+    api,
+    assignmentId,
+    ROSTER.map(([email]) => email).filter((email) => email !== 'rep6@kmitl.ac.th'),
+  )
+  await sleep(Math.max(0, Date.parse(deadline) - Date.now()) + 500)
+  const finalized = await api.post(`/api/assignments/${assignmentId}:finalize`, {
+    ...auth(instructorToken),
+    data: { confirmLowConfidence: true },
+  })
+  expect(finalized.status(), await finalized.text()).toBe(200)
+
+  const scores = await (await api.get(`/api/assignments/${assignmentId}/scores`, auth(instructorToken))).json()
+  for (const email of ['rep1@kmitl.ac.th', 'rep6@kmitl.ac.th']) {
+    const mine = await (await api.get(`/api/assignments/${assignmentId}/my-score`, auth(await issueToken(api, email)))).json()
+    const row = scores.students.find((s: { email: string }) => s.email === email)
+    expect(row.participationMultiplier).toBe(mine.participationMultiplier)
+    expect(row.finalScore).toBe(mine.finalScore)
+  }
+  const lazy = scores.students.find((s: { email: string }) => s.email === 'rep6@kmitl.ac.th')
+  expect(Number(lazy.participationMultiplier)).toBeLessThan(1)
+
+  await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/report#individual`)
+  const summary = page.getByRole('region', { name: 'ตารางสรุปรายบุคคล' })
+  await expect(summary.getByRole('row', { name: /rep6@kmitl\.ac\.th/ })).toContainText(
+    Number(lazy.participationMultiplier).toFixed(3),
+  )
+  await expect(summary.getByRole('row', { name: /rep6@kmitl\.ac\.th/ })).toContainText(Number(lazy.finalScore).toFixed(2))
+})
+
+test('FR-EVAL-10: หน้าประเมินนับถอยหลังเมื่อเหลือไม่ถึง 48 ชม.', async ({ api, page, instructorToken, classroomId }) => {
+  await importRoster(api, instructorToken, classroomId, ROSTER)
+  const assignmentId = await createGroupAssignment(
+    api,
+    instructorToken,
+    classroomId,
+    new Date(Date.now() + 5 * 3600000).toISOString(),
+  )
+  const student = await issueToken(api, 'rep1@kmitl.ac.th')
+  await page.addInitScript(([key, token]) => window.localStorage.setItem(key, token), ['paireval.session', student] as const)
+  await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/evaluate`)
+  await expect(page.getByTestId('deadline-countdown')).toContainText(/เหลืออีก 4 ชม\. 5\d นาที/)
+})

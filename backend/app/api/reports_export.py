@@ -26,6 +26,7 @@ from app.domain.assignment_service import Assignment, AssignmentStatus
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import ValidationError
 from app.domain.xlsx import workbook
+from app.personal_score import class_personal_scores
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_quality_repo import PgQualityRepository
@@ -115,22 +116,40 @@ def _sheets(conn, assignment: Assignment, reports: list[Report], *, identified: 
     scoring = PgScoringRepository(conn)
     is_final = assignment.status == AssignmentStatus.FINALIZED
     scores = scoring.list_computed_scores(assignment.id, is_final=is_final) if {Report.GROUP, Report.INDIVIDUAL} & set(reports) else []
+    breakdown: dict[tuple[str, str], list[dict]] = {}
+    if {Report.GROUP, Report.INDIVIDUAL} & set(reports):
+        for c in scoring.criterion_breakdown(assignment.id, is_final=is_final):
+            breakdown.setdefault((str(c['item_id']), str(c['side'])), []).append(c)
     result = []
     for report in reports:
         if report is Report.GROUP:
-            rows = [['group', 'score', 'max_score', 'is_final', 'flags']]
-            rows += [[s.item_label, s.component, assignment.group_max_score, is_final, ' '.join(s.flags)]
-                     for s in scores if str(s.side) == 'GROUP']
+            # FR-REPORT-01: กลุ่ม × criterion × (q, count, คะแนน) แล้วตามด้วยแถวรวมของกลุ่ม
+            rows = [['group', 'criterion', 'weight_pct', 'q', 'comparison_count', 'score', 'max_score', 'is_final', 'flags']]
+            for s in (s for s in scores if str(s.side) == 'GROUP'):
+                for c in breakdown.get((s.item_id, 'GROUP'), []):
+                    rows.append([s.item_label, c['name'], c['weight_pct'], c['quality_index'], c['comparison_count'],
+                                 c['score'], assignment.group_max_score * c['weight_pct'] / 100, is_final,
+                                 ' '.join(c['flags'] or ())])
+                rows.append([s.item_label, 'TOTAL', 100, None,
+                             sum(c['comparison_count'] for c in breakdown.get((s.item_id, 'GROUP'), [])),
+                             s.component, assignment.group_max_score, is_final, ' '.join(s.flags)])
         elif report is Report.INDIVIDUAL:
-            with conn.cursor() as cur:
-                cur.execute('''SELECT m.user_id, u.email_normalized, g.name AS group_name FROM classroom_member m
-                               JOIN app_user u ON u.id = m.user_id LEFT JOIN group_entity g ON g.id = m.group_id
-                               WHERE m.classroom_id = %s AND m.role = 'STUDENT' ''', (assignment.classroom_id,))
-                members = {str(r['user_id']): r for r in cur.fetchall()}
-            rows = [['student', 'email', 'group', 'individual_score', 'max_score', 'is_final', 'flags']]
-            rows += [[s.item_label, members.get(s.item_id, {}).get('email_normalized'),
-                      members.get(s.item_id, {}).get('group_name'), s.component, assignment.individual_max_score,
-                      is_final, ' '.join(s.flags)] for s in scores if str(s.side) == 'INDIVIDUAL']
+            # FR-REPORT-02: นักศึกษา × criterion × (q, count, คะแนน, participation, คะแนนรวม, flag)
+            # ตัวเลขชุดเดียวกับ /my-score (app/personal_score.py) · individual_hidden_from_student บอกว่านักศึกษาไม่เห็นคะแนนนี้
+            rows = [['student', 'email', 'group', 'criterion', 'weight_pct', 'q', 'comparison_count', 'criterion_score',
+                     'group_score', 'individual_score', 'submitted', 'assigned', 'participation_ratio',
+                     'participation_multiplier', 'final_score', 'max_score', 'individual_hidden_from_student',
+                     'is_final', 'flags']]
+            for p in class_personal_scores(conn, assignment, is_final=is_final):
+                tail = [p.group_component, p.individual_component, p.submitted, p.assigned, p.participation_ratio,
+                        p.participation_multiplier, p.final_score,
+                        assignment.group_max_score + assignment.individual_max_score, p.individual_hidden, is_final]
+                criteria = breakdown.get((p.user_id, 'INDIVIDUAL'), [])
+                for c in criteria:
+                    rows.append([p.label, p.email, p.group_label, c['name'], c['weight_pct'], c['quality_index'],
+                                 c['comparison_count'], c['score'], *tail, ' '.join(c['flags'] or ())])
+                if not criteria:
+                    rows.append([p.label, p.email, p.group_label, None, None, None, None, None, *tail, ''])
         elif report is Report.PAIR_COVERAGE:
             quality = PgQualityRepository(conn)
             pairs = coverage_rows(conn, assignment, quality.rows(assignment.id), quality.labels(assignment.classroom_id))
@@ -147,6 +166,7 @@ def _sheets(conn, assignment: Assignment, reports: list[Report], *, identified: 
                     ['instructor_weight', assignment.instructor_weight], ['score_floor', assignment.score_floor],
                     ['score_ceiling', assignment.score_ceiling], ['completion_threshold', assignment.completion_threshold],
                     ['formula', 'personal = (group component + individual component) x participation multiplier'],
+                    ['formula_version', scoring.formula_version(assignment.id, is_final=is_final)],
                     ['excluded_answers', 'answers excluded by the owner are not counted in scores or coverage']]
             rows += [[f'criterion {c.display_order + 1}', f'{c.side} · {c.name} · {c.weight_pct}%'] for c in assignment.criteria]
         else:

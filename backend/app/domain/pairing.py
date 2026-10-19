@@ -22,6 +22,26 @@ DEFAULT_MAX_WORKLOAD = 8
 # เหลือ m − 2 คนเป็นผู้ประเมิน ถ้า m = 2 ก็ไม่เหลือใคร (FR-PAIR-12)
 MIN_GROUP_SIZE_FOR_INDIVIDUAL = 3
 
+# FR-PAIR-15 — ขนาดกลุ่มที่ PRD §8.3 แนะนำสำหรับการประเมินรายบุคคล (นอกช่วงนี้ยัง publish ได้ แค่เตือน)
+RECOMMENDED_GROUP_SIZE = (4, 7)
+
+
+def individual_workload(group_size: int, max_workload: int = DEFAULT_MAX_WORKLOAD) -> int:
+    """คู่ต่อคนต่อเกณฑ์ในกลุ่ม m คน — ภาระเต็มคือ C(m−1, 2) แต่ไม่เกินเพดาน k_max (FR-PAIR-14)"""
+    return min((group_size - 1) * (group_size - 2) // 2, max_workload)
+
+
+def individual_coverage(group_size: int, max_workload: int = DEFAULT_MAX_WORKLOAD) -> int:
+    """coverage ต่ำสุดที่ทุกคู่ในกลุ่มได้รับรับประกัน = ⌊m × w / C(m, 2)⌋
+
+    ไม่ติดเพดาน: m × C(m−1,2) / C(m,2) = m − 2 พอดี (D4) · ติดเพดาน: ลดลงตามที่ตัดภาระ
+    ใช้ร่วมกันทั้ง feasibility และรายงาน coverage เพื่อไม่ให้ทุกคู่ของกลุ่มใหญ่ติด "ข้อมูลไม่พอ"
+    """
+    pairs = group_size * (group_size - 1) // 2
+    if pairs == 0:
+        return 0
+    return group_size * individual_workload(group_size, max_workload) // pairs
+
 
 class Side(StrEnum):
     GROUP = "GROUP"
@@ -53,6 +73,8 @@ class Feasibility:
     # US-15 AC — เตือนแยกจาก `reason` โดยตั้งใจ: กลุ่มพวกนี้ publish ได้ปกติ (feasible=True)
     # แค่คะแนนรายบุคคลจะไม่มีวันพ้น k-anonymity เลย ไม่ใช่เรื่อง "จัดคู่ไม่ได้" แบบ reason
     low_anonymity_note: str | None = None
+    # FR-PAIR-15 — กลุ่มที่ขนาดนอกช่วงแนะนำ 4–7 คน (เตือนอย่างเดียว ไม่บล็อก)
+    group_size_note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -199,6 +221,7 @@ def solve_individual_feasibility(
     *,
     target_coverage: int = DEFAULT_TARGET_COVERAGE,
     min_comparisons: int = 3,
+    max_workload: int = DEFAULT_MAX_WORKLOAD,
 ) -> Feasibility:
     """coverage ฝั่งบุคคลถูกกำหนดโดยขนาดกลุ่ม ไม่ใช่โดยค่าที่อาจารย์ขอ (D4)
 
@@ -231,18 +254,32 @@ def solve_individual_feasibility(
         )
 
     smallest = min(g.size for g in usable)
-    coverage = smallest - 2
-    # C(m−1, 2) — จำนวนคู่ที่คนหนึ่งประเมินได้ในกลุ่มของตัวเอง
-    workload = (smallest - 1) * (smallest - 2) // 2
-    total = sum(g.size * (g.size - 1) * (g.size - 2) // 2 for g in usable)
+    # coverage ที่รับประกันได้ทั้งห้องคือของกลุ่มที่ได้น้อยที่สุด (กลุ่มเล็ก หรือกลุ่มที่ติดเพดานภาระ)
+    coverage = min(individual_coverage(g.size, max_workload) for g in usable)
+    # C(m−1, 2) ของกลุ่มเล็กสุด ไม่เกินเพดาน — จำนวนคู่ที่คนหนึ่งประเมินในกลุ่มของตัวเอง
+    workload = individual_workload(smallest, max_workload)
+    total = sum(g.size * individual_workload(g.size, max_workload) for g in usable)
+    capped = sorted(
+        (g for g in usable if (g.size - 1) * (g.size - 2) // 2 > max_workload), key=lambda g: g.name
+    )
 
     reason = None
     skipped = [g for g in groups if g.size < MIN_GROUP_SIZE_FOR_INDIVIDUAL]
-    if coverage < target_coverage or skipped:
+    if coverage < target_coverage or skipped or capped:
         parts = [
-            f"coverage ฝั่งบุคคลเท่ากับขนาดกลุ่มลบ 2 เสมอ (D4) — "
+            f"coverage ฝั่งบุคคลเท่ากับขนาดกลุ่มลบ 2 (D4) — "
             f"กลุ่มเล็กสุดมี {smallest} คน จึงได้ coverage {coverage} ไม่ใช่ {target_coverage}"
         ]
+        if capped:
+            # §8.2 — ระบบต้องไม่แอบลดค่าโดยไม่บอก: แจ้งตัวเลขที่ลดลงของแต่ละกลุ่ม
+            details = ", ".join(
+                f"{g.name} {g.size} คน: {(g.size - 1) * (g.size - 2) // 2} → {max_workload} คู่ต่อคน "
+                f"coverage {g.size - 2} → {individual_coverage(g.size, max_workload)}"
+                for g in capped
+            )
+            parts.append(
+                f"· ภาระเกินเพดาน {max_workload} คู่ต่อคนต่อเกณฑ์ จึงสุ่มเลือกคู่ให้สมดุล (FR-PAIR-14) — {details}"
+            )
         if skipped:
             names = ", ".join(sorted(g.name for g in skipped))
             parts.append(
@@ -265,6 +302,16 @@ def solve_individual_feasibility(
             f"ซึ่งต่ำกว่าเกณฑ์ min_comparisons ({min_comparisons}) ของงานนี้"
         )
 
+    low, high = RECOMMENDED_GROUP_SIZE
+    off_size = sorted((g for g in usable if not low <= g.size <= high), key=lambda g: g.name)
+    group_size_note = None
+    if off_size:
+        group_size_note = (
+            f"{len(off_size)} กลุ่มมีขนาดนอกช่วงที่แนะนำ {low}–{high} คน "
+            f"({', '.join(f'{g.name} {g.size} คน' for g in off_size)}) — "
+            f"กลุ่มเล็กได้ผู้ประเมินต่อคนน้อย ส่วนกลุ่มใหญ่ภาระสูงหรือ coverage ลดลงเพราะเพดาน"
+        )
+
     return Feasibility(
         side=Side.INDIVIDUAL,
         requested_coverage=target_coverage,
@@ -274,6 +321,7 @@ def solve_individual_feasibility(
         feasible=True,
         reason=reason,
         low_anonymity_note=low_anonymity_note,
+        group_size_note=group_size_note,
     )
 
 
@@ -517,12 +565,15 @@ def _assert_balanced(pairs: list[Pair], all_pairs: list[tuple[str, str]]) -> Non
 
 
 def generate_individual_pairs(
-    groups: list[GroupInfo], *, criterion_id: str, seed: int, assignment_id: str = ""
+    groups: list[GroupInfo], *, criterion_id: str, seed: int, assignment_id: str = "",
+    max_workload: int = DEFAULT_MAX_WORKLOAD,
 ) -> list[Pair]:
-    """จัดสรรคู่ภายในกลุ่ม — เป็น complete enumeration ไม่ต้องสุ่มว่าใครได้คู่ไหน (§8.3)
+    """จัดสรรคู่ภายในกลุ่ม (§8.3)
 
-    ทุกคนประเมินทุกคู่ในกลุ่มที่ไม่มีตัวเองอยู่ จึงได้ coverage = m − 2 โดยอัตโนมัติ
-    และสมดุลเป๊ะโดยไม่ต้องจัดสรร — สุ่มเฉพาะตำแหน่งซ้ายขวาเท่านั้น
+    ภาระเต็ม C(m−1, 2) ไม่เกินเพดาน: ทุกคนประเมินทุกคู่ที่ไม่มีตัวเอง ได้ coverage = m − 2 และสมดุลเป๊ะ
+    โดยไม่ต้องจัดสรร — สุ่มเฉพาะตำแหน่งซ้ายขวา
+    เกินเพดาน (FR-PAIR-14 เช่นกลุ่ม 8 คน = 21 คู่): ให้แต่ละคนได้ `max_workload` คู่ เลือกคู่ที่ยังได้น้อยสุดก่อน
+    แล้วเกลี่ยด้วย `_rebalance` ชุดเดียวกับฝั่งกลุ่ม · `_assert_balanced` ยืนยันส่วนต่าง coverage ≤ 1 (P3)
     """
     rng = _rng(seed, assignment_id, criterion_id, "individual")
     pairs: list[Pair] = []
@@ -532,6 +583,9 @@ def generate_individual_pairs(
             continue
 
         members = sorted(group.member_ids)
+        if (group.size - 1) * (group.size - 2) // 2 > max_workload:
+            pairs.extend(_capped_individual_pairs(members, rng, max_workload))
+            continue
         for evaluator in members:
             # P2 — ไม่มีตัวเองอยู่ในคู่ และประเมินได้เฉพาะในกลุ่มตัวเอง
             others = [m for m in members if m != evaluator]
@@ -546,4 +600,43 @@ def generate_individual_pairs(
                     )
                 )
 
+    _assert_no_duplicate_pair(pairs)
     return pairs
+
+
+def _capped_individual_pairs(members: list[str], rng: random.Random, max_workload: int) -> list[Pair]:
+    """FR-PAIR-14 — ทุกคนได้ `max_workload` คู่พอดี coverage ทุกคู่ในกลุ่มต่างกันไม่เกิน 1"""
+    all_pairs = list(combinations(members, 2))
+    rng.shuffle(all_pairs)  # ลำดับสุ่มใช้ตัดสินเมื่อ coverage เท่ากัน — seed เดิมได้ผลเดิม (P5)
+    rank = {pair: index for index, pair in enumerate(all_pairs)}
+    eligible_for = {pair: [m for m in members if m not in pair] for pair in all_pairs}
+    counts = dict.fromkeys(all_pairs, 0)
+    holders: dict[tuple[str, str], list[str]] = {pair: [] for pair in all_pairs}
+    taken: set[tuple[str, tuple[str, str]]] = set()
+    order = members[:]
+    rng.shuffle(order)
+    for round_index in range(max_workload):
+        # หมุนจุดเริ่มทุกรอบ ไม่ให้คนแรกได้เลือกคู่ที่ว่างที่สุดก่อนทุกครั้ง
+        start = round_index % len(order)
+        for evaluator in order[start:] + order[:start]:
+            choice = min(
+                (pair for pair in all_pairs if evaluator not in pair and (evaluator, pair) not in taken),
+                key=lambda pair: (counts[pair], rank[pair]),
+            )
+            holders[choice].append(evaluator)
+            taken.add((evaluator, choice))
+            counts[choice] += 1
+    _rebalance(counts, holders, taken, eligible_for, all_pairs)
+    result = [
+        Pair(
+            side=Side.INDIVIDUAL,
+            item_a_id=pair[0],
+            item_b_id=pair[1],
+            evaluator_user_id=evaluator,
+            display_left_item_id=_place(rng, pair[0], pair[1]),
+        )
+        for pair in sorted(all_pairs)
+        for evaluator in sorted(holders[pair])
+    ]
+    _assert_balanced(result, all_pairs)
+    return result

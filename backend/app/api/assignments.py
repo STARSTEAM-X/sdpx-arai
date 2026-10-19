@@ -154,6 +154,8 @@ class FeasibilityOut(BaseModel):
     feasible: bool
     reason: str | None
     lowAnonymityNote: str | None = None
+    # FR-PAIR-15 — กลุ่มขนาดนอกช่วงแนะนำ 4–7 คน
+    groupSizeNote: str | None = None
 
 
 class FeasibilityReport(BaseModel):
@@ -387,6 +389,7 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
                 groups,
                 target_coverage=assignment.target_coverage,
                 min_comparisons=assignment.min_comparisons,
+                max_workload=assignment.max_workload,
             )
         )
 
@@ -401,6 +404,7 @@ def get_feasibility(assignment_id: str, user_email: CurrentUser) -> FeasibilityR
                 feasible=f.feasible,
                 reason=f.reason,
                 lowAnonymityNote=f.low_anonymity_note,
+                groupSizeNote=f.group_size_note,
             )
             for f in items
         ]

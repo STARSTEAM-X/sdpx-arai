@@ -27,11 +27,8 @@ from app.domain.finalize_service import (
     assert_reopenable,
 )
 from app.domain.pairing import Side
-from app.domain.scoring_service import (
-    compute_final_personal_score,
-    compute_participation,
-)
 from app.observability import log_event, user_ref
+from app.personal_score import class_personal_scores, personal_score
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import (
@@ -244,8 +241,9 @@ def export_comparisons(assignment_id: str, user_email: CurrentUser) -> Response:
     """
     with transaction() as conn:
         # เรียกเพื่อตรวจสิทธิ์อย่างเดียว — ถ้าไม่ใช่ผู้สอนของห้องนี้จะ raise ก่อนอ่านข้อมูล
-        _load_for_instructor(conn, assignment_id, user_email)
+        assignment = _load_for_instructor(conn, assignment_id, user_email)
         rows = PgScoringRepository(conn).export_comparisons(assignment_id)
+        filename = _raw_export_filename(conn, assignment, identified=False)
 
     pseudonyms = pseudonymize_evaluators([r.evaluator_user_id for r in rows])
     csv_text = _rows_to_csv(rows, evaluator_column=pseudonyms)
@@ -254,9 +252,22 @@ def export_comparisons(assignment_id: str, user_email: CurrentUser) -> Response:
         content=csv_text,
         media_type="text/csv",
         headers={
-            "Content-Disposition": f'attachment; filename="comparisons_{assignment_id}.csv"'
+            "Content-Disposition": f'attachment; filename="{filename}"'
         },
     )
+
+
+def _raw_export_filename(conn, assignment: Assignment, *, identified: bool) -> str:
+    """FR-EXPORT-05 — ชื่อไฟล์รูปแบบเดียวกับหน้าส่งออก J36: {ห้อง}_{งาน}_{รายงาน}_{YYYYMMDD-HHmm}.csv"""
+    # reports_export import โมดูลนี้อยู่แล้ว จึง import ตอนเรียกเพื่อไม่ให้วนกัน
+    from app.api.reports_export import Report, export_basename
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT course_code, semester, timezone FROM classroom WHERE id = %s", (assignment.classroom_id,))
+        room = cur.fetchone()
+    name = export_basename(course_code=room["course_code"], semester=room["semester"], assignment=assignment,
+                           reports=[Report.RAW_COMPARISONS], at=datetime.now(UTC), timezone=room["timezone"])
+    return f"{name.replace('_raw-comparisons_', '_raw-comparisons-identified_') if identified else name}.csv"
 
 
 class ExportIdentifiedIn(BaseModel):
@@ -306,13 +317,14 @@ def export_comparisons_identified(
                 ip=request.client.host if request.client else None,
             )
         )
+        filename = _raw_export_filename(conn, assignment, identified=True)
 
     return Response(
         content=csv_text,
         media_type="text/csv",
         headers={
             "Content-Disposition": (
-                f'attachment; filename="comparisons_identified_{assignment_id}.csv"'
+                f'attachment; filename="{filename}"'
             )
         },
     )
@@ -404,11 +416,31 @@ class ComputedScoreOut(BaseModel):
     overridden: bool = False
 
 
+class StudentScoreOut(BaseModel):
+    """FR-REPORT-02 Individual Summary — ตัวเลขชุดเดียวกับ `/my-score` ของนักศึกษาคนนั้น"""
+
+    userId: str
+    label: str
+    email: str
+    groupLabel: str | None
+    groupComponent: Decimal
+    individualComponent: Decimal
+    # นักศึกษาคนนี้ไม่เห็นคะแนนรายบุคคล/คะแนนรวมของตัวเอง (ผู้ประเมิน < k_min) — อาจารย์ยังเห็น
+    individualHiddenFromStudent: bool
+    submittedCount: int
+    assignedCount: int
+    participationRatio: Decimal
+    participationMultiplier: Decimal
+    finalScore: Decimal
+    maxScore: Decimal
+
+
 class ScoresOut(BaseModel):
     isFinal: bool
     items: list[ComputedScoreOut]
     formulaVersion: str | None = None
     computedAt: datetime | None = None
+    students: list[StudentScoreOut] = []
 
 
 @router.get("/{assignment_id}/scores", response_model=ScoresOut)
@@ -431,6 +463,7 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
         breakdown = repo.criterion_breakdown(assignment_id, is_final=is_final)
         overridden = repo.overridden_items(assignment_id)
         batch = repo.latest_batch(assignment_id, is_final=is_final) or {}
+        students = class_personal_scores(conn, assignment, is_final=is_final) if rows else []
 
     max_by_side = {Side.GROUP: assignment.group_max_score, Side.INDIVIDUAL: assignment.individual_max_score}
     criteria: dict[tuple[str, str], list[CriterionScoreOut]] = {}
@@ -446,6 +479,17 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
         isFinal=is_final,
         formulaVersion=batch.get("formula_version"),
         computedAt=batch.get("computed_at"),
+        students=[
+            StudentScoreOut(
+                userId=p.user_id, label=p.label, email=p.email, groupLabel=p.group_label,
+                groupComponent=p.group_component, individualComponent=p.individual_component,
+                individualHiddenFromStudent=p.individual_hidden, submittedCount=p.submitted,
+                assignedCount=p.assigned, participationRatio=p.participation_ratio,
+                participationMultiplier=p.participation_multiplier, finalScore=p.final_score,
+                maxScore=assignment.group_max_score + assignment.individual_max_score,
+            )
+            for p in students
+        ],
         items=[
             ComputedScoreOut(
                 itemId=r.item_id, side=r.side, itemLabel=r.item_label,
@@ -516,58 +560,22 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
             return MyScoreOut(finalized=False, message="ยังไม่ประกาศผลคะแนน", assignmentName=assignment.name)
 
         group_id = scoring_repo.group_id_for_student(assignment.classroom_id, user_email)
-
-        group_component = Decimal(0)
-        if group_id:
-            group_component = scoring_repo.effective_component_for_item(
-                assignment_id, Side.GROUP, group_id, is_final=is_final
-            )
-
-        individual_component: Decimal | None = None
-        individual_hidden = False
-        evaluator_count: int | None = None
-
         # ต้องใช้ user_id ของนักศึกษาเอง (ไม่ใช่ group_id) เป็น item_id ฝั่ง INDIVIDUAL
-        # US-15 AC — ผู้ประเมิน < k_min (ใช้ min_comparisons ร่วมกัน) ต้องไม่เห็นตัวเลขรายบุคคล
-        my_user_id = None
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM app_user WHERE email_normalized = %s", (user_email,))
-            row = cur.fetchone()
-            my_user_id = str(row["id"]) if row else None
-
-        if assignment.has_individual_side and my_user_id:
-            evaluator_count = scoring_repo.evaluator_count_for_item(
-                assignment_id, Side.INDIVIDUAL, my_user_id, is_final=is_final
-            )
-            if evaluator_count < assignment.min_comparisons:
-                individual_hidden = True
-            else:
-                individual_component = scoring_repo.effective_component_for_item(
-                    assignment_id, Side.INDIVIDUAL, my_user_id, is_final=is_final
-                )
-        elif not assignment.has_individual_side:
-            individual_component = Decimal(0)
-
-        group_p = scoring_repo.participation(assignment_id, Side.GROUP, user_email)
-        indiv_p = scoring_repo.participation(assignment_id, Side.INDIVIDUAL, user_email)
-        m = compute_participation(
-            assigned_group=group_p.assigned, submitted_group=group_p.submitted,
-            assigned_individual=indiv_p.assigned, submitted_individual=indiv_p.submitted,
-            completion_threshold=assignment.completion_threshold,
-        )
-        p_total = (group_p.assigned + indiv_p.assigned)
-        p_ratio = (
-            Decimal(group_p.submitted + indiv_p.submitted) / Decimal(p_total)
-            if p_total > 0 else Decimal(1)
-        )
-
-        final_score = None
-        if not individual_hidden:
-            final_score = compute_final_personal_score(
-                group_component=group_component,
-                individual_component=individual_component or Decimal(0),
-                participation_multiplier=m,
-            )
+            my_user_id = str(cur.fetchone()["id"])
+        # สูตรเดียวกับรายงานของอาจารย์ (FR-REPORT-02) — app/personal_score.py
+        mine = personal_score(conn, assignment, user_id=my_user_id, email=user_email, label=user_email,
+                              group_id=group_id, group_label=None, is_final=is_final)
+        group_component = mine.group_component
+        evaluator_count = mine.evaluator_count
+        # US-15 AC — ผู้ประเมิน < k_min (ใช้ min_comparisons ร่วมกัน) ต้องไม่เห็นตัวเลขรายบุคคลและคะแนนรวม
+        individual_hidden = mine.individual_hidden
+        individual_component = None if individual_hidden else mine.individual_component
+        m = mine.participation_multiplier
+        p_ratio = mine.participation_ratio
+        final_score = None if individual_hidden else mine.final_score
+        group_p_submitted, group_p_assigned = mine.submitted, mine.assigned
 
         details = []
         group_overridden = bool(group_id and scoring_repo.latest_override_value(assignment_id, Side.GROUP, group_id, None) is not None)
@@ -601,8 +609,8 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         groupMaxScore=assignment.group_max_score,
         individualMaxScore=assignment.individual_max_score,
         finalizedAt=assignment.finalized_at if is_final else None,
-        submittedCount=group_p.submitted + indiv_p.submitted,
-        assignedCount=group_p.assigned + indiv_p.assigned,
+        submittedCount=group_p_submitted,
+        assignedCount=group_p_assigned,
         criterionScores=details,
         groupOverridden=group_overridden,
         individualOverridden=individual_overridden,

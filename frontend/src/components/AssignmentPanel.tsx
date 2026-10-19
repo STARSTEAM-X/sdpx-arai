@@ -346,6 +346,24 @@ export function AssignmentPanel({
                 </div>
               ),
           )}
+          {feasibility.map(
+            (f) =>
+              f.groupSizeNote && (
+                <div
+                  key={`size-${f.side}`}
+                  data-testid={`group-size-note-${f.side}`}
+                  className="flex items-center gap-4 rounded-3xl bg-caution-soft px-6 py-5"
+                >
+                  <span aria-hidden="true" className="text-xl">
+                    ⚠️
+                  </span>
+                  <div>
+                    <p className="font-display text-[17px] font-semibold text-warn">ขนาดกลุ่มนอกช่วงที่แนะนำ</p>
+                    <p className="mt-1 text-[14px] text-ink-2">{f.groupSizeNote}</p>
+                  </div>
+                </div>
+              ),
+          )}
           <div className="flex justify-end gap-3">
             <button
               type="button"

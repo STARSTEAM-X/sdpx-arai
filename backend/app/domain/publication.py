@@ -50,4 +50,5 @@ def generate_assignment_pairs(
                 criterion_id=criterion.id,
                 seed=seed,
                 assignment_id=assignment.id,
+                max_workload=assignment.max_workload,
             )

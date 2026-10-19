@@ -199,9 +199,23 @@ sql(f"UPDATE assignment SET group_deadline_utc = '{iso(now - timedelta(hours=2))
 
 open_one = assignment("งานกลุ่มครั้งที่ 1", now + timedelta(days=1, hours=10), rich=True)
 answer(open_one, "nok@kmitl.ac.th", all_pairs=False, submit=False)
-for email in ("ton@kmitl.ac.th", "prae@kmitl.ac.th", "mod@kmitl.ac.th", "fah@kmitl.ac.th", "phu@kmitl.ac.th", "jay@kmitl.ac.th"):
+for email in ("ton@kmitl.ac.th", "prae@kmitl.ac.th", "mod@kmitl.ac.th", "fah@kmitl.ac.th", "phu@kmitl.ac.th",
+              "jay@kmitl.ac.th", "kai@kmitl.ac.th"):
     answer(open_one, email)
 answer(open_one, "bee@kmitl.ac.th", style="rushed")
+# Figma J26/J28 "รวมอาจารย์" — อาจารย์ประเมินเองทุกคู่ฝั่งกลุ่ม ทำให้แต่ละเกณฑ์มีคู่ผู้ประเมินพอคำนวณ QS-07 (≥ 10)
+s_q, quality = call("GET", f"/api/assignments/{open_one}/quality", ins)
+rank = {"Aurora": 0, "Lyra": 1, "Araija": 2}
+for pc in quality["pairCoverage"] if s_q == 200 else []:
+    if pc["side"] != "GROUP":
+        continue
+    a_better = rank.get(pc["itemALabel"], 9) < rank.get(pc["itemBLabel"], 9)
+    choice = (2 if a_better else 5) if pc["criterionName"] != "ความคิดสร้างสรรค์" else 5
+    s_i, _ = call("POST", f"/api/assignments/{open_one}/instructor-comparisons", ins, {
+        "criterionId": pc["criterionId"], "itemAId": pc["itemAId"], "itemBId": pc["itemBId"],
+        "choice": choice, "timeOnTaskMs": 20000, "reason": "อาจารย์ประเมินเพิ่มเพื่อเทียบกับคำตอบนักศึกษา",
+    })
+    print("  instructor", s_i, pc["criterionName"], pc["itemALabel"], "–", pc["itemBLabel"])
 print("  recompute", call("POST", f"/api/assignments/{open_one}:recompute", ins)[0])
 
 print(json.dumps({"rooms": rooms, "student": STUDENTS[0][0], "empty": EMPTY_STUDENT}, ensure_ascii=False))

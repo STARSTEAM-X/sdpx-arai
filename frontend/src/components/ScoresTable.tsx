@@ -44,7 +44,8 @@ export function ScoresTable({ scores, side }: { scores: Scores; side: 'GROUP' | 
                   ผลประเมิน
                 </th>
                 <th scope="col" className="px-4 py-3 text-right font-normal">
-                  รวม{maxTotal ? ` / ${maxTotal}` : ''}
+                  {side === 'INDIVIDUAL' ? 'รวมรายบุคคล' : 'รวม'}
+                  {maxTotal ? ` / ${maxTotal}` : ''}
                   <span className="block">({scores.isFinal ? 'สุดท้าย' : 'ชั่วคราว'})</span>
                 </th>
                 <th scope="col" className="px-5 py-3 text-right font-normal">
@@ -176,6 +177,73 @@ export function ScoresTable({ scores, side }: { scores: Scores; side: 'GROUP' | 
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+/** FR-REPORT-02 Individual Summary — คะแนนกลุ่ม + รายบุคคล × ตัวคูณการมีส่วนร่วม (PRD §9.4)
+ *  ตัวเลขมาจาก /scores ชุดเดียวกับ /my-score ของนักศึกษาแต่ละคน ไม่คำนวณซ้ำที่หน้าเว็บ (AR-01) */
+export function StudentSummaryTable({ scores }: { scores: Scores }) {
+  const students = scores.students ?? []
+  if (!students.length) return null
+  const fixed = (value: string, digits: number) => Number(value).toFixed(digits)
+  return (
+    <div className="mt-5 overflow-hidden rounded-3xl border border-edge bg-white">
+      <div className="border-b border-edge bg-surface-cream px-5 py-4">
+        <h2 className="font-display text-[16px] font-semibold">สรุปรายบุคคล</h2>
+        <p className="mt-1 text-[13.5px] text-ink-2">
+          คะแนนรวม = (คะแนนกลุ่ม + คะแนนรายบุคคล) × ตัวคูณการมีส่วนร่วม M · M = min(1, สัดส่วนที่ส่ง ÷
+          เกณฑ์การมีส่วนร่วม)
+        </p>
+      </div>
+      <div className="relative overflow-x-auto" role="region" aria-label="ตารางสรุปรายบุคคล" tabIndex={0}>
+        <table className="w-full min-w-200 text-[14px]">
+          <thead className="bg-table-head text-left">
+            <tr>
+              {['นักศึกษา', 'กลุ่ม', 'คะแนนกลุ่ม', 'คะแนนรายบุคคล', 'ส่งแล้ว / มอบหมาย', 'ตัวคูณ M', 'คะแนนรวม'].map(
+                (label, index) => (
+                  <th key={label} scope="col" className={`px-4 py-3 font-normal ${index >= 2 ? 'text-right' : ''}`}>
+                    {label}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-edge">
+            {students.map((student) => {
+              const reduced = Number(student.participationMultiplier) < 1
+              return (
+                <tr key={student.userId}>
+                  <th scope="row" className="px-4 py-3 text-left font-normal">
+                    {student.label}
+                    <span className="block text-[12px] text-muted">{student.email}</span>
+                  </th>
+                  <td className="px-4 py-3">{student.groupLabel ?? '—'}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular">{fixed(student.groupComponent, 2)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular">
+                    {fixed(student.individualComponent, 2)}
+                    {student.individualHiddenFromStudent && (
+                      <span className="block font-body text-[11.5px] text-muted">นักศึกษาไม่เห็น (ผู้ประเมินน้อย)</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono tabular">
+                    {student.submittedCount} / {student.assignedCount}
+                    <span className="block font-body text-[11.5px] text-muted">
+                      {Math.round(Number(student.participationRatio) * 100)}%
+                    </span>
+                  </td>
+                  <td className={`px-4 py-3 text-right font-mono tabular ${reduced ? 'font-semibold text-warn' : ''}`}>
+                    {fixed(student.participationMultiplier, 3)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono font-semibold tabular">
+                    {fixed(student.finalScore, 2)} / {Number(student.maxScore)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -325,6 +325,8 @@ export type Feasibility = {
   reason: string | null
   /** เฉพาะฝั่ง INDIVIDUAL — มีกลุ่มที่คะแนนรายบุคคลจะถูกซ่อนโดย k-anonymity ตลอดไป (US-15) */
   lowAnonymityNote: string | null
+  /** FR-PAIR-15 — เฉพาะฝั่ง INDIVIDUAL · มีกลุ่มขนาดนอกช่วงแนะนำ 4–7 คน */
+  groupSizeNote?: string | null
 }
 
 export type PublishResult = {
@@ -592,6 +594,24 @@ export type Scores = {
   formulaVersion?: string | null
   /** เวลาคำนวณของชุดล่าสุด — Figma J25 "คำนวณล่าสุด 02:00 น." */
   computedAt?: string | null
+  /** FR-REPORT-02 Individual Summary — ตัวเลขชุดเดียวกับ /my-score ของนักศึกษาแต่ละคน */
+  students?: StudentScore[]
+}
+
+export type StudentScore = {
+  userId: string
+  label: string
+  email: string
+  groupLabel: string | null
+  groupComponent: string
+  individualComponent: string
+  individualHiddenFromStudent: boolean
+  submittedCount: number
+  assignedCount: number
+  participationRatio: string
+  participationMultiplier: string
+  finalScore: string
+  maxScore: string
 }
 
 /** คะแนนที่คำนวณล่าสุดของทุก item ในงาน — เฉพาะอาจารย์เรียกได้ (US-13)
