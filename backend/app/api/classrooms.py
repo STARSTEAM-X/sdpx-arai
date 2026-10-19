@@ -14,10 +14,11 @@ from app.auth import CurrentUser
 from app.config import ALLOWED_EMAIL_DOMAINS, AUTO_FINALIZE_ENABLED
 from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess, capabilities_of
+from app.domain.account import can_create_classroom
 from app.domain.assignment_service import Assignment
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.classroom_service import ClassroomService
-from app.domain.errors import ConflictError, NotFoundError, ValidationError
+from app.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.domain.finalize_service import auto_finalize_at
 from app.domain.models import Classroom, ClassroomStatus
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
@@ -101,6 +102,9 @@ def list_classrooms(user_email: CurrentUser) -> ClassroomList:
 def create_classroom(
     body: ClassroomCreate, user_email: CurrentUser, response: Response
 ) -> ClassroomOut:
+    # บัญชีนักศึกษา (อีเมลเป็นรหัสนักศึกษาล้วน) สร้างห้องไม่ได้ — app/domain/account.py
+    if not can_create_classroom(user_email):
+        raise ForbiddenError("บัญชีนักศึกษาสร้างห้องเรียนไม่ได้ · เข้าห้องผ่านรายชื่อที่อาจารย์นำเข้า")
     # classroom กับ membership ของ OWNER ต้องเกิดพร้อมกัน (กฎ C1)
     # ถ้าเขียนอันแรกติดแล้วอันที่สองพัง จะได้ห้องเรียนที่ไม่มีเจ้าของ ซึ่งกู้ยาก
     with transaction() as conn:

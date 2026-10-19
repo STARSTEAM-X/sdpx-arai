@@ -19,14 +19,6 @@ const ROLE_STYLE: Record<string, { label: string; chip: string; dot: string; pil
   STUDENT: { label: 'นักศึกษา', chip: 'นักศึกษา', dot: 'bg-ok-600', pill: 'bg-ok-50 text-ok-700' },
 }
 
-
-
-/** รหัสนักศึกษา KMITL เป็นตัวเลขล้วน — ใช้เดาว่าผู้ใช้ที่ยังไม่มีห้องเป็นนักศึกษา (Figma ST11)
- *  หรือผู้สอนที่ยังไม่ได้สร้างห้อง (Figma J02) เพราะระบบไม่มี role ระดับบัญชี */
-function looksLikeStudent(email: string | undefined): boolean {
-  return /^\d+@/.test(email ?? '')
-}
-
 export default function ClassroomsPage() {
   const [me, setMe] = useState<Me | null>(null)
   const [items, setItems] = useState<Classroom[]>([])
@@ -91,7 +83,9 @@ export default function ClassroomsPage() {
   }, [items, search, roleFilter, statusFilter, roleByRoom, semester, studentOnly])
 
   const noRooms = loaded && items.length === 0
-  const studentEmpty = noRooms && looksLikeStudent(me?.email)
+  // บัญชีนักศึกษา = อีเมลเป็นรหัสนักศึกษาล้วน (backend app/domain/account.py) — สร้างห้องไม่ได้ · ว่างแล้วเห็น ST11 แทน J02
+  const studentAccount = me?.accountType === 'STUDENT'
+  const studentEmpty = noRooms && studentAccount
   const archivedTab = !studentOnly && statusFilter === 'ARCHIVED'
 
   const subtitle =
@@ -353,7 +347,7 @@ export default function ClassroomsPage() {
               <h2 id="h-classrooms" className="font-display text-[17px] font-semibold">
                 {archivedTab ? `Archive ${visibleItems.length} ห้อง` : `ห้องเรียน ${visibleItems.length} ห้อง`}
               </h2>
-              {!archivedTab && !staffOnly && createButton}
+              {!archivedTab && !staffOnly && !studentAccount && createButton}
             </div>
 
             {visibleItems.length === 0 ? (

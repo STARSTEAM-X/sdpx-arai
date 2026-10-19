@@ -138,6 +138,8 @@ export type Me = {
   email: string
   displayName: string | null
   status: string
+  /** STUDENT = ส่วนหน้า @ เป็นตัวเลขล้วน สร้างห้องเรียนไม่ได้ · INSTRUCTOR = แบบอื่นทั้งหมด */
+  accountType?: 'STUDENT' | 'INSTRUCTOR'
   classrooms: { classroomId: string; classroomName: string; role: string }[]
   /** null = ยังไม่เคยกดรับทราบประกาศความเป็นส่วนตัว (Figma ST03) */
   privacyAcknowledgedAt?: string | null

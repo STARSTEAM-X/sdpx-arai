@@ -20,7 +20,8 @@ export function ClassroomCreateForm({ disabled, onCreated, onCancel, room }: {
   const [timezone, setTimezone] = useState(room?.timezone ?? 'Asia/Bangkok')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const domains = room?.allowedEmailDomains.join(', ') || 'kmitl.ac.th'
+  // ห้องที่ไม่ได้ตั้งโดเมนรับได้ทุกโดเมน (ระบบเปิดทุกโดเมนชั่วคราว — ALLOWED_EMAIL_DOMAINS ว่าง)
+  const domains = room?.allowedEmailDomains.join(', ') || 'ทุกโดเมน'
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

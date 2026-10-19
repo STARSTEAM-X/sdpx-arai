@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.auth import CurrentUser, issue_session
 from app.config import ALLOWED_EMAIL_DOMAINS, GOOGLE_CLIENT_ID
+from app.domain.account import account_type
 from app.db import transaction
 from app.google_oidc import (
     EmailDomainNotAllowed,
@@ -122,6 +123,7 @@ def create_session(body: SessionRequest) -> dict:
             "email": user.email_normalized,
             "displayName": user.display_name,
             "status": user.status,
+            "accountType": str(account_type(user.email_normalized)),
         },
     }
 
@@ -146,6 +148,8 @@ def me(user_email: CurrentUser) -> dict:
         "email": user.email_normalized,
         "displayName": user.display_name,
         "status": user.status,
+        # STUDENT | INSTRUCTOR จากรูปแบบอีเมล — หน้าเว็บใช้ซ่อนปุ่มสร้างห้อง (API ตรวจซ้ำเอง)
+        "accountType": str(account_type(user.email_normalized)),
         "classrooms": classrooms,
         "privacyAcknowledgedAt": privacy_row["privacy_acknowledged_at"] if privacy_row else None,
     }

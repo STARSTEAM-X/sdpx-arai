@@ -104,9 +104,10 @@ services:
       - key: GOOGLE_CLIENT_ID
         value: 481187031480-84p52vogdsiu9rtn6lrhucaut9bggp57.apps.googleusercontent.com
 
-      # จำกัดทั้งการ login และการเพิ่มสมาชิกให้ใช้บัญชีสถาบันเท่านั้น (FR-AUTH-02)
+      # ว่าง = ทุก domain login ได้ (เปิดชั่วคราวตามที่ทีมขอ 2026-10-20) · ใส่ kmitl.ac.th เพื่อกลับไปจำกัด (FR-AUTH-02)
+      # นักศึกษา/อาจารย์แยกจากรูปแบบอีเมล ไม่ใช่จาก domain — app/domain/account.py
       - key: ALLOWED_EMAIL_DOMAINS
-        value: kmitl.ac.th
+        value: ""
 
       # ต่อกับ Postgres ด้านล่าง — Render ใส่ connection string ให้เอง
       # ค่า default ใน config.py ชี้ไป localhost:5433 ซึ่งไม่มีอยู่บน Render

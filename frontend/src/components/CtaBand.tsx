@@ -15,7 +15,8 @@ export function CtaBand() {
       <div className="grid items-center gap-3 rounded-[36px] bg-surface-cream px-6 py-4 sm:rounded-[48px] sm:px-8 md:grid-cols-[0.85fr_1.15fr] lg:grid-cols-[480px_1fr] lg:gap-10">
         <WelcomeIllustration />
 
-        <div className="flex-1">
+        {/* จอเล็กเป็นคอลัมน์เดียวใต้ภาพ จึงจัดกลางให้ตรงแนวภาพ · ตั้งแต่ md เป็นสองคอลัมน์ ชิดซ้ายตามเดิม */}
+        <div className="flex-1 text-center md:text-left">
           <h2 className="font-display text-2xl leading-[1.45] font-bold text-ink sm:text-[34px]">
             ความคิดเห็นที่ตรงไปตรงมา
           </h2>

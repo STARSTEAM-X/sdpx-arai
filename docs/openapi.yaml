@@ -862,6 +862,9 @@ paths:
                 $ref: '#/components/schemas/Classroom'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          # บัญชีนักศึกษา (ส่วนหน้า @ เป็นตัวเลขล้วน) สร้างห้องเรียนไม่ได้ — Me.accountType
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -1905,6 +1908,12 @@ components:
         status:
           type: string
           enum: [PENDING, ACTIVE, DISABLED]
+        accountType:
+          type: string
+          enum: [STUDENT, INSTRUCTOR]
+          description: |
+            จากรูปแบบอีเมล — ส่วนหน้า @ เป็นตัวเลขล้วนคือ STUDENT แบบอื่นคือ INSTRUCTOR
+            STUDENT สร้างห้องเรียนไม่ได้ (POST /api/classrooms ตอบ 403) · role ในแต่ละห้องดูที่ classrooms
         classrooms:
           type: array
           description: |

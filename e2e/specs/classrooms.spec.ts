@@ -1,4 +1,4 @@
-import { expect, test } from '../fixtures'
+import { expect, issueToken, test } from '../fixtures'
 import { ClassroomsPage } from '../pages/ClassroomsPage'
 import { testClassroom } from '../seed/test-data'
 
@@ -90,5 +90,38 @@ test.describe('การแยกข้อมูลระหว่างผู�
 
     await expect(classrooms.classroomList.getByRole('listitem')).toHaveCount(1)
     await expect(classrooms.classroomNamed('ห้องเรียนของอาจารย์อีกคน')).toHaveCount(0)
+  })
+})
+
+/* ประเภทบัญชีจากรูปแบบอีเมล (ทีมกำหนด 2026-10-20) — app/domain/account.py
+ * ส่วนหน้า @ เป็นตัวเลขล้วน = นักศึกษา สร้างห้องไม่ได้ · แบบอื่นทั้งหมด = อาจารย์ */
+test.describe('บัญชีนักศึกษาและอาจารย์', () => {
+  const studentEmail = '67015090@kmitl.ac.th'
+  const instructorEmail = 'Arjan.0001@kmitl.ac.th'
+
+  test('อีเมลตัวเลขล้วนสร้างห้องไม่ได้ทั้งทาง API และไม่เห็นปุ่มสร้าง', async ({ api, page }) => {
+    await api.post('/api/test/seed', { data: { users: [{ email: studentEmail, displayName: 'นักศึกษา' }], reset: false } })
+    const token = await issueToken(api, studentEmail)
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+
+    expect((await (await api.get('/api/me', auth)).json()).accountType).toBe('STUDENT')
+    const res = await api.post('/api/classrooms', { ...auth, data: { name: 'ห้องของนักศึกษา', timezone: 'Asia/Bangkok' } })
+    expect(res.status()).toBe(403)
+    expect((await res.json()).error.code).toBe('FORBIDDEN')
+
+    await page.addInitScript((value) => window.localStorage.setItem('paireval.session', value), token)
+    await page.goto('/classrooms')
+    await expect(page.getByTestId('empty-state')).toContainText('ยังไม่มีห้องเรียนของคุณ')
+    await expect(page.getByRole('button', { name: /สร้างห้องเรียน/ })).toHaveCount(0)
+  })
+
+  test('อีเมลแบบอื่น (มีตัวอักษร) เป็นอาจารย์และสร้างห้องได้ ไม่ว่าจะเป็น domain ไหน', async ({ api }) => {
+    for (const email of [instructorEmail, 'someone@gmail.com']) {
+      await api.post('/api/test/seed', { data: { users: [{ email, displayName: 'อาจารย์' }], reset: false } })
+      const auth = { headers: { authorization: `Bearer ${await issueToken(api, email)}` } }
+      expect((await (await api.get('/api/me', auth)).json()).accountType).toBe('INSTRUCTOR')
+      const res = await api.post('/api/classrooms', { ...auth, data: { name: `ห้องของ ${email}`, timezone: 'Asia/Bangkok' } })
+      expect(res.status()).toBe(201)
+    }
   })
 })
