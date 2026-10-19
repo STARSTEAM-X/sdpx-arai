@@ -37,6 +37,8 @@ tags:
     description: การแจ้งเตือนในระบบและสถานะการอ่านของผู้ใช้เอง
   - name: health
     description: ตรวจสถานะระบบ
+  - name: account
+    description: ข้อมูลบัญชีของผู้เรียกเอง — ประกาศความเป็นส่วนตัวและคำขอสำเนาข้อมูล
   - name: auth
     description: เข้าสู่ระบบและข้อมูลผู้ใช้ปัจจุบัน
   - name: classrooms
@@ -682,6 +684,43 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /api/classrooms/{classroomId}:
+    patch:
+      operationId: updateClassroom
+      tags: [classrooms]
+      summary: แก้ชื่อ รหัสวิชา ภาคเรียน และเขตเวลาของห้อง
+      description: |
+        Figma J04 เมนู "แก้ไขข้อมูลห้อง" — ต้องมี capability `MANAGE_MEMBERS`
+        และบันทึก audit `CLASSROOM_UPDATED` พร้อมค่าก่อน/หลัง (FR-AUDIT-01)
+
+        โดเมนอีเมลที่อนุญาต (`allowedEmailDomains`) แก้ผ่าน endpoint นี้ไม่ได้
+        เพราะเป็น policy ระดับระบบ (FR-AUTH-02)
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassroomUpdate'
+      responses:
+        '200':
+          description: ข้อมูลห้องหลังแก้
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Classroom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: 'ชื่อว่าง ยาวเกิน หรือเขตเวลาไม่ใช่ IANA time zone (`code: VALIDATION_FAILED`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
     delete:
       operationId: deleteEmptyClassroom
       tags: [classrooms]
@@ -703,6 +742,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /api/classrooms/{classroomId}/my-group-artifact:
+    get:
+      operationId: getMyGroupArtifact
+      tags: [classrooms]
+      summary: ลิงก์ผลงานของกลุ่มตัวเองจากงานล่าสุดที่เผยแพร่แล้ว
+      description: |
+        Figma ST15 "ผลงานของกลุ่ม" — สมาชิกห้องทุก role เรียกได้ (`VIEW_ROSTER`)
+        คืนเฉพาะกลุ่มของผู้เรียก **ไม่มี parameter ให้ระบุกลุ่มอื่น**
+        ถ้ายังไม่มีกลุ่มหรือยังไม่มีงานที่เผยแพร่ ตอบ 200 โดยทุก field เป็น `null`
+      parameters:
+        - $ref: '#/components/parameters/ClassroomId'
+      responses:
+        '200':
+          description: ผลงานล่าสุดของกลุ่ม (หรือ `null` ทั้งหมดถ้ายังไม่มี)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyGroupArtifact'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/notifications:
     get:
       operationId: listNotifications
@@ -817,6 +878,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/me/privacy-ack:
+    post:
+      tags: [account]
+      summary: รับทราบประกาศความเป็นส่วนตัว
+      description: |
+        Figma ST03 — เก็บเวลาที่รับทราบ**ครั้งแรก**ไว้เป็นหลักฐาน (§14.1)
+        เรียกซ้ำได้ (idempotent) และคืนเวลาเดิม ไม่ทับค่าเดิม
+        ทำกับบัญชีของ session เท่านั้น ไม่มี path ที่รับ user id จากภายนอก
+      operationId: acknowledgePrivacy
+      responses:
+        '200':
+          description: เวลาที่รับทราบครั้งแรก
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyAck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/me/data-requests:
+    get:
+      tags: [account]
+      summary: คำขอสำเนาข้อมูลของฉัน
+      description: 'Figma ST07 — เรียงจากใหม่ไปเก่า เห็นเฉพาะคำขอของบัญชีตัวเอง'
+      operationId: listMyDataRequests
+      responses:
+        '200':
+          description: รายการคำขอสำเนาข้อมูล
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [account]
+      summary: ยื่นคำขอสำเนาข้อมูลส่วนบุคคล
+      description: |
+        Figma ST07 / T12b — สิทธิ์ขอสำเนาข้อมูลของเจ้าของข้อมูล (§14.1)
+        ไม่มี request body — ยื่นในนามของ session เท่านั้น จึงยื่นแทนคนอื่นไม่ได้
+      operationId: createDataRequest
+      responses:
+        '201':
+          description: รับคำขอแล้ว
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1721,6 +1839,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /api/assignments/{assignmentId}/scores:
+    get:
+      tags: [scoring]
+      summary: คะแนนที่คำนวณล่าสุดของทุก item ในงาน (ฝั่งผู้สอน)
+      description: |
+        อ้าง US-13 — ให้ผู้สอนเห็นคะแนนก่อนตัดสินใจ finalize ต้องมี capability `MANAGE_ASSIGNMENT`
+
+        ถ้างานยังไม่ `FINALIZED` คืนคะแนน**ชั่วคราว** (`isFinal: false`) และหน้าเว็บต้องกำกับ
+        "ชั่วคราว — อาจเปลี่ยนแปลงได้" ทุกที่ที่แสดง เมื่อ `FINALIZED` แล้วคืนคะแนนสุดท้าย
+
+        **ไม่เปิดให้นักศึกษาเรียก** — คะแนนชั่วคราวรายบุคคลระหว่างทางทำให้อนุมานได้ว่า
+        ใครเพิ่งประเมิน ขัด AC ของ US-15 (นักศึกษาใช้ `my-score` ที่ล็อกไว้ที่ FINALIZED)
+
+        ตัวเลขทศนิยมส่งเป็น string เพื่อไม่ให้เสียความแม่นยำ (§9)
+      operationId: listScores
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: คะแนนรายชิ้นงาน รายเกณฑ์ และรายนักศึกษา
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoresOut'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'role ไม่มี capability `MANAGE_ASSIGNMENT` เช่น นักศึกษา (`code: FORBIDDEN`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/assignments/{assignmentId}/my-score:
     get:
       tags: [evaluation]
@@ -1810,6 +1963,164 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
 
   schemas:
+    ClassroomUpdate:
+      type: object
+      required: [name, timezone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        timezone:
+          type: string
+          minLength: 1
+          description: IANA time zone
+          examples: [Asia/Bangkok]
+        courseCode:
+          type: [string, 'null']
+          maxLength: 100
+        semester:
+          type: [string, 'null']
+          maxLength: 100
+
+    MyGroupArtifact:
+      type: object
+      required: [groupName, url, assignmentName]
+      properties:
+        groupName:
+          type: [string, 'null']
+        url:
+          type: [string, 'null']
+        assignmentName:
+          type: [string, 'null']
+
+    PrivacyAck:
+      type: object
+      required: [privacyAcknowledgedAt]
+      properties:
+        privacyAcknowledgedAt:
+          type: string
+          format: date-time
+
+    DataRequest:
+      type: object
+      required: [id, requestedAt, status]
+      properties:
+        id:
+          type: integer
+        requestedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+
+    ScoresOut:
+      type: object
+      required: [isFinal, items]
+      properties:
+        isFinal:
+          type: boolean
+          description: '`false` = คะแนนชั่วคราว ต้องแสดง label กำกับ (US-13)'
+        formulaVersion:
+          type: [string, 'null']
+        computedAt:
+          type: [string, 'null']
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputedScore'
+        students:
+          type: array
+          default: []
+          items:
+            $ref: '#/components/schemas/StudentScore'
+
+    ComputedScore:
+      type: object
+      required: [itemId, side, itemLabel, component, flags]
+      properties:
+        itemId:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        itemLabel:
+          type: string
+        component:
+          type: string
+          description: คะแนนส่วนนี้ (decimal string)
+        flags:
+          type: array
+          items:
+            type: string
+        overridden:
+          type: boolean
+          default: false
+        criteria:
+          type: array
+          default: []
+          items:
+            $ref: '#/components/schemas/CriterionScore'
+
+    CriterionScore:
+      type: object
+      required: [criterionId, name, weightPct, q, comparisonCount, score, maxScore, flags]
+      properties:
+        criterionId:
+          type: string
+        name:
+          type: string
+        weightPct:
+          type: string
+        q:
+          type: [string, 'null']
+          description: Quality index ตาม §9.2 — `null` ถ้ายังไม่มี comparison
+        comparisonCount:
+          type: integer
+        score:
+          type: string
+        maxScore:
+          type: string
+        flags:
+          type: array
+          items:
+            type: string
+
+    StudentScore:
+      type: object
+      required: [userId, label, email, groupLabel, groupComponent, individualComponent,
+        individualHiddenFromStudent, submittedCount, assignedCount, participationRatio,
+        participationMultiplier, finalScore, maxScore]
+      properties:
+        userId:
+          type: string
+        label:
+          type: string
+        email:
+          type: string
+        groupLabel:
+          type: [string, 'null']
+        groupComponent:
+          type: string
+        individualComponent:
+          type: string
+        individualHiddenFromStudent:
+          type: boolean
+          description: ผู้ประเมินรายบุคคลยังไม่ถึง k_min — นักศึกษาไม่เห็น แต่ผู้สอนยังเห็น (US-15)
+        submittedCount:
+          type: integer
+        assignedCount:
+          type: integer
+        participationRatio:
+          type: string
+        participationMultiplier:
+          type: string
+          description: ตาม §9.4
+        finalScore:
+          type: string
+        maxScore:
+          type: string
+
     ErrorEnvelope:
       type: object
       required: [error]

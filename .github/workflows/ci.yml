@@ -272,7 +272,6 @@ jobs:
     - integration-be
 
   performance:
-    if: false
     needs: deploy-staging
     runs-on: ubuntu-latest
     timeout-minutes: 10
