@@ -501,7 +501,11 @@ export function AssignmentPanel({
                   />
                 </Unit>
               </Field>
-              <Field id="min-comparisons" label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)">
+              <Field
+                id="min-comparisons"
+                label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)"
+                help="ตั้งต่ำกว่า 3 ได้เพื่อลดธงข้อมูลไม่พอ แต่นักศึกษาจะเห็นคะแนนรายบุคคลเมื่อมีผู้ประเมินอย่างน้อย 3 คนเสมอ (FR-ANON-02)"
+              >
                 <Unit unit="คน" className="max-w-95">
                   <input
                     id="min-comparisons"

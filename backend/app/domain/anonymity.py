@@ -15,3 +15,21 @@ def pseudonymize_evaluators(evaluator_ids: list[str]) -> dict[str, str]:
     """
     distinct_sorted = sorted(set(evaluator_ids))
     return {evaluator_id: f"E{i + 1}" for i, evaluator_id in enumerate(distinct_sorted)}
+
+
+# FR-ANON-02 / PRD §14.2 — default ของ k_min คือ 3 และ §19 ห้ามตัดการคุ้มครองนี้
+K_MIN_FLOOR = 3
+
+
+def k_min(min_comparisons: int) -> int:
+    """เกณฑ์ผู้ประเมินขั้นต่ำก่อนนักศึกษาเห็นคะแนนรายบุคคลของตัวเอง (GAP-01)
+
+    PRD §11.1 ไม่มีคอลัมน์ k_min แยก จึงยังอ่านจาก `min_comparisons` ของงาน แต่ห้ามต่ำกว่า 3 —
+    ถ้าผู้สอนตั้ง minComparisons = 1 เพื่อลดธง LOW_CONFIDENCE กลุ่ม 3 คน (coverage = 1)
+    จะเห็นคะแนนจากผู้ประเมินคนเดียว ซึ่งเดาได้ทันทีว่าใครให้ (ความเสี่ยง R3)
+    """
+    return max(K_MIN_FLOOR, min_comparisons)
+
+
+def individual_hidden(*, evaluator_count: int, min_comparisons: int) -> bool:
+    return evaluator_count < k_min(min_comparisons)

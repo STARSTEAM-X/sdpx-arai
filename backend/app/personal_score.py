@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from psycopg import Connection
 
+from app.domain.anonymity import individual_hidden
 from app.domain.assignment_service import Assignment
 from app.domain.pairing import Side
 from app.domain.scoring_service import (
@@ -52,7 +53,7 @@ def personal_score(
     hidden = False
     if assignment.has_individual_side:
         evaluator_count = repo.evaluator_count_for_item(assignment.id, Side.INDIVIDUAL, user_id, is_final=is_final)
-        hidden = evaluator_count < assignment.min_comparisons
+        hidden = individual_hidden(evaluator_count=evaluator_count, min_comparisons=assignment.min_comparisons)
         individual_component = repo.effective_component_for_item(
             assignment.id, Side.INDIVIDUAL, user_id, is_final=is_final
         )

@@ -29,3 +29,23 @@ class TestPseudonymizeEvaluators:
 
     def test_evaluator_คนเดียวได้_E1(self):
         assert pseudonymize_evaluators(["u999"]) == {"u999": "E1"}
+
+
+class TestKMin:
+    """GAP-01 / FR-ANON-02 — k_min ต้องไม่ต่ำกว่า 3 แม้ผู้สอนตั้ง minComparisons ต่ำกว่านั้น"""
+
+    def test_GAP01_ตั้ง_minComparisons_1_แล้ว_k_min_ยังเป็น_3(self):
+        from app.domain.anonymity import k_min
+
+        assert k_min(1) == 3
+
+    def test_minComparisons_สูงกว่า_3_ใช้ค่าที่สูงกว่า(self):
+        from app.domain.anonymity import k_min
+
+        assert k_min(5) == 5
+
+    def test_GAP01_กลุ่ม_3_คน_coverage_1_ต้องถูกซ่อนแม้ตั้ง_minComparisons_1(self):
+        from app.domain.anonymity import individual_hidden
+
+        assert individual_hidden(evaluator_count=1, min_comparisons=1) is True
+        assert individual_hidden(evaluator_count=3, min_comparisons=1) is False
