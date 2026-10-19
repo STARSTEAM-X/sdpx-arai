@@ -938,6 +938,52 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/me/data-copy:
+    get:
+      tags: [account]
+      summary: ดาวน์โหลดสำเนาข้อมูลของฉัน
+      description: |
+        FR-PRIV-03 (GAP-02) — คืนไฟล์ JSON ของข้อมูลทั้งหมดที่ระบบเก็บเกี่ยวกับเจ้าตัว
+        (โปรไฟล์, ห้องเรียน, คำตอบที่ตัวเองประเมิน, คะแนนที่ประกาศแล้วตามกฎ k-anonymity, ประวัติคำขอ)
+        ไม่มีตัวตนของผู้ประเมินคนอื่น (FR-ANON-01) · คำขอที่ค้างทั้งหมดถูกปิดเป็น SENT และบันทึก audit
+      operationId: downloadMyDataCopy
+      responses:
+        '200':
+          description: สำเนาข้อมูลเป็นไฟล์แนบ
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [generatedAt, profile, classrooms, evaluationsGiven, scores, dataCopyRequests]
+                properties:
+                  generatedAt:
+                    type: string
+                    format: date-time
+                  profile:
+                    type: object
+                  classrooms:
+                    type: array
+                    items:
+                      type: object
+                  evaluationsGiven:
+                    type: array
+                    items:
+                      type: object
+                  scores:
+                    type: array
+                    items:
+                      type: object
+                  dataCopyRequests:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/classrooms:
     get:
       tags: [classrooms]
@@ -2004,7 +2050,7 @@ components:
 
     DataRequest:
       type: object
-      required: [id, requestedAt, status]
+      required: [id, requestedAt, status, dueAt]
       properties:
         id:
           type: integer
@@ -2013,6 +2059,18 @@ components:
           format: date-time
         status:
           type: string
+          enum: [IN_PROGRESS, SENT]
+        dueAt:
+          type: string
+          format: date-time
+          description: 'FR-PRIV-03 — requestedAt + 30 วัน'
+        fulfilledAt:
+          type: [string, 'null']
+          format: date-time
+          description: เวลาที่เจ้าตัวดาวน์โหลดสำเนาครั้งแรกหลังยื่นคำขอ
+        overdue:
+          type: boolean
+          description: เลยกำหนด 30 วันแล้วยังไม่ได้ส่ง
 
     ScoresOut:
       type: object

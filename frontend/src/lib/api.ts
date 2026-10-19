@@ -165,12 +165,24 @@ export function acknowledgePrivacy(): Promise<{ privacyAcknowledgedAt: string }>
   return apiFetch('/api/me/privacy-ack', { method: 'POST' })
 }
 
-export type DataCopyRequest = { id: number; requestedAt: string; status: 'IN_PROGRESS' | 'SENT' }
+export type DataCopyRequest = {
+  id: number
+  requestedAt: string
+  status: 'IN_PROGRESS' | 'SENT'
+  /** FR-PRIV-03 — กำหนดส่งสำเนา 30 วันนับจากรับคำขอ */
+  dueAt: string
+  fulfilledAt?: string | null
+  overdue?: boolean
+}
 export function listDataRequests(): Promise<{ items: DataCopyRequest[] }> {
   return apiFetch('/api/me/data-requests')
 }
 export function createDataRequest(): Promise<DataCopyRequest> {
   return apiFetch('/api/me/data-requests', { method: 'POST' })
+}
+/** GAP-02 — ดาวน์โหลดสำเนาข้อมูลของตัวเอง (JSON) · server ปิดคำขอที่ค้างเป็น SENT ให้ */
+export function downloadDataCopy(): Promise<void> {
+  return downloadCsv('/api/me/data-copy', { method: 'GET' }, 'paireval-my-data.json')
 }
 
 export type Notification = { id: string; title: string; message: string; href: string; occurredAt: string; read: boolean }
