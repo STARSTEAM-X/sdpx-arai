@@ -74,10 +74,15 @@ class SeedRequest(BaseModel):
     # False = เพิ่ม user โดยไม่ล้างของเดิม — load test บน staging ต้องไม่ลบข้อมูลที่สะสมไว้
     # (staging ต้องมีข้อมูลมากพอให้ query สะท้อนความจริง · WS-07)
     reset: bool = True
+    # True = ถือว่า user ที่ seed กดรับทราบประกาศความเป็นส่วนตัวแล้ว
+    # test ส่วนใหญ่ไม่ได้ทดสอบ popup นั้น จึงไม่ให้มันบังหน้าจอ (Figma ST03)
+    privacyAcknowledged: bool = True
 
 
 class SessionRequest(BaseModel):
     email: EmailStr
+    # E2E ส่วนใหญ่ไม่ได้ทดสอบประกาศความเป็นส่วนตัว — ส่ง False เมื่อต้องการเห็น popup นั้น
+    privacyAcknowledged: bool = True
 
 
 @router.post("/seed")
@@ -89,17 +94,19 @@ def seed(body: SeedRequest | None = None) -> dict:
     """
     users = body.users if body and body.users else [SeedUser(email="ajarn@uni.ac.th")]
     reset = body.reset if body else True
+    privacy_ack = body.privacyAcknowledged if body else True
 
     with transaction() as conn, conn.cursor() as cur:
         if not reset:
             for u in users:
                 cur.execute(
                     """
-                    INSERT INTO app_user (id, email_normalized, email_raw, display_name, status)
-                    VALUES (%s, %s, %s, %s, 'ACTIVE')
+                    INSERT INTO app_user (id, email_normalized, email_raw, display_name, status,
+                                          privacy_acknowledged_at)
+                    VALUES (%s, %s, %s, %s, 'ACTIVE', CASE WHEN %s THEN now() END)
                     ON CONFLICT (email_normalized) DO NOTHING
                     """,
-                    (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName),
+                    (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName, privacy_ack),
                 )
             return {"seeded": len(users), "reset": False}
 
@@ -114,10 +121,11 @@ def seed(body: SeedRequest | None = None) -> dict:
         for u in users:
             cur.execute(
                 """
-                INSERT INTO app_user (id, email_normalized, email_raw, display_name, status)
-                VALUES (%s, %s, %s, %s, 'ACTIVE')
+                INSERT INTO app_user (id, email_normalized, email_raw, display_name, status,
+                                      privacy_acknowledged_at)
+                VALUES (%s, %s, %s, %s, 'ACTIVE', CASE WHEN %s THEN now() END)
                 """,
-                (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName),
+                (str(uuid.uuid4()), normalize_email(str(u.email)), str(u.email), u.displayName, privacy_ack),
             )
 
     return {"seeded": len(users)}
@@ -147,7 +155,14 @@ def test_session(body: SessionRequest) -> dict:
 
     with transaction() as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM app_user WHERE email_normalized = %s", (email,))
-        if cur.fetchone() is None:
+        row = cur.fetchone()
+        if row is not None and body.privacyAcknowledged:
+            cur.execute(
+                "UPDATE app_user SET privacy_acknowledged_at = COALESCE(privacy_acknowledged_at, now()) "
+                "WHERE id = %s",
+                (row["id"],),
+            )
+        if row is None:
             raise HTTPException(
                 status_code=404,
                 detail={"code": "USER_NOT_SEEDED", "message": f"ยังไม่มีผู้ใช้ {email} ใน seed"},

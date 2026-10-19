@@ -12,7 +12,11 @@ class PgNotificationRepository:
                 """
                 SELECT a.id AS assignment_id, a.classroom_id, a.name AS assignment_name,
                        c.name AS classroom_name, e.kind, e.occurred_at,
-                       key.event_key, nr.read_at
+                       key.event_key, nr.read_at,
+                       a.group_deadline_utc AS deadline, c.timezone,
+                       (SELECT count(*) FROM pair_assignment p
+                        WHERE p.assignment_id = a.id AND p.evaluator_user_id = u.id
+                          AND p.retired_at IS NULL) AS assigned_count
                 FROM assignment a JOIN classroom c ON c.id = a.classroom_id
                 JOIN classroom_member m ON m.classroom_id = c.id AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE'
                 JOIN app_user u ON u.id = m.user_id
@@ -66,16 +70,16 @@ class PgNotificationRepository:
                 "SELECT a.id AS assignment_id, a.classroom_id, a.name AS assignment_name, "
                 "c.name AS classroom_name, 'due' AS kind, "
                 "GREATEST(COALESCE(a.published_at, a.created_at), d.deadline - interval '48 hours') AS occurred_at, "
-                "key.event_key, nr.read_at, progress.remaining "
+                "key.event_key, nr.read_at, progress.remaining, progress.total, d.side "
                 "FROM assignment a JOIN classroom c ON c.id = a.classroom_id AND c.status = 'ACTIVE' "
                 "JOIN classroom_member m ON m.classroom_id = c.id AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE' "
                 "JOIN app_user u ON u.id = m.user_id "
                 "JOIN LATERAL (VALUES ('GROUP', a.group_deadline_utc), ('INDIVIDUAL', a.individual_deadline_utc)) "
                 "d(side, deadline) ON d.deadline > now() AND d.deadline <= now() + interval '48 hours' "
-                "CROSS JOIN LATERAL (SELECT count(*) AS remaining FROM pair_assignment p "
+                "CROSS JOIN LATERAL (SELECT count(*) FILTER (WHERE r.status IS NULL OR r.status != 'SUBMITTED') AS remaining, "
+                "count(*) AS total FROM pair_assignment p "
                 "LEFT JOIN comparison r ON r.pair_assignment_id = p.id "
-                "WHERE p.retired_at IS NULL AND p.assignment_id = a.id AND p.evaluator_user_id = u.id AND p.side = d.side "
-                "AND (r.status IS NULL OR r.status != 'SUBMITTED')) progress "
+                "WHERE p.retired_at IS NULL AND p.assignment_id = a.id AND p.evaluator_user_id = u.id AND p.side = d.side) progress "
                 "CROSS JOIN LATERAL (SELECT a.id::text || ':due:' || d.side || ':' || "
                 "EXTRACT(EPOCH FROM d.deadline)::text AS event_key) key "
                 "LEFT JOIN notification_read nr ON nr.user_id = u.id AND nr.event_key = key.event_key "

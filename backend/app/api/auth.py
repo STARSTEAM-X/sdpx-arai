@@ -137,6 +137,9 @@ def me(user_email: CurrentUser) -> dict:
                 detail={"code": "UNAUTHENTICATED", "message": "ไม่พบผู้ใช้ของ session นี้"},
             )
         classrooms = repo.roles_by_classroom(user.id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT privacy_acknowledged_at FROM app_user WHERE id = %s", (user.id,))
+            privacy_row = cur.fetchone()
 
     return {
         "userId": user.id,
@@ -144,4 +147,5 @@ def me(user_email: CurrentUser) -> dict:
         "displayName": user.display_name,
         "status": user.status,
         "classrooms": classrooms,
+        "privacyAcknowledgedAt": privacy_row["privacy_acknowledged_at"] if privacy_row else None,
     }

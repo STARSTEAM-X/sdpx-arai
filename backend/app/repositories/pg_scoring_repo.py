@@ -386,8 +386,16 @@ class PgScoringRepository:
             row = cur.fetchone()
             return Decimal(row["value"]) if row and row["value"] is not None else None
 
-    def own_criterion_scores(self, assignment_id: str, side: Side, item_id: str) -> list[dict]:
-        """Final snapshot projection only; caller applies the individual anonymity gate first."""
+    def has_interim_scores(self, assignment_id: str) -> bool:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT EXISTS(SELECT 1 FROM computed_score WHERE assignment_id = %s AND is_final = false) AS e",
+                (assignment_id,),
+            )
+            return bool(cur.fetchone()["e"])
+
+    def own_criterion_scores(self, assignment_id: str, side: Side, item_id: str, *, is_final: bool = True) -> list[dict]:
+        """Final snapshot (หรือชุด interim ล่าสุด) — caller applies the individual anonymity gate first."""
         with self._conn.cursor() as cur:
             cur.execute(
                 """
@@ -398,12 +406,12 @@ class PgScoringRepository:
                          ORDER BY so.created_at DESC LIMIT 1), cs.weighted_score) AS score
                 FROM computed_score cs JOIN criterion cr ON cr.id = cs.criterion_id
                 WHERE cs.assignment_id = %s AND cs.side = %s AND cs.item_id = %s
-                  AND cs.is_final = true AND cs.computed_at = (
+                  AND cs.is_final = %s AND (NOT %s OR cs.computed_at = (
                     SELECT MAX(computed_at) FROM computed_score
-                    WHERE assignment_id = %s AND is_final = true)
+                    WHERE assignment_id = %s AND is_final = true))
                 ORDER BY cr.display_order, cr.name
                 """,
-                (assignment_id, str(side), item_id, assignment_id),
+                (assignment_id, str(side), item_id, is_final, is_final, assignment_id),
             )
             return list(cur.fetchall())
 

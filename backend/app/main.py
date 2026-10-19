@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api import account as account_api
 from app.api import appeals as appeals_api
 from app.api import assignment_lifecycle as lifecycle_api
 from app.api import assignments as assignments_api
@@ -143,6 +144,7 @@ app.add_exception_handler(StarletteHTTPException, http_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 
 app.include_router(auth_api.router)
+app.include_router(account_api.router)
 app.include_router(classrooms.router)
 app.include_router(roster_api.router)
 app.include_router(assignments_api.router)

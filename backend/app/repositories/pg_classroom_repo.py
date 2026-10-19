@@ -297,7 +297,31 @@ class PgClassroomRepository:
                     AND EXISTS (SELECT 1 FROM pair_assignment p LEFT JOIN comparison r ON r.pair_assignment_id = p.id
                       WHERE p.assignment_id = a.id AND p.evaluator_user_id = m.user_id AND p.retired_at IS NULL
                       AND (r.status IS NULL OR r.status != 'SUBMITTED')
-                      AND CASE WHEN p.side = 'GROUP' THEN a.group_deadline_utc ELSE COALESCE(a.individual_deadline_utc, a.group_deadline_utc) END > now())) AS pending_assignment_count
+                      AND CASE WHEN p.side = 'GROUP' THEN a.group_deadline_utc ELSE COALESCE(a.individual_deadline_utc, a.group_deadline_utc) END > now())) AS pending_assignment_count,
+                  -- บรรทัดสถานะบนการ์ด (Figma J04b): งานเปิดอยู่ · ส่งแล้ว x / y คน · คำร้องรอตอบ
+                  (SELECT COUNT(*) FROM assignment a WHERE a.classroom_id = c.id
+                    AND a.status IN ('PUBLISHED', 'OPEN') AND a.group_deadline_utc > now()
+                    AND (a.opens_at_utc IS NULL OR a.opens_at_utc <= now())) AS open_assignment_count,
+                  (SELECT COUNT(DISTINCT p.evaluator_user_id) FROM assignment a
+                    JOIN pair_assignment p ON p.assignment_id = a.id AND p.retired_at IS NULL
+                    JOIN comparison r ON r.pair_assignment_id = p.id AND r.status = 'SUBMITTED'
+                    WHERE a.classroom_id = c.id AND a.status IN ('PUBLISHED', 'OPEN')
+                    AND a.group_deadline_utc > now()) AS open_submitted_students,
+                  (SELECT COUNT(*) FROM appeal ap JOIN assignment a ON a.id = ap.assignment_id
+                    WHERE a.classroom_id = c.id AND ap.status = 'OPEN') AS open_appeal_count,
+                  (SELECT COUNT(*) FROM assignment a WHERE a.classroom_id = c.id
+                    AND a.status = 'FINALIZED') AS finalized_assignment_count,
+                  (SELECT MIN(CASE WHEN p.side = 'GROUP' THEN a.group_deadline_utc
+                                   ELSE COALESCE(a.individual_deadline_utc, a.group_deadline_utc) END)
+                    FROM assignment a JOIN pair_assignment p ON p.assignment_id = a.id
+                    LEFT JOIN comparison r ON r.pair_assignment_id = p.id
+                    WHERE a.classroom_id = c.id AND p.evaluator_user_id = m.user_id AND p.retired_at IS NULL
+                    AND a.status IN ('PUBLISHED', 'OPEN') AND (r.status IS NULL OR r.status != 'SUBMITTED')
+                    AND CASE WHEN p.side = 'GROUP' THEN a.group_deadline_utc
+                             ELSE COALESCE(a.individual_deadline_utc, a.group_deadline_utc) END > now()) AS next_deadline,
+                  (SELECT MAX(l.occurred_at) FROM audit_log l WHERE l.classroom_id = c.id
+                    AND l.action = 'CLASSROOM_ARCHIVED') AS archived_at,
+                  owner.email_normalized = u.email_normalized AS is_owner_self
                 FROM classroom c JOIN classroom_member m ON m.classroom_id = c.id
                 JOIN app_user u ON u.id = m.user_id
                 JOIN app_user owner ON owner.id = c.created_by
@@ -361,6 +385,14 @@ class PgClassroomRepository:
     def set_status(self, classroom_id: str, status: ClassroomStatus) -> None:
         with self._conn.cursor() as cur:
             cur.execute("UPDATE classroom SET status = %s WHERE id = %s", (str(status), classroom_id))
+
+    def update_details(self, classroom_id: str, *, name: str, course_code: str | None,
+                       semester: str | None, timezone: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "UPDATE classroom SET name = %s, course_code = %s, semester = %s, timezone = %s WHERE id = %s",
+                (name, course_code, semester, timezone, classroom_id),
+            )
 
     def has_activity(self, classroom_id: str) -> bool:
         with self._conn.cursor() as cur:

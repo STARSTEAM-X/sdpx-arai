@@ -451,6 +451,10 @@ class MyScoreOut(BaseModel):
     criterionScores: list[OwnCriterionScoreOut] = Field(default_factory=list)
     groupOverridden: bool = False
     individualOverridden: bool = False
+    # Figma ST31: ก่อนประกาศผลแสดงคะแนนชั่วคราวชุดล่าสุดที่ผู้สอนคำนวณไว้ (ไม่มีประวัติย้อนหลัง)
+    provisional: bool = False
+    individualEvaluatorCount: int | None = None
+    minComparisons: int | None = None
 
 
 @router.get("/{assignment_id}/my-score", response_model=MyScoreOut)
@@ -472,20 +476,22 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
             if cur.fetchone()['enrollment_status'] == 'WITHDRAWN':
                 return MyScoreOut(finalized=False, message='ถอนจากรายวิชานี้แล้ว จึงไม่แสดงคะแนน')
 
-        if assignment.status is not AssignmentStatus.FINALIZED:
-            return MyScoreOut(finalized=False, message="ยังไม่ประกาศผลคะแนน")
-
         scoring_repo = PgScoringRepository(conn)
+        is_final = assignment.status is AssignmentStatus.FINALIZED
+        if not is_final and (assignment.status is AssignmentStatus.DRAFT or not scoring_repo.has_interim_scores(assignment_id)):
+            return MyScoreOut(finalized=False, message="ยังไม่ประกาศผลคะแนน", assignmentName=assignment.name)
+
         group_id = scoring_repo.group_id_for_student(assignment.classroom_id, user_email)
 
         group_component = Decimal(0)
         if group_id:
             group_component = scoring_repo.effective_component_for_item(
-                assignment_id, Side.GROUP, group_id, is_final=True
+                assignment_id, Side.GROUP, group_id, is_final=is_final
             )
 
         individual_component: Decimal | None = None
         individual_hidden = False
+        evaluator_count: int | None = None
 
         # ต้องใช้ user_id ของนักศึกษาเอง (ไม่ใช่ group_id) เป็น item_id ฝั่ง INDIVIDUAL
         # US-15 AC — ผู้ประเมิน < k_min (ใช้ min_comparisons ร่วมกัน) ต้องไม่เห็นตัวเลขรายบุคคล
@@ -497,13 +503,13 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
 
         if assignment.has_individual_side and my_user_id:
             evaluator_count = scoring_repo.evaluator_count_for_item(
-                assignment_id, Side.INDIVIDUAL, my_user_id, is_final=True
+                assignment_id, Side.INDIVIDUAL, my_user_id, is_final=is_final
             )
             if evaluator_count < assignment.min_comparisons:
                 individual_hidden = True
             else:
                 individual_component = scoring_repo.effective_component_for_item(
-                    assignment_id, Side.INDIVIDUAL, my_user_id, is_final=True
+                    assignment_id, Side.INDIVIDUAL, my_user_id, is_final=is_final
                 )
         elif not assignment.has_individual_side:
             individual_component = Decimal(0)
@@ -543,11 +549,14 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
                         weightPct=row["weight_pct"], score=row["score"],
                         maxScore=maximum * row["weight_pct"] / Decimal(100),
                     )
-                    for row in scoring_repo.own_criterion_scores(assignment_id, side, item_id)
+                    for row in scoring_repo.own_criterion_scores(assignment_id, side, item_id, is_final=is_final)
                 )
 
     return MyScoreOut(
-        finalized=True,
+        finalized=is_final,
+        provisional=not is_final,
+        individualEvaluatorCount=evaluator_count,
+        minComparisons=assignment.min_comparisons,
         groupComponent=group_component,
         individualComponent=None if individual_hidden else individual_component,
         individualHidden=individual_hidden,
@@ -557,7 +566,7 @@ def get_my_score(assignment_id: str, user_email: CurrentUser) -> MyScoreOut:
         assignmentName=assignment.name,
         groupMaxScore=assignment.group_max_score,
         individualMaxScore=assignment.individual_max_score,
-        finalizedAt=assignment.finalized_at,
+        finalizedAt=assignment.finalized_at if is_final else None,
         submittedCount=group_p.submitted + indiv_p.submitted,
         assignedCount=group_p.assigned + indiv_p.assigned,
         criterionScores=details,

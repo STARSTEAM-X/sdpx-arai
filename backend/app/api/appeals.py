@@ -40,6 +40,8 @@ class AppealOut(BaseModel):
     assignmentId: str
     assignmentName: str
     studentName: str
+    studentEmail: str
+    groupName: str | None = None
     message: str
     status: str
     resolution: str | None
@@ -54,9 +56,10 @@ class AppealsOut(BaseModel):
 def _read(conn, classroom_id: str, email: str | None = None) -> list[AppealOut]:
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT p.*, a.name AS assignment_name, u.display_name, u.email_normalized "
+            "SELECT p.*, a.name AS assignment_name, u.display_name, u.email_normalized, m.group_name "
             "FROM appeal p JOIN assignment a ON a.id = p.assignment_id "
             "JOIN app_user u ON u.id = p.student_user_id "
+            "LEFT JOIN classroom_member m ON m.classroom_id = a.classroom_id AND m.user_id = u.id "
             "WHERE a.classroom_id = %s AND (%s::text IS NULL OR u.email_normalized = %s) "
             "ORDER BY p.created_at DESC",
             (classroom_id, email, email),
@@ -64,6 +67,7 @@ def _read(conn, classroom_id: str, email: str | None = None) -> list[AppealOut]:
         return [AppealOut(
             id=str(row["id"]), assignmentId=str(row["assignment_id"]),
             assignmentName=row["assignment_name"], studentName=row["display_name"] or row["email_normalized"],
+            studentEmail=row["email_normalized"], groupName=row["group_name"],
             message=row["message"], status=row["status"], resolution=row["resolution"],
             createdAt=row["created_at"], resolvedAt=row["resolved_at"],
         ) for row in cur.fetchall()]
