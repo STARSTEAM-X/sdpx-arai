@@ -90,6 +90,10 @@ EXPORT_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("EXPORT_RATE_LIMIT_PER_MINUTE"
 # ตั้ง false เพื่อปิดทั้งการประกาศ แถบสถานะ และการแจ้งเตือน ดู docs/adr/ADR-002-auto-finalize.md
 AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
 
+# PRD §13 NFR-OBS-02 — ที่ส่ง alert (Slack/Discord/Better Stack incoming webhook) · ว่าง = log event `alert` อย่างเดียว
+# URL ของ webhook มักมี token ในตัว ตั้งผ่าน environment ของ Render (sync: false) ห้ามใส่ในไฟล์
+ALERT_WEBHOOK_URL: str = os.getenv("ALERT_WEBHOOK_URL", "").strip()
+
 # OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
 # มันฝังอยู่ในทุกหน้าที่ใช้ Google Sign-In อยู่แล้ว
 # ขอบเขตความปลอดภัยคือรายการ Authorized JavaScript origins ที่ตั้งใน Google Cloud Console

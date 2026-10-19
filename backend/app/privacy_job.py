@@ -5,10 +5,11 @@
 
 ทำ 2 อย่าง:
 - ผู้ใช้ที่ทุกห้องเก่ากว่า 2 ปีการศึกษา → แทนอีเมลและชื่อใน `app_user` ด้วย pseudonym คงที่ (แถวยังอยู่ครบ)
+  และแทนอีเมลเดียวกันใน `audit_log` (actor_email กับคีย์ "email" ใน before/after) — แถว audit ยังอยู่ครบ
 - time-on-task ของงานที่ปิดรับเกิน 1 ปีการศึกษา → ล้างเป็น NULL (สัญญาณ QS-05 ของงานเก่าจึงหายไป)
 
-ข้อยกเว้นที่ตั้งใจ: `audit_log.actor_email` ไม่ถูกแก้ เพราะ audit เป็น append-only ตาม FR-AUDIT (trigger ห้าม UPDATE)
-— บันทึกความขัดแย้งไว้ใน docs/adr/ADR-004-privacy-retention.md
+audit_log เป็น append-only — trigger ยอมให้แก้เฉพาะอีเมลเป็น pseudonym ใน transaction ที่ตั้ง
+`paireval.privacy_job` เท่านั้น (migrations/023) · เหตุผลใน docs/adr/ADR-004-privacy-retention.md
 """
 
 import argparse
@@ -48,6 +49,18 @@ def run(conn: Connection, *, now: datetime, apply: bool, secret: str = SESSION_S
             (f"%@{ANONYMIZED_DOMAIN}", now - IDENTITY_RETENTION),
         )
         users = [str(row["id"]) for row in cur.fetchall()]
+        cur.execute("SELECT id, email_normalized FROM app_user WHERE id = ANY(%s)", (users,))
+        old_email = {str(row["id"]): row["email_normalized"] for row in cur.fetchall()}
+        cur.execute(
+            """
+            SELECT count(*) AS n FROM audit_log a WHERE EXISTS (
+                SELECT 1 FROM app_user u WHERE u.id = ANY(%s::uuid[])
+                  AND (a.actor_user_id = u.id OR a.actor_email = u.email_normalized
+                       OR a.before_state ->> 'email' = u.email_normalized OR a.after_state ->> 'email' = u.email_normalized))
+            """,
+            (users,),
+        )
+        audit_rows = cur.fetchone()["n"]
         cur.execute(
             """
             SELECT count(*) AS n FROM comparison c JOIN pair_assignment p ON p.id = c.pair_assignment_id
@@ -59,11 +72,29 @@ def run(conn: Connection, *, now: datetime, apply: bool, secret: str = SESSION_S
         )
         timings = cur.fetchone()["n"]
         if apply:
+            # ปลดล็อกข้อยกเว้นของ trigger audit_log เฉพาะ transaction นี้ (is_local = true)
+            cur.execute("SELECT set_config('paireval.privacy_job', 'on', true)")
             for user_id in users:
                 identity = anonymized_identity(user_id, secret)
                 cur.execute(
                     "UPDATE app_user SET email_normalized = %s, email_raw = %s, display_name = %s WHERE id = %s",
                     (identity["email_normalized"], identity["email_raw"], identity["display_name"], user_id),
+                )
+                cur.execute(
+                    """
+                    UPDATE audit_log SET
+                        actor_email = CASE WHEN actor_user_id = %(id)s OR actor_email = %(old)s
+                                           THEN %(anon)s ELSE actor_email END,
+                        before_state = CASE WHEN before_state ->> 'email' = %(old)s
+                                            THEN jsonb_set(before_state, '{email}', to_jsonb(%(anon)s::text))
+                                            ELSE before_state END,
+                        after_state = CASE WHEN after_state ->> 'email' = %(old)s
+                                           THEN jsonb_set(after_state, '{email}', to_jsonb(%(anon)s::text))
+                                           ELSE after_state END
+                    WHERE actor_user_id = %(id)s OR actor_email = %(old)s
+                       OR before_state ->> 'email' = %(old)s OR after_state ->> 'email' = %(old)s
+                    """,
+                    {"id": user_id, "old": old_email[user_id], "anon": identity["email_normalized"]},
                 )
             cur.execute(
                 """
@@ -73,7 +104,8 @@ def run(conn: Connection, *, now: datetime, apply: bool, secret: str = SESSION_S
                 """,
                 (now - TIME_ON_TASK_RETENTION,),
             )
-    return {"applied": apply, "usersAnonymized": len(users), "timeOnTaskCleared": timings}
+    return {"applied": apply, "usersAnonymized": len(users), "auditRowsAnonymized": audit_rows,
+            "timeOnTaskCleared": timings}
 
 
 def main() -> None:

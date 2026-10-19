@@ -62,6 +62,10 @@ services:
       - key: AUTO_FINALIZE_ENABLED
         # ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ — ค่าเริ่มต้นของ PRD §17 OQ-3 (docs/adr/ADR-002-auto-finalize.md)
         value: "true"
+      - key: ALERT_WEBHOOK_URL
+        # NFR-OBS-02 — incoming webhook (Slack/Discord/Better Stack) ที่รับ alert · มี token ในตัว จึงกรอกใน Dashboard
+        # ว่างไว้ได้: alert ยังออกเป็น log event `alert` ระดับ ERROR
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID

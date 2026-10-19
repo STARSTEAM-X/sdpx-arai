@@ -14,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.alerting import alert_loop
+from app.alerting import monitor as alert_monitor
 from app.api import account as account_api
 from app.api import appeals as appeals_api
 from app.api import assignment_lifecycle as lifecycle_api
@@ -70,13 +72,14 @@ http_log = logging.getLogger("paireval.http")
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     open_pool()
-    scoring_task = asyncio.create_task(daily_scoring_loop())
+    tasks = [asyncio.create_task(daily_scoring_loop()), asyncio.create_task(alert_loop())]
     try:
         yield
     finally:
-        scoring_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await scoring_task
+        for task in tasks:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
         close_pool()
 
 
@@ -161,15 +164,18 @@ async def request_context(
     finally:
         # route pattern (/api/classrooms/{classroom_id}) ไม่ใช่ path จริง — path มี id ปน
         # ทำให้รวมสถิติราย endpoint ไม่ได้ และเป็นข้อมูลที่ไม่จำเป็นต้องอยู่ใน log
-        route = request.scope.get("route")
+        route_path = getattr(request.scope.get("route"), "path", "unmatched")
+        duration_ms = round((time.perf_counter() - start) * 1000, 1)
+        alert_monitor.record(method=request.method, route=route_path, status_code=status_code,
+                             duration_ms=duration_ms, now=time.time())  # NFR-OBS-02
         log_event(
             http_log,
             "http_request",
             level=logging.WARNING if status_code >= 500 else logging.INFO,
             method=request.method,
-            route=getattr(route, "path", "unmatched"),
+            route=route_path,
             statusCode=status_code,
-            duration_ms=round((time.perf_counter() - start) * 1000, 1),
+            duration_ms=duration_ms,
             user=user_ref(getattr(request.state, "user_email", None)),
             errorCode=getattr(request.state, "error_code", None),
         )

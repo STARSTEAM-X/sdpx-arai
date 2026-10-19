@@ -92,6 +92,10 @@ services:
 
       # ใช้เซ็น session token — ต้องยาวอย่างน้อย 32 bytes (RFC 7518 §3.2)
       # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง
+      - key: ALERT_WEBHOOK_URL
+        # NFR-OBS-02 — incoming webhook (Slack/Discord/Better Stack) ที่รับ alert · มี token ในตัว จึงกรอกใน Dashboard
+        # ว่างไว้ได้: alert ยังออกเป็น log event `alert` ระดับ ERROR
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
 
