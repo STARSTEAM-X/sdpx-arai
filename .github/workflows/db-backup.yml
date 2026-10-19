@@ -1,0 +1,70 @@
+# Backup database รายวัน — NFR-AVAIL-02 (GAP-08)
+#
+# pg_dump จาก database ของ Render → เข้ารหัส AES-256 ด้วย passphrase → เก็บเป็น artifact 30 วัน
+# RPO ที่ได้จริง = 24 ชม. (รอบละวัน) ยังไม่ถึงเป้า PRD 15 นาที — ต้องใช้แผน database ที่มี PITR (ดู docs/backup-restore.md)
+#
+# สิ่งที่เจ้าของบัญชีต้องตั้งเองใน GitHub → Settings → Secrets and variables → Actions (ห้ามส่งค่าเข้า AI tool):
+#   BACKUP_DATABASE_URL  External Database URL จากหน้า database บน Render
+#   BACKUP_PASSPHRASE    รหัสผ่านยาว ๆ สำหรับเข้ารหัสไฟล์ — เก็บไว้ที่อื่นด้วย ไม่งั้นกู้ไฟล์ไม่ได้
+#
+# schedule ทำงานเฉพาะบน default branch (main) — ระหว่างอยู่บน develop สั่งรันมือได้จากแท็บ Actions
+# ซ้อมกู้ข้อมูล: scripts/restore-drill.sh (วัด RTO จริง)
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 02:00 Asia/Bangkok — ช่วงที่คนใช้น้อยที่สุด
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check secrets are configured
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "::error::ยังไม่ได้ตั้ง BACKUP_DATABASE_URL หรือ BACKUP_PASSPHRASE — ดู docs/backup-restore.md"
+            exit 1
+          fi
+
+      # postgres:18 ให้ pg_dump เวอร์ชันตรงกับ server (render.yaml: postgresMajorVersion "18")
+      # pg_dump ที่เก่ากว่า server จะปฏิเสธการ dump
+      - name: Dump (custom format)
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          started=$(date +%s)
+          docker run --rm -e DATABASE_URL postgres:18 \
+            pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL" > paireval.dump
+          size=$(stat -c %s paireval.dump)
+          if [ "$size" -lt 1024 ]; then
+            echo "::error::ไฟล์ dump เล็กผิดปกติ ($size bytes)"; exit 1
+          fi
+          echo "dump ${size} bytes ใน $(( $(date +%s) - started )) วินาที"
+
+      - name: Encrypt (AES-256, passphrase from secret)
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          printf '%s' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output "paireval-$(date -u +%Y%m%dT%H%MZ).dump.gpg" paireval.dump
+          shred -u paireval.dump
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: '*.dump.gpg'
+          retention-days: 30
+          if-no-files-found: error

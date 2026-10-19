@@ -27,10 +27,14 @@ LATENCY_FACTOR = 2
 # p95 จากตัวอย่างน้อยเกินไปแกว่งจนไม่มีความหมาย — ต่ำกว่านี้ไม่ตัดสิน
 MIN_LATENCY_SAMPLES = 20
 
-# เป้า p95 ต่อ endpoint จาก NFR-PERF-02/03 (ms) · NFR-PERF-01 เป็นเวลาโหลดหน้า วัดฝั่งเบราว์เซอร์ ไม่ใช่ที่นี่
+# เป้า p95 ต่อ endpoint จาก NFR-PERF-02/03 (ms)
+# NFR-PERF-01 (หน้า Evaluation p95 ≤ 2.0 วิ) เป็นเวลาโหลดหน้าทั้งหน้า วัดเต็มได้ฝั่งเบราว์เซอร์เท่านั้น
+# server เตือนได้แค่ส่วนของตัวเอง: ให้ API หลักของหน้านี้ใช้งบครึ่งหนึ่ง (1,000 ms) — alert ดังที่ 2 เท่า
+# = 2,000 ms คือ API ตัวเดียวกินงบทั้งหน้าไปแล้ว หน้าเกินเป้าแน่นอน (GAP-10)
 P95_TARGET_MS: dict[tuple[str, str], float] = {
     ("PUT", "/api/comparisons/{pair_assignment_id}"): 300,
     ("POST", "/api/assignments/{assignment_id}/submissions"): 800,
+    ("GET", "/api/assignments/{assignment_id}/my-evaluations"): 1000,
 }
 
 
@@ -102,10 +106,21 @@ class AlertMonitor:
 monitor = AlertMonitor()
 
 
+def webhook_body(url: str, payload: dict) -> dict:
+    """รูปแบบข้อความตามปลายทาง — Discord อ่านช่อง `content` เท่านั้น ส่วน Slack / Better Stack อ่าน `text`"""
+    details = ", ".join(f"{k}={v}" for k, v in payload.items() if k not in {"alert", "state"})
+    text = f"[PairEval] {payload['state']}: {payload['alert']}" + (f" ({details})" if details else "")
+    if "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url:
+        return {"content": text}
+    return {"text": text, **payload}
+
+
 def _post_webhook(payload: dict) -> None:
-    body = json.dumps({"text": f"[PairEval] {payload['state']}: {payload['alert']}", **payload},
-                      ensure_ascii=False).encode()
-    request = urllib.request.Request(ALERT_WEBHOOK_URL, data=body, headers={"Content-Type": "application/json"})
+    body = json.dumps(webhook_body(ALERT_WEBHOOK_URL, payload), ensure_ascii=False).encode()
+    # Discord (ผ่าน Cloudflare) ตอบ 403 กับ User-Agent ค่าเริ่มต้นของ urllib จึงต้องระบุเอง
+    request = urllib.request.Request(ALERT_WEBHOOK_URL, data=body, headers={
+        "Content-Type": "application/json", "User-Agent": "PairEval-Alert/1.0",
+    })
     with urllib.request.urlopen(request, timeout=5):
         pass
 
