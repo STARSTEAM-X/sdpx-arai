@@ -4,7 +4,7 @@ fastapi~=0.141.1
 uvicorn[standard]~=0.52.4
 
 # database — เขียน SQL ตรง ๆ ไม่ใช้ ORM
-psycopg[binary,pool]~=3.3.4
+psycopg[binary,pool]~=3.3.6
 
 # session token
 pyjwt[crypto]~=2.15.0
