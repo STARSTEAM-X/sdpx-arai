@@ -10,16 +10,32 @@
 
 import http from 'k6/http'
 import { check, fail, sleep } from 'k6'
+import { Rate, Trend } from 'k6/metrics'
+
+// ตัดสินจากเวลาที่ server ใช้จริง — Server-Timing: app;dur=<ms> (app/main.py) แบบเดียวกับ load-test.js
+// run บน develop ที่ d8cf9dc ตกเพราะ round-trip p95 748ms ทั้งที่ server ใช้ ≤6.1ms ทุกครั้ง:
+// runner ของ CI (สหรัฐฯ) ถึง staging (สิงคโปร์) ~220ms ซึ่งผู้ใช้ในไทยไม่ได้เจอ
+const healthServerLatency = new Trend('health_server_latency', true)
+// ไม่มี header = วัดไม่ได้ ต้องแดง ไม่ใช่ผ่านเงียบ ๆ
+const missingServerTiming = new Rate('health_missing_server_timing')
 
 export const options = {
   vus: Number(__ENV.VUS || 3),
   duration: __ENV.DURATION || '30s',
-  // threshold ผูกกับ tag name:health เท่านั้น — request warm-up ใน setup() ไม่ถูกนับ
-  // ค่า 500ms ยังเป็นตัวเลขเดิมจาก PRD ไม่ได้ผ่อนลง
+  // ค่า 500ms ยังเป็นตัวเลขเดิมจาก PRD ไม่ได้ผ่อนลง — request warm-up ใน setup() ไม่ถูกนับ
+  // http_req_duration{name:health} (round-trip รวม network) ยังอยู่ใน summary ไว้ดูเท่านั้น
   thresholds: {
     'http_req_failed{name:health}': ['rate<0.01'],
-    'http_req_duration{name:health}': [`p(95)<${__ENV.P95_MS || 500}`],
+    health_server_latency: [`p(95)<${__ENV.P95_MS || 500}`],
+    health_missing_server_timing: ['rate==0'],
   },
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
+}
+
+// Server-Timing: app;dur=12.3 → 12.3 · ไม่มีหรือรูปแบบผิด → null
+function serverTiming(res) {
+  const match = /(?:^|,)\s*app;dur=([0-9.]+)/.exec(res.headers['Server-Timing'] || '')
+  return match ? Number(match[1]) : null
 }
 
 const BASE_URL = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
@@ -43,10 +59,14 @@ export function setup() {
 
 export default function () {
   const res = http.get(`${BASE_URL}/api/health`, { tags: { name: 'health' } })
+  const serverMs = serverTiming(res)
+  missingServerTiming.add(serverMs === null)
+  if (serverMs !== null) healthServerLatency.add(serverMs)
   check(res, {
     'status 200': (r) => r.status === 200,
     'status ok': (r) => r.status === 200 && r.json('status') === 'ok',
-    'response < 500ms': (r) => r.timings.duration < 500,
+    'มี Server-Timing': () => serverMs !== null,
+    'server < 500ms': () => serverMs !== null && serverMs < 500,
   })
   sleep(1)
 }
