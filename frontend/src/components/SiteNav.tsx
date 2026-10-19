@@ -1,37 +1,43 @@
-import { Link } from 'react-router-dom'
+import { useCallback } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
+import { GoogleSignInButton } from './GoogleSignInButton'
 import { isSignedIn } from '../lib/session'
 import { LogoMark } from './icons'
+import { FOCUS } from './Ui'
 
 const LINKS = [
   { href: '#overview', label: 'ภาพรวม' },
-  { href: '#for-instructor', label: 'สำหรับอาจารย์' },
-  { href: '#for-student', label: 'สำหรับนักศึกษา' },
-  { href: '#security', label: 'ความปลอดภัย' },
+  { href: '/classrooms', label: 'สมาชิก' },
+  { href: '/classrooms', label: 'งานประเมิน' },
+  { href: '/classrooms', label: 'คะแนน' },
 ]
 
 export function SiteNav() {
+  const navigate = useNavigate()
+  const location = useLocation()
   // อ่านครั้งเดียวตอน render พอ — หน้านี้เป็น landing ที่ไม่ได้เปลี่ยนสถานะ login ระหว่างใช้งาน
   // ยกเว้นตอนกดปุ่มใน CtaBand ซึ่งพาไป /classrooms ทันทีอยู่แล้ว
   const signedIn = isSignedIn()
+  const handleSignedIn = useCallback(() => navigate('/classrooms'), [navigate])
 
   return (
-    <header className="sticky top-0 z-50 border-b border-edge bg-white/92 shadow-[0_1px_2px_rgba(23,32,51,0.05)] backdrop-blur">
+    <header className="absolute inset-x-0 top-5 z-40 px-4 sm:top-7 sm:px-6">
       <nav
         data-testid="main-nav"
         aria-label="เมนูหลัก"
-        className="mx-auto flex h-16 max-w-300 items-center gap-6 px-6 max-sm:px-4"
+        className="mx-auto flex min-h-16 max-w-300 items-center gap-6 rounded-full border border-white/60 bg-cream/85 py-2 pr-2 pl-5 backdrop-blur sm:pl-7"
       >
-        <a href="/" className="flex min-h-11 shrink-0 items-center gap-2.5 font-display text-[19px] font-bold tracking-tight">
+        <Link to="/" aria-label="PairEval หน้าแรก" className={`flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg font-display text-xl font-bold tracking-tight sm:text-2xl ${FOCUS}`}>
           <LogoMark className="size-8" />
-          <span>PairEval</span>
-        </a>
+          <span className="max-[420px]:hidden">PairEval</span>
+        </Link>
 
-        {/* ซ่อนลิงก์บนจอแคบ เพราะปุ่มสองตัวขวามือสำคัญกว่า */}
-        <ul className="hidden flex-1 items-center gap-7 text-sm text-muted lg:flex">
+        {/* บนจอแคบใช้ปุ่มเข้าสู่ระบบ/ห้องเรียนเป็นทางเข้าหลัก */}
+        <ul className="hidden flex-1 items-center justify-center gap-8 text-sm font-semibold text-ink-2 lg:flex">
           {LINKS.map((link) => (
-            <li key={link.href}>
-              <a href={link.href} className="transition-colors hover:text-ink">
+            <li key={link.label}>
+              <a href={link.href} className={`inline-flex min-h-11 items-center rounded-md transition-colors hover:text-accent-ink ${FOCUS}`}>
                 {link.label}
               </a>
             </li>
@@ -42,30 +48,18 @@ export function SiteNav() {
           {signedIn ? (
             <Link
               to="/classrooms"
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+              className={`inline-flex min-h-11 items-center justify-center rounded-full bg-cta px-5 text-sm font-semibold text-white transition-colors hover:bg-cta-hover sm:min-w-48 ${FOCUS}`}
             >
               ห้องเรียนของฉัน
             </Link>
           ) : (
-            <>
-              {/* พาไปยังแถบ CTA ท้ายหน้า ซึ่งเป็นที่เดียวที่มีปุ่มของ Google จริง
-                  ไม่ทำปุ่ม login ซ้ำสองที่ เพราะ Google render ปุ่มเองและคุมสไตล์ไม่ได้ */}
-              <a
-                href="#login"
-                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-cream"
-              >
-                เข้าสู่ระบบ
-              </a>
-              <Link
-                to="/classrooms"
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-              >
-                เริ่มต้นใช้งาน
-              </Link>
-            </>
+            <div id="signin" className="relative flex min-h-11 w-49 shrink-0 items-center [&_[role=alert]]:absolute [&_[role=alert]]:top-full [&_[role=alert]]:right-0 [&_[role=alert]]:w-72 [&_[role=alert]]:rounded-2xl [&_[role=alert]]:bg-white [&_[role=alert]]:p-4 [&_[role=alert]]:shadow-lg">
+              <GoogleSignInButton onSignedIn={handleSignedIn} width={196} shape="pill" text="signin" appearance="brand" />
+            </div>
           )}
         </div>
       </nav>
+      {!signedIn && location.state?.loginRequired && <p role="status" className="fixed inset-x-4 bottom-5 mx-auto max-w-xl rounded-2xl border border-accent-line bg-white px-5 py-3 text-center text-sm text-ink-2 shadow-lg">กรุณาเข้าสู่ระบบด้วย Google ก่อนใช้งานห้องเรียน</p>}
     </header>
   )
 }

@@ -3,23 +3,23 @@
 /* Design token ของ PairEval — แก้สีที่นี่ที่เดียว ทุก component จะตามหมด
    Tailwind v4 อ่าน @theme แล้วสร้าง utility ให้เอง เช่น --color-brand-600 → bg-brand-600 */
 @theme {
-  /* ส้มอิฐ = สีหลักของแบรนด์ ใช้กับ CTA และจุดที่ต้องการให้สายตาไปหยุด */
-  --color-brand-50: #fff5ef;
-  --color-brand-100: #ffe6d6;
-  --color-brand-200: #ffcdb0;
-  --color-brand-500: #f4703c;
-  --color-brand-600: #ec5b28;
-  --color-brand-700: #cf4718;
+  /* Figma · PairEval Illustrated: สีส้มสำหรับจุดเน้นและปุ่มหลัก */
+  --color-brand-50: #fff5eb;
+  --color-brand-100: #ffe7d0;
+  --color-brand-200: #ffd0ac;
+  --color-brand-500: #ff7d3d;
+  --color-brand-600: #e35205;
+  --color-brand-700: #b84204;
 
-  /* ส้มสองตัวนี้แยกจาก brand-600 เพราะ contrast ไม่พอ ไม่ใช่เพราะอยากได้เฉดใหม่
-     ตัวอักษรขาวบน brand-600 ได้ 3.5:1 · WCAG AA ขอ 4.5:1 สำหรับตัวอักษรปกติ
-     cta = พื้นทึบที่มีตัวอักษรขาว (4.8:1) · accent-ink = ตัวอักษรสีส้มบนพื้นอ่อน (5.5:1)
-     ส่วน brand-600 ยังใช้ได้ตามเดิมกับสิ่งที่ไม่ใช่ตัวอักษร เช่น เส้น focus จุด และแถบ */
-  --color-cta: #ce4014;
-  --color-cta-hover: #ad3a19;
-  --color-accent-ink: #b8401f;
-  --color-accent-soft: #fdeee8;
-  --color-accent-line: #f3bca6;
+  /* สี CTA และตัวอักษรจาก Figma แยกจากส้มสว่างของภาพประกอบ */
+  --color-cta: #b84204;
+  --color-cta-hover: #963603;
+  --color-accent-ink: #a63c03;
+  --color-accent-soft: #fff0e5;
+  --color-accent-line: #f4d0b6;
+  --color-info-soft: #dde9ff;
+  --color-info-ink: #2455a6;
+  --color-reference-border: #c9c0b9;
 
   /* สีเขียว = สถานะสำเร็จ / ตัวเลขคุณภาพ */
   --color-ok-50: #eaf7f0;
@@ -45,23 +45,27 @@
   --color-warn-line: #e9d6af;
 
   /* กลาง ๆ อุ่นกว่า gray มาตรฐานเล็กน้อย ให้เข้ากับส้ม */
-  --color-ink: #1d2430;
-  --color-ink-2: #3d4759;
-  --color-muted: #6d7280;
-  --color-cream: #fffaf6;
-  --color-line: #f1e6dc;
+  --color-ink: #321007;
+  --color-ink-2: #65493f;
+  --color-muted: #7c665b;
+  --color-cream: #fffcf7;
+  --color-surface-cream: #fff3ec;
+  --color-line: #f0e3d9;
   /* พื้นหลังหน้า dashboard และพื้นรองในการ์ด — เข้มกว่า cream พอให้การ์ดขาวลอยขึ้นมา */
-  --color-ground: #faf8f5;
-  --color-sand: #f3efe9;
-  --color-edge: #e8e2dc;
-  --color-edge-strong: #d6ccc2;
+  --color-ground: #fffcf7;
+  --color-sand: #fff5ec;
+  --color-edge: #f0e3d9;
+  --color-edge-strong: #e4ccba;
 
   --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
-  /* คู่ฟอนต์: Plex ทรงเหลี่ยมใช้กับหัวข้อและป้าย · Noto อ่านง่ายกว่าใช้กับเนื้อความยาว
-     Mono ใช้เฉพาะตัวเลขที่ต้องอ่านเทียบกันเป็นคอลัมน์ เช่น % เลขแถว CSV และขนาดไฟล์ */
+  /* Figma ใช้ IBM Plex Sans Thai ทั้งหัวข้อและเนื้อความ (ตรวจจาก Home และ M08)
+     Mono ใช้กับตัวเลขที่ต้องอ่านเทียบกันเป็นคอลัมน์ เช่น % เลขแถว CSV และขนาดไฟล์ */
   --font-display: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Noto Sans Thai", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  --radius-control: 0.75rem;
+  --radius-card: 1.5rem;
+  --shadow-card: 0 8px 30px -24px rgb(101 73 63 / 24%);
 }
 
 html {
@@ -69,7 +73,7 @@ html {
 }
 
 body {
-  background-color: #ffffff;
+  background-color: var(--color-cream);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -79,4 +83,17 @@ body {
    จะขยับซ้ายขวาจนอ่านไม่ทัน */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Home — Orange illustrated · Figma 175:3 / 175:4 */
+.illustrated-hero {
+  background: linear-gradient(100deg, #ff7d3d 0%, #ffd67d 52%, #ff7a38 100%);
+}
+
+.hero-art {
+  height: clamp(210px, 29.7222vw, 428px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }

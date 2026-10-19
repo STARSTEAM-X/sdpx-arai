@@ -2,6 +2,10 @@
  *  ทุกตัวเป็น stroke-based ใช้ currentColor จึงเปลี่ยนสีด้วย text-* ของ Tailwind ได้
  *  ตัวไหนเป็นแค่ของประดับ ให้ผู้เรียกใส่ aria-hidden ที่ตัวห่อ */
 
+import logoMark from '../assets/figma/logo-mark.svg'
+import backIcon from '../assets/figma/back.png'
+import notificationIcon from '../assets/figma/notification.png'
+
 type IconProps = { className?: string }
 
 const base = {
@@ -15,12 +19,16 @@ const base = {
 
 export function LogoMark({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="3" y="6" width="12" height="20" rx="2.5" fill="#f4703c" />
-      <rect x="17" y="6" width="12" height="20" rx="2.5" fill="#1d2430" opacity="0.85" />
-      <path d="M9 12h0M9 16h0M9 20h0" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <img src={logoMark} className={className} width={44} height={44} alt="" aria-hidden="true" />
   )
+}
+
+export function IconBell({ className }: IconProps) {
+  return <img src={notificationIcon} className={className} width={24} height={24} alt="" aria-hidden="true" />
+}
+
+export function IconBack({ className }: IconProps) {
+  return <img src={backIcon} className={className} width={40} height={40} alt="" aria-hidden="true" />
 }
 
 export function IconClassroom({ className }: IconProps) {

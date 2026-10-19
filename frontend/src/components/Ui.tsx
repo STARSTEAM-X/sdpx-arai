@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 
-import { IconAlert, IconCheck, IconCheckCircle, IconClock } from './icons'
+import { IconAlert, IconCheck, IconCheckCircle, IconClock, IconInfo } from './icons'
 import type { RosterEntry } from '../lib/api'
 
 /** ชิ้นส่วนหน้าตาที่ใช้ร่วมกันทั้งหน้าจัดการห้องเรียน
@@ -14,24 +14,24 @@ import type { RosterEntry } from '../lib/api'
 export const FOCUS =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600'
 
-/** ปุ่มสูง 44px ทุกตัวตามเกณฑ์ touch target ของ WCAG (2.5.8) ไม่ใช่เพื่อความสวย
+/** Figma MD is 50px; compact controls retain a 44px touch target.
  *
  *  ประกอบเป็นฟังก์ชันแทนที่จะเป็นสตริงให้ต่อกันเอง เพราะ Tailwind ตัดสินว่า class ไหนชนะ
  *  จากลำดับใน stylesheet ไม่ใช่ลำดับที่เขียน — `${BTN.ghost} ${BTN.sm}` จึงได้ padding
  *  ตัวไหนก็ได้แล้วแต่ดวง ฟังก์ชันนี้เลือกให้ตั้งแต่ต้นว่าจะใส่ตัวไหนลงไป */
 const BTN_BASE =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-display font-semibold ' +
+  'relative inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold ' +
   `transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS}`
 
 const BTN_SIZE = {
-  md: 'min-h-11 px-5 text-[14.5px]',
+  md: 'min-h-12.5 px-6 text-[14.5px]',
   /** เตี้ยลงไม่ได้ ต้องแตะได้เท่ากัน — เล็กลงด้วยตัวอักษรและ padding แทน */
   sm: 'min-h-11 px-3.5 text-[13.5px]',
 }
 
 const BTN_VARIANT = {
   primary: 'bg-cta text-white enabled:hover:bg-cta-hover',
-  ghost: 'border border-edge-strong bg-white enabled:hover:border-muted enabled:hover:bg-sand',
+  ghost: 'border border-reference-border bg-white enabled:hover:border-muted enabled:hover:bg-sand',
   ok: 'bg-ok-700 text-white enabled:hover:bg-ok-600',
 }
 
@@ -61,11 +61,11 @@ export function Spinner({ className = 'size-4' }: { className?: string }) {
 }
 
 const CARD_SHADOW =
-  'rounded-2xl border border-edge bg-white shadow-[0_1px_2px_rgba(23,32,51,0.04),0_10px_28px_-22px_rgba(23,32,51,0.35)]'
+  'shadow-[0_8px_30px_-24px_rgba(101,73,63,0.24)]'
 
-export function Card({ className = '', children, ...rest }: ComponentPropsWithoutRef<'section'>) {
+export function Card({ className = '', children, radius = 'lg', shadow = true, surface = 'white', ...rest }: ComponentPropsWithoutRef<'section'> & { radius?: 'md' | 'lg'; shadow?: boolean; surface?: 'white' | 'sand' }) {
   return (
-    <section {...rest} className={`${CARD_SHADOW} ${className}`}>
+    <section {...rest} className={`${radius === 'md' ? 'rounded-2xl' : 'rounded-3xl'} border border-edge ${surface === 'sand' ? 'bg-sand' : 'bg-white'} ${shadow ? CARD_SHADOW : ''} ${className}`}>
       {children}
     </section>
   )
@@ -178,6 +178,7 @@ export function StatusPill({ status }: { status: RosterEntry['status'] }) {
 }
 
 const BANNER_TONE = {
+  info: { box: 'border-info-soft bg-info-soft text-info-ink', Icon: IconInfo },
   ok: { box: 'border-ok-line bg-ok-50 text-ok-700', Icon: IconCheckCircle },
   warn: { box: 'border-warn-line bg-warn-soft text-warn', Icon: IconAlert },
   err: { box: 'border-err-line bg-err-soft text-err', Icon: IconAlert },
@@ -212,7 +213,7 @@ export function FieldError({ id, children }: { id: string; children: ReactNode }
 }
 
 /** อักษรย่อแทนรูปโปรไฟล์ — ระบบไม่เก็บรูปผู้ใช้ การใส่ placeholder เทา ๆ จะกินที่เปล่า ๆ */
-export function Avatar({ name, muted = false }: { name: string; muted?: boolean }) {
+export function Avatar({ name, muted = false, small = false }: { name: string; muted?: boolean; small?: boolean }) {
   const initials = name
     .trim()
     .split(/\s+/)
@@ -225,7 +226,7 @@ export function Avatar({ name, muted = false }: { name: string; muted?: boolean 
     <span
       aria-hidden="true"
       className={
-        'grid size-10 shrink-0 place-items-center rounded-full border font-display text-[13px] font-semibold ' +
+        `grid ${small ? 'size-8' : 'size-10'} shrink-0 place-items-center rounded-full border font-display text-[13px] font-semibold ` +
         (muted ? 'border-edge bg-sand text-ink-2' : 'border-accent-line bg-accent-soft text-accent-ink')
       }
     >

@@ -7,7 +7,7 @@ export function ApiStatusBadge() {
 
   const tone = {
     loading: 'border-line bg-cream text-muted',
-    ok: 'border-ok-50 bg-ok-50 text-ok-600',
+    ok: 'border-ok-50 bg-ok-50 text-ok-700',
     error: 'border-red-200 bg-red-50 text-red-700',
   }[health.status]
 
@@ -19,9 +19,9 @@ export function ApiStatusBadge() {
 
   const label =
     health.status === 'ok'
-      ? `ระบบพร้อมใช้งาน · ${health.version}`
+      ? 'ระบบพร้อมใช้งาน'
       : health.status === 'error'
-        ? `เชื่อมต่อระบบไม่ได้ — ${health.message}`
+        ? 'เชื่อมต่อระบบไม่ได้'
         : 'กำลังตรวจสอบสถานะระบบ…'
 
   return (

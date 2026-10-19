@@ -1,55 +1,30 @@
 import { LogoMark } from './icons'
+import { ApiStatusBadge } from './ApiStatusBadge'
+import { FOCUS } from './Ui'
 
-const COLUMNS = [
-  {
-    title: 'ผลิตภัณฑ์',
-    links: ['ภาพรวม', 'สำหรับอาจารย์', 'สำหรับนักศึกษา', 'ฟีเจอร์ทั้งหมด'],
-  },
-  {
-    title: 'ช่วยเหลือ',
-    links: ['ศูนย์ช่วยเหลือ', 'คู่มือการใช้งาน', 'คำถามที่พบบ่อย', 'ติดต่อเรา'],
-  },
-  {
-    title: 'ความเป็นส่วนตัว',
-    links: ['นโยบายความเป็นส่วนตัว', 'เงื่อนไขการให้บริการ', 'ความปลอดภัย'],
-  },
+const LINKS = [
+  { label: 'วิธีใช้งาน', href: '#how-it-works' },
+  { label: 'เกี่ยวกับเรา', href: '#overview' },
+  { label: 'ความเป็นส่วนตัว', href: '#security' },
 ]
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line bg-cream">
-      <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
-          <div>
-            <div className="flex items-center gap-2 font-semibold">
-              <LogoMark className="size-6" />
-              PairEval
-            </div>
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted">
-              ระบบประเมินผลงานนักศึกษาแบบเปรียบเทียบทีละคู่
-              ช่วยให้อาจารย์ตัดสินคะแนนได้อย่างยุติธรรม
-            </p>
-          </div>
-
-          {COLUMNS.map(({ title, links }) => (
-            <div key={title}>
-              <p className="text-sm font-semibold">{title}</p>
-              <ul className="mt-3 space-y-2 text-xs text-muted">
-                {links.map((link) => (
-                  <li key={link}>
-                    <a href="#overview" className="transition-colors hover:text-ink">
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <footer className="bg-cream">
+      <div className="mx-auto w-[calc(100%-2.5rem)] max-w-300 py-6 sm:py-8">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <a href="/" aria-label="PairEval หน้าแรก" className={`inline-flex min-h-11 items-center gap-2.5 rounded-lg font-display text-2xl font-bold ${FOCUS}`}>
+            <LogoMark className="size-10" />
+            PairEval
+          </a>
+          <ul className="flex flex-wrap gap-x-5 text-sm text-muted">
+            {LINKS.map(({ label, href }) => (
+              <li key={label}><a href={href} className={`inline-flex min-h-11 items-center rounded-md hover:text-accent-ink ${FOCUS}`}>{label}</a></li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted sm:ml-auto">PairEval · ประเมินเพื่อให้ทีมเติบโต</p>
+          <ApiStatusBadge />
         </div>
-
-        <p className="mt-10 border-t border-line pt-6 text-center text-xs text-muted">
-          © {new Date().getFullYear()} PairEval · SDPX-AI · WS-01 First Deploy
-        </p>
       </div>
     </footer>
   )

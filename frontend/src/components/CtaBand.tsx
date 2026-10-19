@@ -2,39 +2,20 @@ import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { GoogleSignInButton } from './GoogleSignInButton'
+import welcomeIllustration from '../assets/figma/welcome.png'
 import { isSignedIn } from '../lib/session'
+import { FOCUS } from './Ui'
 
-/** ภาพประกอบหน้าต่างเล็ก ๆ ด้านซ้ายของแถบ CTA — ตกแต่งล้วน ไม่มีความหมายต่อ screen reader */
-function WindowIllustration() {
+function WelcomeIllustration() {
   return (
-    <div className="w-56 shrink-0 rounded-lg bg-white/95 p-3" aria-hidden="true">
-      <div className="flex gap-1">
-        {['bg-brand-200', 'bg-brand-200', 'bg-brand-200'].map((c, i) => (
-          <span key={i} className={`size-1.5 rounded-full ${c}`} />
-        ))}
-      </div>
-      <div className="mt-3 flex items-end gap-1.5">
-        <span className="h-6 w-3 rounded-sm bg-brand-200" />
-        <span className="h-10 w-3 rounded-sm bg-brand-500" />
-        <span className="h-8 w-3 rounded-sm bg-brand-200" />
-        <span className="h-12 w-3 rounded-sm bg-brand-500" />
-        <span className="ml-auto grid size-8 place-items-center rounded-full bg-ok-50">
-          <svg viewBox="0 0 24 24" className="size-4 text-ok-500" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m5 12.5 4.5 4.5L19 7" />
-          </svg>
-        </span>
-      </div>
-      <div className="mt-3 space-y-1.5">
-        <span className="block h-1.5 w-full rounded-full bg-brand-100" />
-        <span className="block h-1.5 w-2/3 rounded-full bg-brand-100" />
-      </div>
-    </div>
+    <img src={welcomeIllustration} alt="" width={640} height={480} loading="lazy" className="mx-auto h-56 w-80 max-w-full object-contain sm:h-64 lg:h-75 lg:w-120" />
   )
 }
 
 export function CtaBand() {
   const navigate = useNavigate()
   const [signedIn, setSignedIn] = useState(isSignedIn)
+  const [expanded, setExpanded] = useState(false)
 
   // login เสร็จแล้วพาไปหน้าที่ใช้งานจริงเลย ไม่ทิ้งให้ผู้ใช้เดาว่าต้องกดอะไรต่อ
   const handleSignedIn = useCallback(() => {
@@ -43,28 +24,31 @@ export function CtaBand() {
   }, [navigate])
 
   return (
-    <section id="login" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16">
-      <div className="flex flex-col items-center gap-8 rounded-xl bg-brand-600 px-6 py-10 text-center sm:px-10 lg:flex-row lg:text-left">
-        <WindowIllustration />
+    <section id="security" className="mx-auto max-w-304 scroll-mt-6 px-5 pb-12 sm:px-7">
+      <div className="grid items-center gap-3 rounded-[36px] bg-surface-cream px-6 py-4 sm:rounded-[48px] sm:px-8 md:grid-cols-[0.85fr_1.15fr] lg:grid-cols-[480px_1fr] lg:gap-10">
+        <WelcomeIllustration />
 
         <div className="flex-1">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            เริ่มต้นสร้างการประเมินที่โปร่งใสกว่าเดิม
+          <h2 className="font-display text-2xl leading-[1.45] font-bold text-ink sm:text-[34px]">
+            ความคิดเห็นที่ตรงไปตรงมา
           </h2>
-          <p className="mt-2 text-sm text-brand-100">
-            จัดการห้องเรียน ประเมินผลงาน และสรุปผลได้ในระบบเดียว
+          <p className="mt-4 text-lg leading-[1.45] text-muted sm:text-[21px]">
+            เพื่อนเห็นเฉพาะคะแนนรวม<br />ไม่เห็นว่าใครเป็นผู้ประเมิน
           </p>
-
-          <div className="mt-6 flex justify-center lg:justify-start">
+          <button type="button" aria-expanded={expanded} aria-controls="login" onClick={() => setExpanded(!expanded)} className={`mt-4 inline-flex min-h-12.5 min-w-52 items-center justify-center rounded-full bg-cta px-7 font-semibold text-white transition-colors hover:bg-cta-hover ${FOCUS}`}>
+            รู้จัก PairEval
+          </button>
+          <div id="login" hidden={!expanded} className="mt-5">
+            <p className="mb-4 max-w-lg text-sm leading-relaxed text-ink-2">PairEval ช่วยประเมินผลงานทีละคู่ตามเกณฑ์เดียวกัน ผู้สอนตรวจสอบผลและประกาศคะแนนเมื่อพร้อม เริ่มใช้งานด้วยบัญชี Google ของคุณ</p>
             {signedIn ? (
               <Link
                 to="/classrooms"
-                className="inline-flex items-center gap-2.5 rounded-lg bg-white px-5 py-3 font-medium text-ink transition-colors hover:bg-cream"
+                className={`inline-flex min-h-11 items-center gap-2.5 rounded-full border border-accent-line bg-white px-5 font-semibold text-accent-ink hover:bg-cream ${FOCUS}`}
               >
                 ไปที่ห้องเรียนของฉัน
               </Link>
             ) : (
-              <GoogleSignInButton onSignedIn={handleSignedIn} width={300} />
+              expanded && <GoogleSignInButton onSignedIn={handleSignedIn} width={280} />
             )}
           </div>
         </div>

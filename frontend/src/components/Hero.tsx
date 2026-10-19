@@ -1,48 +1,40 @@
 import { Link } from 'react-router-dom'
 
-import { ApiStatusBadge } from './ApiStatusBadge'
-import { DashboardPreview } from './DashboardPreview'
+import heroComparison from '../assets/enhanced/hero-comparison.webp'
+import heroComparisonLarge from '../assets/enhanced/hero-comparison-large.webp'
+import heroRings from '../assets/figma/hero-rings.svg'
+import heroWave from '../assets/figma/hero-wave.svg'
+import { isSignedIn } from '../lib/session'
 import { IconArrowRight } from './icons'
+import { FOCUS } from './Ui'
 
 export function Hero() {
+  const signedIn = isSignedIn()
+
   return (
-    <section id="overview" className="border-b border-line bg-cream">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-20">
-        <div>
-          <ApiStatusBadge />
-
-          {/* ขนาดตัวอักษรไล่ตามความกว้าง เพื่อให้หัวเรื่องลงได้ 2 บรรทัดตามที่ออกแบบไว้
-              ไม่ใช่ 4 บรรทัดตอนจอกลาง */}
-          <h1 className="mt-5 text-3xl leading-[1.3] font-bold tracking-tight text-balance sm:text-4xl lg:text-[2.1rem] xl:text-[2.6rem]">
-            ประเมินผลงานอย่างยุติธรรม
-            <br />
-            ด้วยการเปรียบเทียบที่ง่ายกว่า
-          </h1>
-
-          <p className="mt-4 max-w-md leading-relaxed text-muted">
-            จัดการห้องเรียน สร้างเกณฑ์ จัดคู่ประเมิน คำนวณคะแนน และตรวจสอบผลได้ในระบบเดียว
-          </p>
-
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link
-              data-testid="main-cta"
-              to="/classrooms"
-              className="rounded-lg bg-brand-600 px-6 py-3 font-medium text-white transition-colors hover:bg-brand-700"
-            >
-              สร้างห้องเรียน
-            </Link>
-            <a
-              href="#how-it-works"
-              className="inline-flex items-center gap-2 rounded-lg border border-brand-200 bg-white px-5 py-3 font-medium text-brand-700 transition-colors hover:bg-brand-50"
-            >
-              ดูวิธีการทำงาน
-              <IconArrowRight className="size-4" />
-            </a>
-          </div>
+    <section id="overview" className="illustrated-hero relative isolate overflow-hidden pt-35">
+      <img src={heroRings} alt="" width={1440} height={580} className="pointer-events-none absolute inset-x-0 top-0 -z-10 w-full" />
+      <div className="relative z-10 mx-auto max-w-300 px-5 text-center">
+        <h1 className="font-display text-[36px] leading-[1.2] font-bold text-balance sm:text-[52px] lg:text-[64px]">
+          ทุกความคิดเห็น<br />ช่วยให้ทีมเติบโต
+        </h1>
+        <p className="mx-auto mt-4 max-w-5xl font-display text-base leading-[1.45] text-ink-2 sm:text-xl lg:text-[23px]">
+          ประเมินผลงานและสมาชิกในทีม ด้วยการเปรียบเทียบทีละคู่
+        </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-3 sm:gap-5">
+          <Link data-testid="main-cta" to="/classrooms" className={`inline-flex min-h-12.5 min-w-44 items-center justify-center gap-3 rounded-full bg-white px-7 font-semibold text-accent-ink transition-colors hover:bg-cream sm:min-w-52 ${FOCUS}`}>
+            {signedIn ? 'ห้องเรียนของฉัน' : 'เริ่มประเมิน'}
+            <IconArrowRight className="size-4" />
+          </Link>
+          <a href="#how-it-works" className={`inline-flex min-h-12.5 min-w-44 items-center justify-center rounded-full bg-cta px-7 font-semibold text-white transition-colors hover:bg-cta-hover sm:min-w-52 ${FOCUS}`}>
+            ดูวิธีใช้งาน
+          </a>
         </div>
-
-        <DashboardPreview />
       </div>
+      <div data-testid="feature-placeholder" className="hero-art relative mx-auto mt-6 w-full max-w-315" aria-label="ภาพตัวอย่างการเปรียบเทียบผลงานสองชิ้น">
+        <img src={heroComparison} srcSet={`${heroComparison} 1260w, ${heroComparisonLarge} 1720w`} sizes="(min-width: 1260px) 1260px, 100vw" alt="นักศึกษาสองคนแลกเปลี่ยนความคิดเห็นและเปรียบเทียบผลงาน A กับ B" width={1260} height={669} fetchPriority="high" className="absolute inset-x-0 bottom-0 w-full" />
+      </div>
+      <img src={heroWave} alt="" width={1440} height={64} className="pointer-events-none absolute inset-x-0 bottom-0 z-20 w-full" />
     </section>
   )
 }
