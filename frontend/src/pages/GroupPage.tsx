@@ -40,12 +40,18 @@ export default function GroupPage() {
         setMembers(roster.items)
         setArtifact(mine)
       })
-      .catch((err: unknown) => { if (active) setError(err instanceof ApiError ? err.message : 'โหลดข้อมูลกลุ่มไม่สำเร็จ') })
-    return () => { active = false }
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof ApiError ? err.message : 'โหลดข้อมูลกลุ่มไม่สำเร็จ')
+      })
+    return () => {
+      active = false
+    }
   }, [classroomId])
 
   const myGroup = artifact?.groupName ?? members.find((member) => member.email === me?.email)?.groupName ?? null
-  const groupMembers = members.filter((member) => member.role === 'STUDENT' && member.groupName === myGroup && member.enrollmentStatus !== 'WITHDRAWN')
+  const groupMembers = members.filter(
+    (member) => member.role === 'STUDENT' && member.groupName === myGroup && member.enrollmentStatus !== 'WITHDRAWN',
+  )
   const students = members.filter((member) => member.role === 'STUDENT')
   const withdrawn = students.filter((member) => member.enrollmentStatus === 'WITHDRAWN').length
   const staff = members.filter((member) => member.role !== 'STUDENT')
@@ -57,7 +63,8 @@ export default function GroupPage() {
       .filter((member) => !q || [member.displayName, member.email].some((value) => value?.toLowerCase().includes(q)))
   }, [members, tab, query])
 
-  const name = (member: RosterEntry) => `${member.displayName ?? member.email}${member.email === me?.email ? ' (คุณ)' : ''}`
+  const name = (member: RosterEntry) =>
+    `${member.displayName ?? member.email}${member.email === me?.email ? ' (คุณ)' : ''}`
   const row = (member: RosterEntry) => (
     <li key={member.memberId} className="flex justify-between gap-4 text-[15px] leading-6">
       <span className="min-w-0 truncate text-ink-2">{name(member)}</span>
@@ -84,24 +91,51 @@ export default function GroupPage() {
           <BackChevron to={`/classrooms/${classroomId}`} label="กลับหน้าห้องเรียน" />
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-[34px] leading-12 font-bold">สมาชิก</h1>
-            <p className="mt-2 text-[15px] text-ink-2">{[myGroup ? `กลุ่ม ${myGroup}` : null, room?.name, room?.instructorName].filter(Boolean).join(' · ')}</p>
+            <p className="mt-2 text-[15px] text-ink-2">
+              {[myGroup ? `กลุ่ม ${myGroup}` : null, room?.name, room?.instructorName].filter(Boolean).join(' · ')}
+            </p>
           </div>
-          <img src={classroomIllustration} alt="" aria-hidden="true" className="h-43.5 w-58 object-contain max-sm:hidden" />
+          <img
+            src={classroomIllustration}
+            alt=""
+            aria-hidden="true"
+            className="h-43.5 w-58 object-contain max-sm:hidden"
+          />
         </div>
 
-        {error && <p role="alert" className="mt-4 text-sm text-err">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-err">
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex flex-col gap-5">
-          <SectionCard title={`สมาชิกกลุ่ม ${groupMembers.length} คน`} hint="รายชื่อจาก roster ของอาจารย์ · ถ้าข้อมูลไม่ถูกต้อง ติดต่อ TA">
+          <SectionCard
+            title={`สมาชิกกลุ่ม ${groupMembers.length} คน`}
+            hint="รายชื่อจาก roster ของอาจารย์ · ถ้าข้อมูลไม่ถูกต้อง ติดต่อ TA"
+          >
             <ul className="space-y-2.5">{groupMembers.map(row)}</ul>
           </SectionCard>
 
           <SectionCard
             title="ผลงานของกลุ่ม"
             hint="ลิงก์นี้คือสิ่งที่กลุ่มอื่นเปิดดูตอนประเมิน (ตั้งค่าโดยอาจารย์)"
-            action={artifact?.url
-              ? <a href={artifact.url} target="_blank" rel="noreferrer" className={`inline-flex min-h-12.5 min-w-53 items-center justify-center rounded-full border border-brand-600 bg-[#f6c39f] px-6 font-display text-[15px] font-semibold text-ink hover:bg-[#f2b285] ${FOCUS}`}>เปิดผลงานกลุ่ม ↗</a>
-              : <span className={btn('ghost', 'md', 'pointer-events-none min-h-12.5 min-w-53 opacity-60')}>ยังไม่มีลิงก์ผลงาน</span>}
+            action={
+              artifact?.url ? (
+                <a
+                  href={artifact.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`inline-flex min-h-12.5 min-w-53 items-center justify-center rounded-full border border-brand-600 bg-[#f6c39f] px-6 font-display text-[15px] font-semibold text-ink hover:bg-[#f2b285] ${FOCUS}`}
+                >
+                  เปิดผลงานกลุ่ม ↗
+                </a>
+              ) : (
+                <span className={btn('ghost', 'md', 'pointer-events-none min-h-12.5 min-w-53 opacity-60')}>
+                  ยังไม่มีลิงก์ผลงาน
+                </span>
+              )
+            }
           />
 
           <SectionCard

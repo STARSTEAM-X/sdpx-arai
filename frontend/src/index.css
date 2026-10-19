@@ -57,6 +57,17 @@
   --color-edge: #f0e3d9;
   --color-edge-strong: #e4ccba;
 
+  /* สีจากแบบ Figma ที่ใช้ซ้ำหลายหน้า (เดิมเขียนเป็น hex ตรง ๆ ในแต่ละ component) */
+  --color-table-head: #f6f3f0;   /* หัวตาราง · กล่องสรุปใน dialog */
+  --color-caution-soft: #fff1c9; /* ป้าย "ข้อมูลไม่พอ" / "anonymity ต่ำ" */
+  --color-line-neutral: #cfc9c4; /* ขอบปุ่มรองสีเทา */
+  --color-peach: #fde5d4;        /* ป้าย "ยังไม่ได้ประเมิน" · ป้ายเจ้าของห้อง */
+  --color-err-field: #e0928a;    /* ขอบช่องกรอกที่ผิด */
+  --color-neutral-soft: #ebe9e6; /* ป้ายฉบับร่าง · แถบ archive */
+  --color-ok-banner: #e3f4e9;    /* แบนเนอร์สำเร็จสีเขียว */
+  --color-role-ta: #7041a6;
+  --color-role-ta-soft: #f1e8ff;
+
   --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
   /* Figma ใช้ IBM Plex Sans Thai ทั้งหัวข้อและเนื้อความ (ตรวจจาก Home และ M08)
      Mono ใช้กับตัวเลขที่ต้องอ่านเทียบกันเป็นคอลัมน์ เช่น % เลขแถว CSV และขนาดไฟล์ */

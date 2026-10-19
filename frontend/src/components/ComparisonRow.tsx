@@ -48,8 +48,8 @@ export function ComparisonRow({
     const left = c.winner === 'left'
     const circleSize = c.strength === 3 ? 'size-12' : c.strength === 2 ? 'size-9' : 'size-6'
     const circleColor = left
-      ? c.strength === 3 ? 'bg-[#B84204]' : c.strength === 2 ? 'bg-[#EF7021]' : 'bg-[#FAC29F]'
-      : c.strength === 3 ? 'bg-[#2455A6]' : c.strength === 2 ? 'bg-[#5486CE]' : 'bg-[#9DB8F4]'
+      ? c.strength === 3 ? 'bg-cta' : c.strength === 2 ? 'bg-[#EF7021]' : 'bg-[#FAC29F]'
+      : c.strength === 3 ? 'bg-info-ink' : c.strength === 2 ? 'bg-[#5486CE]' : 'bg-[#9DB8F4]'
 
     return (
       <button
@@ -70,8 +70,8 @@ export function ComparisonRow({
         disabled={readOnly}
         className={`group flex min-h-32 min-w-0 flex-col items-center justify-center gap-3 rounded-2xl px-1 py-4 text-center text-xs font-medium transition-colors max-sm:min-h-12 max-sm:flex-row max-sm:justify-start max-sm:rounded-xl max-sm:border max-sm:border-edge max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-sm ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
           selected
-            ? left ? 'bg-[#fde5d4] text-accent-ink' : 'bg-[#DDE9FF] text-[#2455A6]'
-            : left ? 'text-accent-ink hover:bg-accent-soft/60' : 'text-[#2455A6] hover:bg-[#DDE9FF]/50'
+            ? left ? 'bg-peach text-accent-ink' : 'bg-info-soft text-info-ink'
+            : left ? 'text-accent-ink hover:bg-accent-soft/60' : 'text-info-ink hover:bg-info-soft/50'
         }`}
       >
         <span
@@ -95,7 +95,7 @@ export function ComparisonRow({
             {item.leftLabel}
           </span>
           <span className="text-xs text-muted">เทียบกับ</span>
-          <span className="max-w-full rounded-xl bg-[#DDE9FF] px-3 py-2 font-display text-sm font-semibold text-ink wrap-break-word">
+          <span className="max-w-full rounded-xl bg-info-soft px-3 py-2 font-display text-sm font-semibold text-ink wrap-break-word">
             {item.rightLabel}
           </span>
         </div>
@@ -110,7 +110,7 @@ export function ComparisonRow({
       <div className={compact ? 'rounded-2xl border border-edge px-4 pt-4 pb-6 max-sm:border-0 max-sm:p-0' : ''}>
         <div className={`${compact ? '' : 'mt-4'} flex justify-between gap-4 text-xs font-semibold max-sm:hidden`} aria-hidden="true">
           <span className="min-w-0 text-accent-ink wrap-break-word">{item.leftLabel} ดีกว่า</span>
-          <span className="min-w-0 text-right text-[#2455A6] wrap-break-word">{item.rightLabel} ดีกว่า</span>
+          <span className="min-w-0 text-right text-info-ink wrap-break-word">{item.rightLabel} ดีกว่า</span>
         </div>
         <div
           role="radiogroup"
@@ -128,7 +128,7 @@ export function ComparisonRow({
           if (!picked) return null
           const left = picked.winner === 'left'
           return (
-            <span className={left ? 'text-accent-ink' : 'text-[#2455A6]'}>
+            <span className={left ? 'text-accent-ink' : 'text-info-ink'}>
               คำตอบของคุณ: {left ? item.leftLabel : item.rightLabel} {picked.label.replace(/^(ซ้าย|ขวา)/, '')}
               {(state === 'pending' || state === 'saving') && <span className="ml-2 font-normal text-muted">กำลังบันทึก…</span>}
               {/* Figma ไม่แสดงข้อความนี้ แต่ผู้ใช้ screen reader ควรรู้ว่าคำตอบถึง server แล้ว */}

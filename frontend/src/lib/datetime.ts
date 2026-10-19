@@ -67,3 +67,64 @@ export function classroomLocalToUtc(localValue: string, timezone: string): strin
 
   return new Date(candidate).toISOString()
 }
+
+export const THAI_MONTHS = [
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
+]
+
+export const THAI_MONTHS_SHORT = [
+  'ม.ค.',
+  'ก.พ.',
+  'มี.ค.',
+  'เม.ย.',
+  'พ.ค.',
+  'มิ.ย.',
+  'ก.ค.',
+  'ส.ค.',
+  'ก.ย.',
+  'ต.ค.',
+  'พ.ย.',
+  'ธ.ค.',
+]
+
+/** แยกวัน/เดือน/ปี พ.ศ./เวลา ตาม timezone ที่กำหนด (ค่าเริ่มต้นเวลาไทย ไม่ใช่เวลาเครื่องผู้ใช้) */
+export function thaiParts(isoUtc: string, timeZone = 'Asia/Bangkok') {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(isoUtc))
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+  return {
+    day: Number(get('day')),
+    month: Number(get('month')),
+    year: Number(get('year')) + 543,
+    hour: get('hour'),
+    minute: get('minute'),
+  }
+}
+
+/** วันที่แบบไทยที่ใช้ทั้งเว็บ เช่น "19 ต.ค. 2569", "19 ต.ค. 16:21", "19 ตุลาคม 2569" */
+export function thaiDate(
+  isoUtc: string,
+  { timeZone = 'Asia/Bangkok', long = false, year = true, time = false } = {},
+): string {
+  const d = thaiParts(isoUtc, timeZone)
+  const month = (long ? THAI_MONTHS : THAI_MONTHS_SHORT)[d.month - 1]
+  return `${d.day} ${month}${year ? ` ${d.year}` : ''}${time ? ` ${d.hour}:${d.minute}` : ''}`
+}

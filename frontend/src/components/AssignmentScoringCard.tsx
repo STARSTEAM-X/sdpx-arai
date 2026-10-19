@@ -43,33 +43,72 @@ function ScoresPanel({
 }) {
   const [side, setSide] = useState<'GROUP' | 'INDIVIDUAL'>('GROUP')
   const rows = scores.items.filter((s) => s.side === side)
-  const tab = (active: boolean) => `inline-flex min-h-11 items-center rounded-xl px-4 font-display text-[14.5px] font-semibold ${active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-sand'}`
+  const tab = (active: boolean) =>
+    `inline-flex min-h-11 items-center rounded-xl px-4 font-display text-[14.5px] font-semibold ${active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-sand'}`
   return (
     <div className="mt-4 w-full">
-      <div role="tablist" aria-label="รายงานคะแนน" className="inline-flex flex-wrap gap-1 rounded-2xl border border-edge bg-white p-1.5">
-        <button type="button" role="tab" aria-selected={side === 'GROUP'} onClick={() => setSide('GROUP')} className={tab(side === 'GROUP')}>คะแนนกลุ่ม</button>
-        <button type="button" role="tab" aria-selected={side === 'INDIVIDUAL'} onClick={() => setSide('INDIVIDUAL')} className={tab(side === 'INDIVIDUAL')}>คะแนนรายบุคคล</button>
-        <a href={`/classrooms/${classroomId}/assignments/${assignmentId}/quality#coverage`} className={tab(false)}>coverage รายคู่</a>
-        <a href={`/classrooms/${classroomId}/assignments/${assignmentId}/quality`} className={tab(false)}>คุณภาพการประเมิน</a>
+      <div
+        role="tablist"
+        aria-label="รายงานคะแนน"
+        className="inline-flex flex-wrap gap-1 rounded-2xl border border-edge bg-white p-1.5"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={side === 'GROUP'}
+          onClick={() => setSide('GROUP')}
+          className={tab(side === 'GROUP')}
+        >
+          คะแนนกลุ่ม
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={side === 'INDIVIDUAL'}
+          onClick={() => setSide('INDIVIDUAL')}
+          className={tab(side === 'INDIVIDUAL')}
+        >
+          คะแนนรายบุคคล
+        </button>
+        <a href={`/classrooms/${classroomId}/assignments/${assignmentId}/quality#coverage`} className={tab(false)}>
+          coverage รายคู่
+        </a>
+        <a href={`/classrooms/${classroomId}/assignments/${assignmentId}/quality`} className={tab(false)}>
+          คุณภาพการประเมิน
+        </a>
       </div>
       <div className="mt-4 overflow-hidden rounded-3xl border border-edge bg-white">
         <div className="border-b border-edge bg-surface-cream px-5 py-4">
           <p className="flex flex-wrap items-center gap-2 font-display text-[16px] font-semibold">
             {side === 'GROUP' ? 'คะแนนรายกลุ่ม' : 'คะแนนรายบุคคล'}
-            <Pill tone={scores.isFinal ? 'ok' : 'warn'} data-testid="scores-final-flag">{scores.isFinal ? 'คะแนนสุดท้าย' : 'ชั่วคราว — อาจเปลี่ยนแปลงได้'}</Pill>
+            <Pill tone={scores.isFinal ? 'ok' : 'warn'} data-testid="scores-final-flag">
+              {scores.isFinal ? 'คะแนนสุดท้าย' : 'ชั่วคราว — อาจเปลี่ยนแปลงได้'}
+            </Pill>
           </p>
-          <p className="mt-1 text-[13.5px] text-ink-2">q = ค่าเฉลี่ยถ่วงน้ำหนัก · คะแนน = (floor + (ceiling − floor) × q) × น้ำหนัก × คะแนนเต็ม</p>
+          <p className="mt-1 text-[13.5px] text-ink-2">
+            q = ค่าเฉลี่ยถ่วงน้ำหนัก · คะแนน = (floor + (ceiling − floor) × q) × น้ำหนัก × คะแนนเต็ม
+          </p>
         </div>
         {rows.length === 0 ? (
           <p className="px-5 py-6 text-sm text-muted">ยังไม่มีคะแนนที่คำนวณไว้ — กด "คำนวณคะแนนชั่วคราว" ก่อน</p>
         ) : (
           <table className="w-full text-[14.5px]">
-            <thead className="bg-[#f6f3f0] text-left">
+            <thead className="bg-table-head text-left">
               <tr>
-                <th scope="col" className="px-5 py-3 font-normal">{side === 'GROUP' ? 'กลุ่ม' : 'นักศึกษา'}</th>
-                <th scope="col" className="px-5 py-3 text-right font-normal">รวม ({scores.isFinal ? 'สุดท้าย' : 'ชั่วคราว'})</th>
-                <th scope="col" className="px-5 py-3 text-right font-normal">สถานะ</th>
-                {onOverride && <th scope="col" className="px-5 py-3"><span className="sr-only">จัดการ</span></th>}
+                <th scope="col" className="px-5 py-3 font-normal">
+                  {side === 'GROUP' ? 'กลุ่ม' : 'นักศึกษา'}
+                </th>
+                <th scope="col" className="px-5 py-3 text-right font-normal">
+                  รวม ({scores.isFinal ? 'สุดท้าย' : 'ชั่วคราว'})
+                </th>
+                <th scope="col" className="px-5 py-3 text-right font-normal">
+                  สถานะ
+                </th>
+                {onOverride && (
+                  <th scope="col" className="px-5 py-3">
+                    <span className="sr-only">จัดการ</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
@@ -78,13 +117,26 @@ function ScoresPanel({
                   <td className="px-5 py-3.5">{s.itemLabel}</td>
                   <td className="px-5 py-3.5 text-right font-mono tabular">{s.component}</td>
                   <td className="px-5 py-3.5 text-right">
-                    {s.flags.includes('LOW_CONFIDENCE')
-                      ? <span className="inline-flex items-center gap-1 rounded-full bg-[#fff1c9] px-3 py-1.5 font-display text-[13.5px] font-semibold text-warn">◷ มีคู่ข้อมูลน้อย</span>
-                      : <span className="inline-flex items-center gap-1 rounded-full bg-ok-50 px-3 py-1.5 font-display text-[13.5px] font-semibold text-ok-700">✓ ข้อมูลพอ</span>}
+                    {s.flags.includes('LOW_CONFIDENCE') ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-caution-soft px-3 py-1.5 font-display text-[13.5px] font-semibold text-warn">
+                        ◷ มีคู่ข้อมูลน้อย
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ok-50 px-3 py-1.5 font-display text-[13.5px] font-semibold text-ok-700">
+                        ✓ ข้อมูลพอ
+                      </span>
+                    )}
                   </td>
                   {onOverride && (
                     <td className="px-5 py-3.5 text-right">
-                      <button type="button" className={btn('ghost', 'sm', 'border-brand-600 text-accent-ink')} onClick={() => onOverride(s)} aria-label={`ปรับคะแนน ${s.itemLabel}`}>แก้คะแนนด้วยมือ</button>
+                      <button
+                        type="button"
+                        className={btn('ghost', 'sm', 'border-brand-600 text-accent-ink')}
+                        onClick={() => onOverride(s)}
+                        aria-label={`ปรับคะแนน ${s.itemLabel}`}
+                      >
+                        แก้คะแนนด้วยมือ
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -121,7 +173,11 @@ function AssignmentRow({
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [])
-  const deadlinePassed = Math.max(new Date(item.groupDeadlineUtc).getTime(), new Date(item.individualDeadlineUtc ?? item.groupDeadlineUtc).getTime()) <= now
+  const deadlinePassed =
+    Math.max(
+      new Date(item.groupDeadlineUtc).getTime(),
+      new Date(item.individualDeadlineUtc ?? item.groupDeadlineUtc).getTime(),
+    ) <= now
   const canFinalize = ['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status)
   const [scores, setScores] = useState<Scores | null>(null)
   const [scoresError, setScoresError] = useState<string | null>(null)
@@ -190,7 +246,12 @@ function AssignmentRow({
   }
 
   // Figma J25c — แก้คะแนนผ่าน dialog ที่ตรวจช่วงคะแนนและบังคับเหตุผลก่อนส่ง
-  async function saveOverride(input: { side: Scores['items'][number]['side']; itemId: string; overrideValue: string; reason: string }) {
+  async function saveOverride(input: {
+    side: Scores['items'][number]['side']
+    itemId: string
+    overrideValue: string
+    reason: string
+  }) {
     await createScoreOverride(item.id, input)
     setScores(await getScores(item.id))
     setScoresError(null)
@@ -319,11 +380,26 @@ function AssignmentRow({
           {exportNotice}
         </Banner>
       )}
-      {scores && <ScoresPanel scores={scores} classroomId={classroomId} assignmentId={item.id} onOverride={readOnly ? undefined : setOverriding} />}
-      {overriding && scores && (
-        <OverrideScoreDialog assignmentId={item.id} scores={scores} initial={overriding} onClose={() => setOverriding(null)} onSave={saveOverride} />
+      {scores && (
+        <ScoresPanel
+          scores={scores}
+          classroomId={classroomId}
+          assignmentId={item.id}
+          onOverride={readOnly ? undefined : setOverriding}
+        />
       )}
-      {confirmIdentified && <IdentifiedExportDialog onClose={() => setConfirmIdentified(false)} onConfirm={exportIdentified} />}
+      {overriding && scores && (
+        <OverrideScoreDialog
+          assignmentId={item.id}
+          scores={scores}
+          initial={overriding}
+          onClose={() => setOverriding(null)}
+          onSave={saveOverride}
+        />
+      )}
+      {confirmIdentified && (
+        <IdentifiedExportDialog onClose={() => setConfirmIdentified(false)} onConfirm={exportIdentified} />
+      )}
     </li>
   )
 }
@@ -333,7 +409,15 @@ function AssignmentRow({
  *  แยกจาก AssignmentPanel เพราะคนละช่วงเวลาของ workflow: อันนั้นสร้างและ publish งาน
  *  ส่วนนี้ทำงานหลัง publish ไปแล้วและอาศัยรายการ assignment ทั้งหมดของห้อง ไม่ใช่แค่ตัวที่เพิ่งสร้าง
  */
-export function AssignmentScoringCard({ classroomId, version = 0, readOnly = false }: { classroomId: string; version?: number; readOnly?: boolean }) {
+export function AssignmentScoringCard({
+  classroomId,
+  version = 0,
+  readOnly = false,
+}: {
+  classroomId: string
+  version?: number
+  readOnly?: boolean
+}) {
   const [items, setItems] = useState<AssignmentSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -365,9 +449,11 @@ export function AssignmentScoringCard({ classroomId, version = 0, readOnly = fal
       // Figma S02 — บอกเวลาอัปเดตและย้ำว่าคะแนนที่แก้ด้วยมือยังอยู่
       const at = new Date(r.computedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
       setNotice(
-        `คำนวณคะแนนชั่วคราวใหม่แล้ว · อัปเดตล่าสุด ${at} น. · ` + (r.hasLowConfidenceItems
-          ? 'มีบาง item ที่ผู้ประเมินยังไม่ถึงเกณฑ์ขั้นต่ำ'
-          : 'ทุก item มีผู้ประเมินครบเกณฑ์') + ' · คะแนนที่อาจารย์แก้ด้วยมือยังคงอยู่',
+        `คำนวณคะแนนชั่วคราวใหม่แล้ว · อัปเดตล่าสุด ${at} น. · ` +
+          (r.hasLowConfidenceItems
+            ? 'มีบาง item ที่ผู้ประเมินยังไม่ถึงเกณฑ์ขั้นต่ำ'
+            : 'ทุก item มีผู้ประเมินครบเกณฑ์') +
+          ' · คะแนนที่อาจารย์แก้ด้วยมือยังคงอยู่',
       )
       setScoreVersion((v) => v + 1)
     } catch (err) {
@@ -390,7 +476,8 @@ export function AssignmentScoringCard({ classroomId, version = 0, readOnly = fal
       return null
     } catch (err) {
       // AC: มี item ติด LOW_CONFIDENCE ต้องยืนยันก่อน — ถามในกล่องเดิม ไม่ใช่ปฏิเสธเงียบ ๆ
-      if (err instanceof ApiError && err.code === 'VALIDATION_FAILED' && err.field === 'confirmLowConfidence') return err.message
+      if (err instanceof ApiError && err.code === 'VALIDATION_FAILED' && err.field === 'confirmLowConfidence')
+        return err.message
       throw err
     } finally {
       setBusy(null)
@@ -448,7 +535,14 @@ export function AssignmentScoringCard({ classroomId, version = 0, readOnly = fal
           name={finalizing.name}
           summary={[
             { label: 'สถานะตอนนี้', value: STATUS_LABEL[finalizing.status] },
-            ...(finalizing.studentCount != null ? [{ label: 'นักศึกษาที่ส่งแล้ว', value: `${finalizing.submittedStudents ?? 0} / ${finalizing.studentCount} คน` }] : []),
+            ...(finalizing.studentCount != null
+              ? [
+                  {
+                    label: 'นักศึกษาที่ส่งแล้ว',
+                    value: `${finalizing.submittedStudents ?? 0} / ${finalizing.studentCount} คน`,
+                  },
+                ]
+              : []),
             { label: 'หลังประกาศ', value: 'นักศึกษาเห็นคะแนนและยื่นอุทธรณ์ได้ 7 วัน' },
           ]}
           onClose={() => setFinalizing(null)}

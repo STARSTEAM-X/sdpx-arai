@@ -4,10 +4,10 @@ import { type Classroom, archiveClassroom, deleteClassroom } from '../lib/api'
 import { ClassroomCreateForm } from './ClassroomCreateForm'
 import { CTRL, btn } from './Ui'
 import { useMenu } from './useMenu'
+import { thaiDate } from '../lib/datetime'
 
 type Action = 'archive' | 'restore' | 'delete' | 'blocked' | 'edit'
 
-const THAI_MONTH_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
 /** เมนู "···" ของห้องที่เป็นเจ้าของ ตาม Figma J04 · J04c · J04d · J04e · J04f */
 export function ClassroomActions({ room, onChanged }: { room: Classroom; onChanged: () => Promise<void> }) {
@@ -156,6 +156,5 @@ export function ClassroomActions({ room, onChanged }: { room: Classroom; onChang
 
 function createdLabel(room: Classroom & { createdAt?: string }): string | null {
   if (!room.createdAt) return null
-  const date = new Date(room.createdAt)
-  return `สร้างเมื่อ ${date.getDate()} ${THAI_MONTH_SHORT[date.getMonth()]} ${date.getFullYear() + 543}`
+  return `สร้างเมื่อ ${thaiDate(room.createdAt)}`
 }

@@ -42,7 +42,9 @@ export function DomainRejectedDialog({
       onClose={onClose}
       className="fixed inset-0 m-auto w-[calc(100vw-2rem)] max-w-131 rounded-2xl bg-white p-5 text-left text-ink shadow-[0_16px_40px_rgba(50,16,7,0.22)] backdrop:bg-ink/45"
     >
-      <h2 id="domain-rejected-title" className="font-display text-[19px] font-semibold">ใช้บัญชีนี้เข้าสู่ระบบไม่ได้</h2>
+      <h2 id="domain-rejected-title" className="font-display text-[19px] font-semibold">
+        ใช้บัญชีนี้เข้าสู่ระบบไม่ได้
+      </h2>
       <div className="mt-4 rounded-xl bg-err-soft px-4 py-3 text-[13px] leading-5 text-err">
         <p className="font-semibold">{email} ไม่อยู่ในโดเมนที่อนุญาต</p>
         <p className="mt-1">
@@ -51,8 +53,16 @@ export function DomainRejectedDialog({
         </p>
       </div>
       <div className="mt-4 flex justify-end gap-3">
-        <button type="button" onClick={() => dialog.current?.close()} className={btn('ghost', 'sm', 'min-w-13 rounded-full px-5')}>ปิด</button>
-        <button type="button" onClick={onRetry} className={btn('primary', 'sm', 'px-5')}>เข้าสู่ระบบด้วยบัญชีอื่น</button>
+        <button
+          type="button"
+          onClick={() => dialog.current?.close()}
+          className={btn('ghost', 'sm', 'min-w-13 rounded-full px-5')}
+        >
+          ปิด
+        </button>
+        <button type="button" onClick={onRetry} className={btn('primary', 'sm', 'px-5')}>
+          เข้าสู่ระบบด้วยบัญชีอื่น
+        </button>
       </div>
     </dialog>
   )
