@@ -15,6 +15,10 @@ const submissionLatency = new Trend('submission_latency', true)
 // run 39317455086: round-trip รวม p95 563ms ตกเพราะ network CI→สิงคโปร์ ทั้งที่ /scores ฝั่ง server ผ่านสบาย
 // http_req_duration (round-trip) ยังอยู่ใน summary ไว้ดูเท่านั้น
 const httpServerLatency = new Trend('http_server_latency', true)
+// หน้า Evaluation โหลดรายการคู่ — เกณฑ์ 400ms ตั้งไว้ตอน job นี้ยังวัดใน runner ก่อน deploy (4ecfec8)
+// พอย้ายมายิง staging หลัง deploy round-trip มี network ~250ms ปนอยู่ (run 39339438868: med 268ms, server p95 47ms)
+// จึงตัดสิน 400ms ที่ server; ส่วน round-trip ใช้เกณฑ์ที่ผู้ใช้รู้สึกตาม PRD NFR-PERF-01 (ดู thresholds)
+const myEvaluationsServerLatency = new Trend('my_evaluations_server_latency', true)
 // ไม่มี header = วัดไม่ได้ ต้องแดง ไม่ใช่ผ่านเงียบ ๆ (Trend ว่างทำให้ threshold p95 ผ่าน)
 const missingServerTiming = new Rate('http_missing_server_timing')
 const PEAK_VUS = Number(__ENV.PEAK_VUS || 10)
@@ -67,7 +71,9 @@ export const options = {
     // เกณฑ์ 300ms ของ NFR-PERF-02 เดิม — ย้ายจาก round-trip มาวัดที่ server (ดู autosaveServerLatency)
     autosave_server_latency: [`p(95)<=${__ENV.AUTOSAVE_P95_MS || 300}`],
     submission_latency: [`p(95)<=${__ENV.SUBMISSION_P95_MS || 800}`],
-    'http_req_duration{name:my_evaluations}': ['p(95)<400'],
+    my_evaluations_server_latency: ['p(95)<400'],
+    // NFR-PERF-01: หน้า Evaluation p95 ≤ 2.0 วิ, p99 ≤ 4.0 วิ ตามที่ผู้ใช้เห็นจริง (รวม network)
+    'http_req_duration{name:my_evaluations}': ['p(95)<=2000', 'p(99)<=4000'],
     'http_req_duration{name:submit}': ['p(95)<=800'],
     'http_req_duration{name:scores}': ['p(95)<500'],
   },
@@ -119,6 +125,8 @@ export function student(data) {
   group('เปิดงานที่ต้องประเมิน', () => {
     const assignments = timed(http.get(`${BASE_URL}/api/classrooms/${data.classroomId}/assignments`, auth(token, 'assignments')))
     const evals = timed(http.get(`${BASE_URL}/api/assignments/${data.assignmentId}/my-evaluations?side=GROUP`, auth(token, 'my_evaluations')))
+    const evalsServerMs = serverTiming(evals)
+    if (evalsServerMs !== null) myEvaluationsServerLatency.add(evalsServerMs)
     const ok = check(assignments, { 'assignments 200': (r) => r.status === 200 }) &&
       check(evals, { 'my-evaluations 200 และมีคู่': (r) => r.status === 200 && r.json('items').length > 0 })
     journeyErrors.add(!ok)
