@@ -213,15 +213,18 @@ export function FieldError({ id, children }: { id: string; children: ReactNode }
   )
 }
 
+/** อักษรย่อตาม Figma: 2 ตัวอักษรแรกของคำแรก ("นก ใจกล้า" → "นก")
+ *  ข้ามสระและวรรณยุกต์ที่ซ้อนบน/ล่าง และสระหน้า เพราะอ่านเป็นอักษรย่อไม่ได้ */
+export function initialsOf(name: string): string {
+  // ตัดคำนำหน้า "อ." / "ดร." ออกก่อน ("อ.สมชาย" → "สม")
+  const first = name.trim().replace(/^(อ\.|ดร\.|ผศ\.|รศ\.|ศ\.)\s*/, '').split(/[\s@]+/)[0] ?? ''
+  const letters = [...first].filter((ch) => !/[ะ-ฺเ-๎]/.test(ch))
+  return letters.slice(0, 2).join('').toUpperCase()
+}
+
 /** อักษรย่อแทนรูปโปรไฟล์ — ระบบไม่เก็บรูปผู้ใช้ การใส่ placeholder เทา ๆ จะกินที่เปล่า ๆ */
 export function Avatar({ name, muted = false, small = false }: { name: string; muted?: boolean; small?: boolean }) {
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
+  const initials = initialsOf(name)
 
   return (
     <span

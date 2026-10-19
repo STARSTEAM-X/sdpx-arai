@@ -461,3 +461,14 @@ export function IconGoogle({ className }: IconProps) {
     </svg>
   )
 }
+
+/** ปุ่มออกจากระบบใน Navbar ตาม Figma — ประตูทึบสีส้มพร้อมลูกศรออก */
+export function IconDoorExit({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M4 3.5A1.5 1.5 0 0 1 5.5 2h8A1.5 1.5 0 0 1 15 3.5V9h-2V4H6v16h7v-5h2v5.5a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 20.5z" />
+      <circle cx="11" cy="12" r="1.1" fill="white" />
+      <path fill="currentColor" d="M17.6 8.4 21.2 12l-3.6 3.6-1.4-1.4 1.2-1.2H11v-2h6.4l-1.2-1.2z" />
+    </svg>
+  )
+}

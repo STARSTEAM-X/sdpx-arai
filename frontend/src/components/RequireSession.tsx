@@ -3,18 +3,19 @@ import { Link, Navigate, Outlet } from 'react-router-dom'
 
 import { ApiError, getMe } from '../lib/api'
 import { getToken, subscribeToSession } from '../lib/session'
+import { PrivacyNotice } from './PrivacyNotice'
 import { Spinner, btn } from './Ui'
 
 export function RequireSession() {
   const token = useSyncExternalStore(subscribeToSession, getToken)
-  const [verification, setVerification] = useState<{ token: string; valid: boolean } | null>(null)
+  const [verification, setVerification] = useState<{ token: string; valid: boolean; needsPrivacy?: boolean } | null>(null)
 
   useEffect(() => {
     if (!token) return
     let active = true
     // ยืนยันกับ server ก่อน mount หน้าภายใน ไม่ถือว่าแค่มี localStorage คือ login แล้ว
     getMe()
-      .then(() => { if (active) setVerification({ token, valid: true }) })
+      .then((me) => { if (active) setVerification({ token, valid: true, needsPrivacy: !me.privacyAcknowledgedAt }) })
       .catch((error: unknown) => {
         // apiFetch ล้าง session เมื่อได้ 401; กรณีเครือข่ายผิดพลาดให้ลองใหม่ได้
         if (active && !(error instanceof ApiError && error.status === 401)) {
@@ -25,7 +26,16 @@ export function RequireSession() {
   }, [token])
 
   if (!token) return <Navigate to="/" replace state={{ loginRequired: true }} />
-  if (verification?.token === token && verification.valid) return <Outlet />
+  if (verification?.token === token && verification.valid) {
+    return (
+      <>
+        <Outlet />
+        {verification.needsPrivacy && (
+          <PrivacyNotice onAcknowledged={() => setVerification({ ...verification, needsPrivacy: false })} />
+        )}
+      </>
+    )
+  }
 
   const failed = verification?.token === token && !verification.valid
   return (

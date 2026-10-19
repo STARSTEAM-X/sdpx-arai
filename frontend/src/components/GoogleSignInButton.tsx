@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { signInWithGoogle } from '../lib/api'
+import { ApiError, signInWithGoogle } from '../lib/api'
 import { setToken } from '../lib/session'
+import { DomainRejectedDialog, emailFromIdToken } from './DomainRejectedDialog'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client?hl=th'
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
@@ -23,6 +24,8 @@ declare global {
             callback: (res: { credential: string }) => void
           }): void
           renderButton(parent: HTMLElement, options: Record<string, unknown>): void
+          disableAutoSelect?(): void
+          prompt?(): void
         }
       }
     }
@@ -101,6 +104,7 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline',
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [rejected, setRejected] = useState<{ email: string; allowed: string } | null>(null)
 
   // ห่อด้วย useCallback เพื่อไม่ให้ effect รันซ้ำทุกครั้งที่ parent re-render
   // ถ้ารันซ้ำ Google จะ render ปุ่มซ้อนกันหลายอัน
@@ -114,6 +118,12 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline',
           onSignedIn()
         })
         .catch((err: unknown) => {
+          // Figma ST02: อีเมลนอกโดเมนแสดงเป็นหน้าต่างแจ้ง พร้อมทางเลือกเข้าด้วยบัญชีอื่น
+          if (err instanceof ApiError && err.code === 'DOMAIN_NOT_ALLOWED') {
+            const allowed = err.message.split('ที่อนุญาต:')[1]?.trim().split(',')[0]?.trim() ?? ''
+            setRejected({ email: emailFromIdToken(credential), allowed })
+            return
+          }
           setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
         })
     },
@@ -199,6 +209,18 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline',
         <p role="alert" data-testid="signin-error" className="mt-2 text-sm text-red-700">
           {error}
         </p>
+      )}
+      {rejected && (
+        <DomainRejectedDialog
+          email={rejected.email}
+          allowedDomain={rejected.allowed}
+          onClose={() => setRejected(null)}
+          onRetry={() => {
+            setRejected(null)
+            window.google?.accounts.id.disableAutoSelect?.()
+            window.google?.accounts.id.prompt?.()
+          }}
+        />
       )}
     </div>
   )

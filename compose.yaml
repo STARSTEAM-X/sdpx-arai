@@ -32,6 +32,9 @@ services:
       - ./frontend:/app # hot reload: แก้ไฟล์บนเครื่องแล้วเห็นผลทันทีโดยไม่ต้อง rebuild
       - /app/node_modules # anonymous volume กัน node_modules ของ host ทับของที่ npm ci ลงไว้ใน image
     # --host ผูกกับ 0.0.0.0 ไม่ใช่ 127.0.0.1 ของ container ไม่งั้น port mapping ทะลุเข้าไม่ได้
+    environment:
+      # hot reload ต้องใช้ polling เพราะ file event จาก host ข้าม bind mount ไม่ได้บน Windows/macOS
+      WATCH_POLLING: "true"
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       api:

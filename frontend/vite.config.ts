@@ -23,6 +23,8 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    // Docker Desktop บน Windows/macOS ไม่ส่ง file event ข้าม bind mount — compose เปิด polling ให้
+    watch: process.env.WATCH_POLLING === 'true' ? { usePolling: true, interval: 300 } : undefined,
     headers: {
       // Google Sign-In เปิด popup แล้วคุยกลับมาด้วย window.postMessage
       // ค่า default ของเบราว์เซอร์ปิดกั้นการคุยข้าม origin แบบนั้น

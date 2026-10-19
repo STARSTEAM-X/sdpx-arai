@@ -3,25 +3,22 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import classroomIllustration from '../assets/enhanced/classroom.webp'
 import welcomeIllustration from '../assets/figma/welcome.png'
+import membersArt from '../assets/figma/members-heading.png'
+import createAssignmentArt from '../assets/figma/create-assignment.png'
+import reportsArt from '../assets/figma/owner-report-heading.png'
 import { AppNav } from '../components/AppNav'
+import { OrangeHero } from '../components/PageChrome'
 import { AssignmentPanel } from '../components/AssignmentPanel'
-import { AppealsPanel } from '../components/AppealsPanel'
 import { EnrollmentDialog } from '../components/EnrollmentDialog'
 import { AssignmentScoringCard } from '../components/AssignmentScoringCard'
 import { AssignmentsToEvaluateCard } from '../components/AssignmentsToEvaluateCard'
-import { MemberPanel } from '../components/MemberPanel'
+import { AddInstructorDialog, RemoveMemberDialog, RoleChangeDialog } from '../components/MemberDialogs'
 import { RosterImportCard } from '../components/RosterImportCard'
 import { RosterTable } from '../components/RosterTable'
 import { SetupStepper, type StepState } from '../components/SetupStepper'
-import { SetupSummary } from '../components/SetupSummary'
-import { Banner, Card, FOCUS, Pill } from '../components/Ui'
+import { Banner, FOCUS, btn } from '../components/Ui'
 import {
-  IconClipboardCheck,
-  IconBack,
   IconInstructor,
-  IconLock,
-  IconRoster,
-  IconShield,
   IconStudent,
   IconTa,
 } from '../components/icons'
@@ -111,41 +108,6 @@ function SummaryTile({
   )
 }
 
-function StudentWelcome({ classroomName }: { classroomName: string }) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="relative overflow-hidden bg-sand px-7 py-8 max-sm:px-5">
-        <div aria-hidden="true" className="absolute -right-8 -top-12 size-48 rounded-full bg-accent-soft/70" />
-        <div className="relative max-w-2xl">
-          <Pill tone="brand" icon={<IconStudent className="size-3.5" />}>
-            พื้นที่นักศึกษา
-          </Pill>
-          <h2 className="mt-4 font-display text-2xl font-bold">พร้อมเริ่มประเมินแล้ว</h2>
-          <p className="mt-2 text-sm leading-6 text-ink-2">
-            เลือกงานของ {classroomName} ด้านล่าง ระบบจะบันทึกคำตอบอัตโนมัติและแสดงความคืบหน้าในหน้าประเมิน
-          </p>
-        </div>
-      </div>
-      <div className="grid gap-3 border-t border-edge bg-white p-5 sm:grid-cols-2 max-sm:p-4">
-        <div className="flex gap-3 rounded-xl bg-sand p-4">
-          <IconClipboardCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent-ink" />
-          <div>
-            <p className="font-display text-sm font-semibold">ประเมินทีละคู่</p>
-            <p className="mt-1 text-xs leading-5 text-muted">ตอบได้ 6 ระดับและกลับมาทำต่อก่อนหมดเวลาได้</p>
-          </div>
-        </div>
-        <div className="flex gap-3 rounded-xl bg-sand p-4">
-          <IconLock aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ok-700" />
-          <div>
-            <p className="font-display text-sm font-semibold">รักษาความเป็นส่วนตัว</p>
-            <p className="mt-1 text-xs leading-5 text-muted">ไม่เปิดเผยว่าใครให้คำตอบ และซ่อนคะแนนรายบุคคลเมื่อข้อมูลยังไม่พอ</p>
-          </div>
-        </div>
-      </div>
-    </Card>
-  )
-}
-
 export default function ClassroomDetailPage() {
   const { classroomId = '' } = useParams()
   const [searchParams] = useSearchParams()
@@ -164,6 +126,11 @@ export default function ClassroomDetailPage() {
   const [assignmentVersion, setAssignmentVersion] = useState(0)
   const [assignmentCount, setAssignmentCount] = useState(0)
   const [rosterLocked, setRosterLocked] = useState(false)
+  const [notice, setNotice] = useState<{ title: string; body?: string } | null>(null)
+  const [addingInstructor, setAddingInstructor] = useState(false)
+  const [roleTarget, setRoleTarget] = useState<RosterEntry | null>(null)
+  const [removing, setRemoving] = useState<RosterEntry | null>(null)
+  const [myEmail, setMyEmail] = useState<string | undefined>(undefined)
   useEffect(() => {
     let active = true
     void listClassroomAssignments(classroomId).then((res) => {
@@ -195,6 +162,7 @@ export default function ClassroomDetailPage() {
       }
 
       setMyRole(membership.role)
+      setMyEmail(profile.email)
       setClassroomName(membership.classroomName)
       setRoomContext(classrooms.items.find((classroom) => classroom.id === classroomId) ?? null)
       setClassroomTimezone(
@@ -254,12 +222,6 @@ export default function ClassroomDetailPage() {
     return () => window.removeEventListener('hashchange', updateFromHash)
   }, [myRole, isInstructor, canImport, canFinalizeScores, activeSection])
 
-  const sectionLinkClass = (section: ClassroomSection) =>
-    `inline-flex min-h-11 shrink-0 items-center rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${FOCUS} ${
-      activeSection === section
-        ? 'border-cta bg-cta text-white'
-        : 'border-edge-strong bg-white text-ink-2 hover:border-brand-600 hover:text-accent-ink'
-    }`
 
   /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
   const stepState = (done: boolean, previousDone: boolean): StepState =>
@@ -275,205 +237,209 @@ export default function ClassroomDetailPage() {
 
   /** ถอดสมาชิกออกจากเมนูในตาราง — ถามยืนยันก่อนเพราะย้อนกลับไม่ได้
    *  และคนที่ถูกถอดจะหลุดจากคู่ประเมินที่จัดไว้แล้วทันที */
-  function handleRemove(entry: RosterEntry) {
+  // Figma J11c / K04 — ยืนยันใน dialog ของเว็บแทน window.confirm
+  async function removeConfirmed(entry: RosterEntry) {
     const label = entry.displayName ? `${entry.displayName} (${entry.email})` : entry.email
-    if (!window.confirm(`นำ ${label} ออกจากห้องเรียนนี้? การถอดออกย้อนกลับไม่ได้`)) return
+    await removeMember(classroomId, entry.memberId)
+    await refresh()
+    setError(null)
+    setNotice({ title: `ถอด ${label} ออกจากห้องแล้ว`, body: 'เข้าห้องนี้ไม่ได้อีก · คำตอบที่เคยส่งยังอยู่ · บันทึก audit แล้ว' })
+  }
 
-    void (async () => {
-      try {
-        await removeMember(classroomId, entry.memberId)
-        await refresh()
-        setError(null)
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'ถอดสมาชิกไม่สำเร็จ')
-      }
-    })()
+  // Figma ST13 / ST14 — หน้าห้องของนักศึกษามีแค่รายการงาน ไม่มีเครื่องมือจัดการห้อง
+  if (myRole === 'STUDENT') {
+    return (
+      <div className="flex min-h-screen flex-col bg-ground font-body text-ink">
+        <AppNav context={classroomName} classroomId={classroomId} />
+        <main className="mx-auto w-full max-w-290 flex-1 pt-12 pb-10 max-xl:px-7 max-sm:px-4 max-sm:pt-4">
+          {/* Figma M03 — หัวหน้า "‹ ห้องเรียน" เฉพาะมือถือ */}
+          <Link to="/classrooms" className={`mb-3 inline-flex min-h-11 items-center gap-2 rounded font-display text-[20px] font-bold sm:hidden ${FOCUS}`}>
+            <svg viewBox="0 0 24 28" className="h-7 w-6 text-brand-600" aria-hidden="true"><path d="M17 3 6 14l11 11" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            ห้องเรียน
+          </Link>
+          <OrangeHero
+            title={classroomName}
+            subtitle={
+              <span className="font-display text-[20px] font-bold max-sm:text-[14px]">
+                {roomContext?.groupName
+                  ? <Link to={`/classrooms/${classroomId}/group`} className={`rounded hover:underline ${FOCUS}`}>กลุ่ม {roomContext.groupName}</Link>
+                  : null}
+                {roomContext?.groupName && roomContext?.instructorName ? ' · ' : null}
+                {roomContext?.instructorName}
+              </span>
+            }
+            image={welcomeIllustration}
+            imageClassName="-top-8 right-6 h-44 w-60"
+          />
+          {error && <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">{error}</Banner>}
+          {myEnrollment === 'WITHDRAWN' && <Banner tone="info" className="mt-6">คุณถอนจากรายวิชานี้แล้ว จึงไม่มีงานประเมินหรือคะแนนในห้องนี้ บัญชีและห้องเรียนอื่นยังใช้งานได้</Banner>}
+          {myEnrollment !== 'WITHDRAWN' && (
+            <div className="mt-12 max-sm:mt-4" data-testid="student-dashboard">
+              <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} student timezone={classroomTimezone} />
+            </div>
+          )}
+        </main>
+        <div className="bg-white max-sm:hidden">
+          <div className="mx-auto flex max-w-290 justify-end py-6.5 max-xl:px-7 max-sm:px-4">
+            <Link to="/classrooms" className={`inline-flex min-h-12.5 min-w-53 items-center justify-center rounded-full border border-brand-600 bg-accent-soft px-6 font-display text-[14.5px] font-semibold text-accent-ink hover:bg-brand-100 ${FOCUS}`}>
+              กลับหน้าห้องเรียน
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const pendingLogin = students.filter((s) => s.status === 'PENDING').length
+  const groupSizes = [...students.reduce((map, s) => map.set(s.groupName ?? '', (map.get(s.groupName ?? '') ?? 0) + 1), new Map<string, number>()).values()]
+  const sizeRange = groupSizes.length ? (Math.min(...groupSizes) === Math.max(...groupSizes) ? `${groupSizes[0]}` : `${Math.min(...groupSizes)}–${Math.max(...groupSizes)}`) : '0'
+  const openAssignments = roomContext?.openAssignmentCount ?? 0
+  const toReview = roomContext?.openAppealCount ?? 0
+  const go = (section: ClassroomSection) => {
+    setActiveSection(section)
+    window.history.replaceState(null, '', `#${section}`)
+    window.scrollTo({ top: 0 })
+  }
+  const actionClass = `inline-flex min-h-12.5 items-center rounded-full border border-reference-border bg-white px-6 font-display text-[16px] font-semibold text-ink hover:border-muted ${FOCUS}`
+  const sectionHead: Record<Exclude<ClassroomSection, 'overview'>, { title: string; subtitle: string; art: string }> = {
+    members: { title: 'สมาชิกในห้องเรียน', subtitle: `${students.length} คน · ${groupCount} กลุ่ม · ผู้สอน ${instructors.length} คน`, art: membersArt },
+    assignments: { title: 'สร้างงานประเมิน', subtitle: `${classroomName} · ${students.length} คน · ${groupCount} กลุ่ม`, art: createAssignmentArt },
+    scores: { title: 'คะแนนของงาน', subtitle: `${classroomName} · ตรวจรายงาน ประกาศผล และส่งออก`, art: reportsArt },
   }
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context={classroomName} classroomId={classroomId} />
 
-      <main
-        className={`mx-auto max-w-304 px-7 pt-7 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-20'}`}
-      >
-        <div className={`mb-6 flex min-w-0 items-center gap-2 text-[13px] text-muted ${myRole === 'STUDENT' ? 'hidden' : ''}`}>
-          <Link to="/classrooms" className={`shrink-0 rounded-md py-1 transition-colors hover:text-accent-ink ${FOCUS}`}>
-            ห้องเรียนของฉัน
-          </Link>
+      <main className={`mx-auto max-w-290 pt-8 max-xl:px-7 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-20'}`}>
+        <nav aria-label="breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2.5 text-[14px] text-ink-2">
+          <Link to="/classrooms" className={`shrink-0 rounded-md transition-colors hover:text-accent-ink ${FOCUS}`}>ห้องเรียนของฉัน</Link>
           <span aria-hidden="true">›</span>
-          <span className="truncate">{classroomName}</span>
-        </div>
+          {activeSection === 'overview'
+            ? <span className="truncate">{classroomName}</span>
+            : <a href="#overview" onClick={(event) => { event.preventDefault(); go('overview') }} className={`truncate hover:text-accent-ink ${FOCUS}`}>{classroomName}</a>}
+        </nav>
 
-        {myRole === 'STUDENT' && <div className="mb-3 flex items-center gap-2"><Link to="/classrooms" aria-label="กลับห้องเรียนของฉัน" className={`grid size-11 place-items-center rounded text-brand-600 ${FOCUS}`}><IconBack className="size-10" /></Link><h1 className="font-display text-2xl font-bold">ห้องเรียน</h1></div>}
-        <div className={`relative isolate rounded-3xl bg-[linear-gradient(110deg,#ff7d3d_0%,#ffb558_100%)] px-10 py-7 max-sm:px-4 ${myRole === 'STUDENT' ? 'mb-3 min-h-31 max-sm:py-4' : 'mb-6 min-h-37'}`}>
-          <div className="relative z-10 max-w-[calc(100%-14rem)] max-md:max-w-full">
-            {myRole === 'STUDENT' ? <h2 className="max-w-[70%] font-display text-[28px] leading-tight font-bold text-white max-sm:text-xl">{classroomName}</h2> : <h1 className="font-display text-[32px] leading-tight font-bold tracking-tight text-white max-sm:text-2xl">
-              {classroomName}
-            </h1>}
-            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-ink-2 max-sm:max-w-[70%]">
-              {myRole === 'STUDENT' ? [roomContext?.groupName ? `กลุ่ม ${roomContext.groupName}` : null, roomContext?.instructorName].filter(Boolean).join(' · ') : [roomContext?.courseCode, `${students.length} คน`, `${groupCount} กลุ่ม`, `ทีมผู้สอน ${instructors.length} คน`, classroomTimezone, roleCopy ? `คุณเป็น${roleCopy.label}` : null].filter(Boolean).join(' · ')}
-            </p>
+        {notice && (
+          <div role="status" data-testid="page-notice" className="mt-6 flex items-start gap-5 rounded-3xl bg-[#e3f4e9] px-6 py-5">
+            <span aria-hidden="true" className="mt-0.5 font-display text-xl font-bold text-ok-700">√</span>
+            <div>
+              <p className="font-display text-[17px] font-semibold text-ok-700">{notice.title}</p>
+              {notice.body && <p className="mt-1 text-[13.5px] text-ink-2">{notice.body}</p>}
+            </div>
           </div>
-          <img
-            src={myRole === 'STUDENT' ? welcomeIllustration : classroomIllustration}
-            alt=""
-            width={640}
-            height={480}
-            className={`pointer-events-none absolute -top-5 right-0 -z-10 h-56 w-72 object-contain ${myRole === 'STUDENT' ? 'max-md:top-auto max-md:bottom-3 max-md:right-2 max-md:h-24 max-md:w-28' : 'max-md:hidden'}`}
-          />
-        </div>
-
-        {error && (
-          <Banner tone="err" data-testid="error-msg" role="alert" className="mb-6">
-            {error}
-          </Banner>
         )}
-        {isArchived && <Banner tone="info" className="mb-6">ห้องเรียนนี้เก็บเข้าคลังแล้ว — อ่านข้อมูล ดูคะแนน และส่งออกได้ กรุณาคืนห้องเรียนก่อนแก้ไข</Banner>}
-        {myEnrollment === 'WITHDRAWN' && <Banner tone="info" className="mb-6">คุณถอนจากรายวิชานี้แล้ว จึงไม่มีงานประเมินหรือคะแนนในห้องนี้ บัญชีและห้องเรียนอื่นยังใช้งานได้</Banner>}
-        {enrollmentNotice && <Banner tone="info" role="status" className="mb-6">{enrollmentNotice}</Banner>}
+        {error && <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">{error}</Banner>}
+        {isArchived && <Banner tone="info" className="mt-6">ห้องเรียนนี้เก็บเข้าคลังแล้ว — อ่านข้อมูล ดูคะแนน และส่งออกได้ กรุณาคืนห้องเรียนก่อนแก้ไข</Banner>}
+        {enrollmentNotice && <Banner tone="info" role="status" className="mt-6">{enrollmentNotice}</Banner>}
 
-        {isInstructor && (
-          <nav
-            aria-label="ส่วนต่าง ๆ ในห้องเรียน"
-            className="sticky top-16 z-30 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-ground/95 px-1 py-3 backdrop-blur"
-          >
-            {isInstructor && (
-              <a
-                href="#overview"
-                aria-current={activeSection === 'overview' ? 'location' : undefined}
-                onClick={() => setActiveSection('overview')}
-                className={sectionLinkClass('overview')}
-              >
-                ภาพรวม
-              </a>
+        {activeSection === 'overview' ? (
+          <section id="overview" aria-label="ภาพรวมห้องเรียน">
+            <div className="mt-6">
+              <OrangeHero
+                title={classroomName}
+                subtitle={myRole === 'TA'
+                  // Figma T04 — TA เห็นว่าใครเป็นเจ้าของห้อง เพื่อรู้ว่าต้องติดต่อใครเรื่องสิทธิ์
+                  ? [roomContext?.courseCode, `${students.length} คน`, `${groupCount} กลุ่ม`, roomContext?.instructorName ? `${roomContext.instructorName} (เจ้าของห้อง)` : null].filter(Boolean).join(' · ')
+                  : [roomContext?.courseCode, `${students.length} คน`, `${groupCount} กลุ่ม`, myRole === 'OWNER' && instructors.length > 1 ? `ทีมผู้สอน ${instructors.length} คน` : null, classroomTimezone, roleCopy ? `คุณเป็น${roleCopy.label}` : null].filter(Boolean).join(' · ')}
+                image={classroomIllustration}
+                imageClassName="-top-7 right-2 h-46 w-82"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              {canImport && <a href="#members" onClick={(event) => { event.preventDefault(); go('members') }} className={actionClass}>{myRole === 'TA' ? 'จัดการรายชื่อ' : 'จัดการสมาชิก'}</a>}
+              {canManageAssignment && !isArchived && <a href="#assignments" onClick={(event) => { event.preventDefault(); go('assignments') }} className={`inline-flex min-h-12.5 items-center rounded-full bg-[#e35205] px-6 font-display text-[16px] font-semibold text-white hover:bg-cta ${FOCUS}`}>{assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}</a>}
+              {canFinalizeScores && <a href="#scores" onClick={(event) => { event.preventDefault(); go('scores') }} className={actionClass}>ดูคะแนนของงาน</a>}
+            </div>
+
+            {myRole === 'OWNER' && !hasStudents && <div className="mt-6"><SetupStepper steps={steps} /></div>}
+
+            {canManageAssignment && !isArchived && assignmentCount === 0 && (
+              <div className="mt-6 flex flex-wrap items-center gap-4 rounded-3xl bg-info-soft px-6 py-5">
+                <span aria-hidden="true" className="text-xl">📝</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-[19px] font-semibold text-info-ink">พร้อมสร้างงานประเมินแรก</p>
+                  <p className="mt-1 text-[14px] text-ink-2">ตั้งเกณฑ์ น้ำหนัก ลิงก์ผลงานของแต่ละกลุ่ม และกำหนดส่ง</p>
+                </div>
+                <a href="#assignments" onClick={(event) => { event.preventDefault(); go('assignments') }} className={btn('ghost', 'sm', 'px-6')}>สร้างงานประเมิน</a>
+              </div>
             )}
-            {canImport && (
-              <a
-                href="#members"
-                aria-current={activeSection === 'members' ? 'location' : undefined}
-                onClick={() => setActiveSection('members')}
-                className={sectionLinkClass('members')}
-              >
-                สมาชิก
-              </a>
+
+            {myRole === 'TA' && (
+              <div data-testid="ta-scope" className="mt-6 flex flex-wrap items-center gap-4 rounded-3xl bg-info-soft px-6 py-4">
+                <span aria-hidden="true" className="text-xl">🧑‍🏫</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-[16px] font-semibold text-info-ink">บทบาท TA: ดูแลรายชื่อนักศึกษา</p>
+                  <p className="mt-0.5 text-[13px] text-ink-2">นำเข้า/แก้ไขรายชื่อ ช่วยนักศึกษาที่เข้าห้องไม่ได้ · ไม่เห็นงานประเมินหรือคะแนนของใคร</p>
+                </div>
+                <a href="#members" onClick={(event) => { event.preventDefault(); go('members') }} className={btn('ghost', 'sm', 'px-5')}>ไปที่รายชื่อ</a>
+              </div>
             )}
+            {myRole === 'CO_TEACHER' && (
+              <Banner tone="warn" className="mt-6" data-testid="co-teacher-scope">
+                คุณจัดการรายชื่อและงานประเมินได้ ส่วนการประกาศผลคะแนนขั้นสุดท้ายเป็นหน้าที่ของเจ้าของห้อง
+              </Banner>
+            )}
+
+            <div className={`mt-6 grid gap-3.5 sm:grid-cols-2 ${myRole === 'TA' ? '' : 'lg:grid-cols-4'}`}>
+              <SummaryTile icon={null} label="นักศึกษา" value={<span className="font-mono tabular">{students.length}</span>} hint={students.length === 0 ? 'รอนำเข้ารายชื่อ' : pendingLogin ? `ยังไม่เคย login ${pendingLogin} คน` : 'เข้าสู่ระบบแล้วทุกคน'} />
+              <SummaryTile icon={null} label="กลุ่ม" value={<span className="font-mono tabular">{groupCount}</span>} hint={groupCount ? `กลุ่มละ ${sizeRange} คน` : '—'} />
+              {myRole !== 'TA' && <SummaryTile icon={null} label="งานประเมิน" value={assignmentCount} hint={assignmentCount ? `เปิดอยู่ ${openAssignments} งาน` : 'ยังไม่มีงาน'} />}
+              {myRole !== 'TA' && <SummaryTile icon={null} label="ต้องตรวจ" value={toReview} hint={toReview ? `คำร้องอุทธรณ์รอตอบ ${toReview}` : assignmentCount ? 'ยังไม่มีสัญญาณ' : '—'} />}
+            </div>
+
             {myRole !== 'TA' && (
-              <a
-                href="#assignments"
-                aria-current={activeSection === 'assignments' ? 'location' : undefined}
-                onClick={() => setActiveSection('assignments')}
-                className={sectionLinkClass('assignments')}
-              >
-                งานประเมิน
-              </a>
+              <div className="mt-6">
+                <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} timezone={classroomTimezone} onChanged={() => setAssignmentVersion((v) => v + 1)} readOnly={isArchived} />
+              </div>
             )}
-            {canFinalizeScores && (
-              <a
-                href="#scores"
-                aria-current={activeSection === 'scores' ? 'location' : undefined}
-                onClick={() => setActiveSection('scores')}
-                className={sectionLinkClass('scores')}
-              >
-                คะแนน
-              </a>
-            )}
-            <Link to={`/classrooms/${classroomId}/audit`} className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-edge-strong bg-white px-5 py-2.5 text-sm font-semibold">บันทึกการตรวจสอบ</Link>
-          </nav>
-        )}
-
-        {myRole === 'OWNER' && activeSection === 'overview' && !hasStudents && <SetupStepper steps={steps} />}
-
-          {isInstructor && activeSection === 'overview' && canManageAssignment && !isArchived && <Banner tone="info" align="center" className="mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-3"><span>{assignmentCount ? 'ติดตามงานและการประเมินของห้องเรียน' : 'พร้อมสร้างงานประเมินแรก'}</span><a href="#assignments" className="rounded-full border border-edge-strong bg-white px-5 py-3 text-sm font-semibold text-ink">สร้างงานประเมิน</a></div>
-          </Banner>}
-
-        {isInstructor && (
-          <section id="overview" aria-label="ภาพรวมห้องเรียน" hidden={activeSection !== 'overview'} className="mb-7 grid scroll-mt-40 gap-4 sm:grid-cols-4 [hidden]:hidden">
-            <SummaryTile
-              icon={<IconStudent className="size-5" />}
-              label="นักศึกษา"
-              value={<span className="font-mono tabular">{students.length}</span>}
-              hint={students.length > 0 ? 'พร้อมจัดกลุ่มและมอบหมายงาน' : 'รอนำเข้ารายชื่อ'}
-            />
-            <SummaryTile
-              icon={<IconRoster className="size-5" />}
-              label="กลุ่ม"
-              value={<span className="font-mono tabular">{groupCount}</span>}
-              hint="คำนวณจากรายชื่อล่าสุด"
-            />
-            <SummaryTile icon={<IconClipboardCheck className="size-5" />} label="งานประเมิน" value={assignmentCount} hint={assignmentCount ? 'งานทั้งหมดในห้อง' : 'ยังไม่มีงาน'} />
-            <SummaryTile
-              icon={<IconInstructor className="size-5" />}
-              label="ทีมผู้สอน"
-              value={<span className="font-mono tabular">{instructors.length} คน</span>}
-              hint={myRole === 'TA' ? 'คุณดูแลรายชื่อในห้องนี้' : 'เจ้าของห้อง ผู้สอนร่วม และ TA'}
-            />
           </section>
-        )}
-
-        {myRole === 'CO_TEACHER' && (
-          <Banner tone="warn" className="mb-6" data-testid="co-teacher-scope">
-            คุณจัดการรายชื่อและงานประเมินได้ ส่วนการประกาศผลคะแนนขั้นสุดท้ายเป็นหน้าที่ของเจ้าของห้อง
-          </Banner>
-        )}
-
-        {myRole === 'TA' && (
-          <Banner tone="ok" className="mb-6" data-testid="ta-scope">
-            หน้านี้แสดงเฉพาะเครื่องมือดูแลรายชื่อ งานประเมินและคะแนนจะไม่แสดงในสิทธิ์ผู้ช่วยสอน
-          </Banner>
-        )}
-
-        {myRole === 'STUDENT' && myEnrollment !== 'WITHDRAWN' && (
-          <div className="mb-6" data-testid="student-dashboard">
-            <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} student timezone={classroomTimezone} />
+        ) : (
+          <div className="relative mt-6 flex min-h-41 items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <a href="#overview" aria-label="กลับภาพรวมห้องเรียน" onClick={(event) => { event.preventDefault(); go('overview') }} className={`grid size-12 shrink-0 place-items-center rounded-xl text-brand-600 hover:bg-accent-soft ${FOCUS}`}>
+                <svg viewBox="0 0 24 28" className="h-9 w-8" aria-hidden="true"><path d="M17 3 6 14l11 11" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </a>
+              <div>
+                <h1 className="font-display text-[32px] font-bold max-sm:text-2xl">{sectionHead[activeSection].title}</h1>
+                <p className="mt-2 text-[15px] text-ink-2">{sectionHead[activeSection].subtitle}</p>
+              </div>
+            </div>
+            <img src={sectionHead[activeSection].art} alt="" aria-hidden="true" className="h-41 w-55 shrink-0 object-contain max-sm:hidden" />
           </div>
         )}
-        {isInstructor && activeSection === 'overview' && <div className="mb-6">
 
-          <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} />
-        </div>}
-
-        <div className="grid items-start gap-6 lg:grid-cols-12">
-          <div
-            className={`flex min-w-0 flex-col gap-6 ${canManageAssignment && activeSection === 'assignments' ? 'lg:col-span-8' : 'lg:col-span-12'}`}
-          >
+        <div className="mt-6 grid items-start gap-6 lg:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-6 lg:col-span-12">
             {canImport && (
               <section id="members" hidden={activeSection !== 'members'} className="flex scroll-mt-40 flex-col gap-6 [hidden]:hidden">
                 {rosterLocked && !isArchived && <Banner tone="info">มีงานเผยแพร่แล้ว กรุณายกเลิกเผยแพร่งานก่อนแก้รายชื่อ เพื่อเก็บคำตอบเดิมไว้และจัดคู่ใหม่อย่างถูกต้อง</Banner>}
-                {!isArchived && !rosterLocked && <RosterImportCard
-                  classroomId={classroomId}
-                  onImported={refresh}
-                  onError={setError}
-                />}
-
+                {!isArchived && !rosterLocked && (
+                  <RosterImportCard
+                    classroomId={classroomId}
+                    onImported={async () => {
+                      await refresh()
+                      setNotice({ title: 'นำเข้ารายชื่อแล้ว', body: 'ตรวจรายชื่อด้านล่าง · นักศึกษาเข้าห้องได้เมื่อ login ด้วยอีเมลมหาวิทยาลัย' })
+                    }}
+                    onError={setError}
+                  />
+                )}
                 <RosterTable
                   items={items}
                   loaded={loaded}
+                  myEmail={myEmail}
                   onEnrollment={!isArchived ? setSelectedEnrollment : undefined}
                   canManageMembers={canManageMembers && !isArchived}
-                  onRemove={handleRemove}
+                  onRemove={setRemoving}
+                  onChangeRole={canManageMembers && !isArchived ? setRoleTarget : undefined}
+                  onAddInstructor={canManageMembers && !isArchived ? () => setAddingInstructor(true) : undefined}
                 />
-
-                {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
-                {canManageMembers && !isArchived && (
-                  <MemberPanel
-                    classroomId={classroomId}
-                    instructors={instructors}
-                    onChanged={refresh}
-                  />
-                )}
               </section>
             )}
 
-            {/* TA ดูแล roster เท่านั้น ส่วน role ที่มีหน้าที่ประเมินจะเห็นจุดเข้างานของตน */}
             {isInstructor && myRole !== 'TA' && (
               <section id="assignments" hidden={activeSection !== 'assignments'} className="flex scroll-mt-40 flex-col gap-6 [hidden]:hidden">
-                <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} timezone={classroomTimezone} onChanged={() => setAssignmentVersion((v) => v + 1)} readOnly={isArchived} />
-
-                {canManageAssignment && <AppealsPanel classroomId={classroomId} readOnly={isArchived} />}
-
-                {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
                 {canManageAssignment && !isArchived && (
                   <AssignmentPanel
                     editingId={searchParams.get('draft') ?? undefined}
@@ -483,24 +449,17 @@ export default function ClassroomDetailPage() {
                     studentCount={students.length}
                     timezone={classroomTimezone}
                     onChanged={() => setAssignmentVersion((v) => v + 1)}
+                    onPublished={(name, result) => {
+                      setNotice({ title: `เผยแพร่ "${name}" แล้ว`, body: `จัดคู่ ${result.pairsCreated} รายการ · แจ้งนักศึกษา ${students.length} คน · แก้เกณฑ์ไม่ได้แล้วจนกว่าจะยกเลิกเผยแพร่` })
+                      void refresh()
+                      go('overview')
+                    }}
                     groupNames={[...new Set(students.map((student) => student.groupName).filter((name): name is string => Boolean(name)))]}
                   />
                 )}
               </section>
             )}
 
-            {myRole === 'STUDENT' && (
-              <details aria-label="รายชื่อสมาชิกในห้อง" className="scroll-mt-40"><summary className="mb-4 cursor-pointer font-semibold">ข้อมูลห้องและสมาชิก</summary><StudentWelcome classroomName={classroomName} />
-                <RosterTable
-                  items={items}
-                  loaded={loaded}
-                  canManageMembers={false}
-                  onRemove={handleRemove}
-                />
-              </details>
-            )}
-
-            {/* ตัดสินและประกาศคะแนน — เฉพาะเจ้าของห้อง (US-13) */}
             {canFinalizeScores && (
               <section id="scores" hidden={activeSection !== 'scores'} className="scroll-mt-40 [hidden]:hidden">
                 <AssignmentScoringCard classroomId={classroomId} version={assignmentVersion} readOnly={isArchived} />
@@ -508,26 +467,27 @@ export default function ClassroomDetailPage() {
             )}
           </div>
 
-          {canManageAssignment && !isArchived && activeSection === 'assignments' && (
-            <aside aria-label="สรุปการตั้งค่า" className="lg:sticky lg:top-36 lg:col-span-4">
-              <SetupSummary
-                draft={draft}
-                memberCount={items.length}
-                studentCount={students.length}
-                groupCount={groupCount}
-              />
-            </aside>
-          )}
         </div>
-
-        {myRole === 'STUDENT' && loaded && (
-          <p className="mt-6 flex items-center justify-center gap-2 text-center text-sm text-muted">
-            <IconShield aria-hidden="true" className="size-4" />
-            รายชื่อเป็นข้อมูลอ่านอย่างเดียว คุณแก้ไขสมาชิกหรือดูคำตอบของผู้อื่นไม่ได้
-          </p>
-        )}
       </main>
-      {selectedEnrollment && <EnrollmentDialog member={selectedEnrollment} classroomId={classroomId} onClose={() => setSelectedEnrollment(null)} onChanged={async (notice) => { await refresh(); setAssignmentVersion((value) => value + 1); setEnrollmentNotice(notice) }} />}
+      {selectedEnrollment && <EnrollmentDialog member={selectedEnrollment} classroomId={classroomId} onClose={() => setSelectedEnrollment(null)} onChanged={async (message) => { await refresh(); setAssignmentVersion((value) => value + 1); setEnrollmentNotice(null); setNotice({ title: message.split(' · ')[0], body: message.split(' · ').slice(1).join(' · ') }) }} />}
+      {addingInstructor && (
+        <AddInstructorDialog
+          classroomId={classroomId}
+          classroomName={classroomName}
+          domain={roomContext?.allowedEmailDomains[0] ?? null}
+          onClose={() => setAddingInstructor(false)}
+          onAdded={async (message) => { await refresh(); setNotice(message) }}
+        />
+      )}
+      {removing && <RemoveMemberDialog member={removing} onClose={() => setRemoving(null)} onConfirm={() => removeConfirmed(removing)} />}
+      {roleTarget && (
+        <RoleChangeDialog
+          classroomId={classroomId}
+          member={roleTarget}
+          onClose={() => setRoleTarget(null)}
+          onChanged={async (message) => { await refresh(); setNotice(message) }}
+        />
+      )}
     </div>
   )
 }

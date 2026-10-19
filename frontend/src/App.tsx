@@ -11,16 +11,23 @@ import NotificationsPage from './pages/NotificationsPage'
 import AppealPage from './pages/AppealPage'
 import AuditPage from './pages/AuditPage'
 import QualityPage from './pages/QualityPage'
+import GuidePage from './pages/GuidePage'
+import GroupPage from './pages/GroupPage'
+import AssignmentOverviewPage from './pages/AssignmentOverviewPage'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/guide" element={<GuidePage />} />
+      <Route path="/guide/:tab" element={<GuidePage />} />
       <Route element={<RequireSession />}>
         <Route path="/classrooms" element={<ClassroomsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/classrooms/:classroomId/assignments/:assignmentId/appeal" element={<AppealPage />} />
         <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
+        <Route path="/classrooms/:classroomId/group" element={<GroupPage />} />
+        <Route path="/classrooms/:classroomId/assignments/:assignmentId" element={<AssignmentOverviewPage />} />
         <Route path="/classrooms/:classroomId/audit" element={<AuditPage />} />
         <Route path="/classrooms/:classroomId/assignments/:assignmentId/quality" element={<QualityPage />} />
         <Route

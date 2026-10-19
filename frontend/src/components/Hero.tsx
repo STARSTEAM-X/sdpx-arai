@@ -4,13 +4,10 @@ import heroComparison from '../assets/enhanced/hero-comparison.webp'
 import heroComparisonLarge from '../assets/enhanced/hero-comparison-large.webp'
 import heroRings from '../assets/figma/hero-rings.svg'
 import heroWave from '../assets/figma/hero-wave.svg'
-import { isSignedIn } from '../lib/session'
 import { IconArrowRight } from './icons'
 import { FOCUS } from './Ui'
 
 export function Hero() {
-  const signedIn = isSignedIn()
-
   return (
     <section id="overview" className="illustrated-hero relative isolate overflow-hidden pt-35">
       <img src={heroRings} alt="" width={1440} height={580} className="pointer-events-none absolute inset-x-0 top-0 -z-10 w-full" />
@@ -23,12 +20,12 @@ export function Hero() {
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-3 sm:gap-5">
           <Link data-testid="main-cta" to="/classrooms" className={`inline-flex min-h-12.5 min-w-44 items-center justify-center gap-3 rounded-full bg-white px-7 font-semibold text-accent-ink transition-colors hover:bg-cream sm:min-w-52 ${FOCUS}`}>
-            {signedIn ? 'ห้องเรียนของฉัน' : 'เริ่มประเมิน'}
+            เริ่มประเมิน
             <IconArrowRight className="size-4" />
           </Link>
-          <a href="#how-it-works" className={`inline-flex min-h-12.5 min-w-44 items-center justify-center rounded-full bg-cta px-7 font-semibold text-white transition-colors hover:bg-cta-hover sm:min-w-52 ${FOCUS}`}>
+          <Link to="/guide" className={`inline-flex min-h-12.5 min-w-44 items-center justify-center rounded-full bg-cta px-7 font-semibold text-white transition-colors hover:bg-cta-hover sm:min-w-52 ${FOCUS}`}>
             ดูวิธีใช้งาน
-          </a>
+          </Link>
         </div>
       </div>
       <div data-testid="feature-placeholder" className="hero-art relative mx-auto mt-6 w-full max-w-315" aria-label="ภาพตัวอย่างการเปรียบเทียบผลงานสองชิ้น">

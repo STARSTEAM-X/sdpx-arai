@@ -1,11 +1,12 @@
+import { Link } from 'react-router-dom'
+
 import { LogoMark } from './icons'
-import { ApiStatusBadge } from './ApiStatusBadge'
 import { FOCUS } from './Ui'
 
 const LINKS = [
-  { label: 'วิธีใช้งาน', href: '#how-it-works' },
-  { label: 'เกี่ยวกับเรา', href: '#overview' },
-  { label: 'ความเป็นส่วนตัว', href: '#security' },
+  { label: 'วิธีใช้งาน', href: '/guide' },
+  { label: 'เกี่ยวกับเรา', href: '/guide/about' },
+  { label: 'ความเป็นส่วนตัว', href: '/guide/privacy' },
 ]
 
 export function SiteFooter() {
@@ -17,13 +18,15 @@ export function SiteFooter() {
             <LogoMark className="size-10" />
             PairEval
           </a>
-          <ul className="flex flex-wrap gap-x-5 text-sm text-muted">
-            {LINKS.map(({ label, href }) => (
-              <li key={label}><a href={href} className={`inline-flex min-h-11 items-center rounded-md hover:text-accent-ink ${FOCUS}`}>{label}</a></li>
+          <ul className="flex flex-wrap items-center text-sm text-muted">
+            {LINKS.map(({ label, href }, index) => (
+              <li key={label} className="flex items-center">
+                {index > 0 && <span aria-hidden="true" className="px-2">·</span>}
+                <Link to={href} className={`inline-flex min-h-11 items-center rounded-md hover:text-accent-ink ${FOCUS}`}>{label}</Link>
+              </li>
             ))}
           </ul>
           <p className="text-xs text-muted sm:ml-auto">PairEval · ประเมินเพื่อให้ทีมเติบโต</p>
-          <ApiStatusBadge />
         </div>
       </div>
     </footer>

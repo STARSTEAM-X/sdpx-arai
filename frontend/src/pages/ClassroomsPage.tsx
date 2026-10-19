@@ -2,18 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import classroomIllustration from '../assets/enhanced/classroom.webp'
+import createClassroomIllustration from '../assets/figma/create-classroom.png'
 import { AppNav } from '../components/AppNav'
 import { ClassroomCreateForm } from '../components/ClassroomCreateForm'
 import { ClassroomActions } from '../components/ClassroomActions'
-import { Dropdown, type DropdownOption } from '../components/Dropdown'
-import { Banner, CTRL, FOCUS, Pill, btn } from '../components/Ui'
-import {
-  IconClock,
-  IconHistory,
-  IconSearch,
-  IconSortAZ,
-  IconUsers,
-} from '../components/icons'
+import { OrangeHero } from '../components/PageChrome'
+import { Banner, CTRL, FOCUS, btn } from '../components/Ui'
+import { IconSearch } from '../components/icons'
 import {
   ApiError,
   type Classroom,
@@ -22,46 +17,28 @@ import {
   listClassrooms,
 } from '../lib/api'
 
-type SortOrder = 'recent' | 'name'
-
-const SORT_OPTIONS: DropdownOption<SortOrder>[] = [
-  {
-    value: 'recent',
-    label: 'อัปเดตล่าสุด',
-    description: 'ห้องที่มีความเคลื่อนไหวล่าสุดอยู่ก่อน',
-    icon: <IconHistory className="size-4" />,
-  },
-  {
-    value: 'name',
-    label: 'ชื่อ ก-ฮ',
-    description: 'เรียงชื่อตามลำดับตัวอักษร',
-    icon: <IconSortAZ className="size-4" />,
-  },
-]
-
-/** สถานะห้องเรียนตาม PRD §11 (`ACTIVE|ARCHIVED`) — คนละชุดกับสถานะสมาชิกใน Ui.tsx */
-function ClassroomStatusPill({ status }: { status: string }) {
-  if (status === 'ARCHIVED') return <Pill>เก็บถาวร</Pill>
-  return null
+const ROLE_STYLE: Record<string, { label: string; chip: string; dot: string; pill: string }> = {
+  OWNER: { label: 'เจ้าของห้อง', chip: 'เจ้าของห้อง', dot: 'bg-brand-600', pill: 'bg-[#fde5d4] text-accent-ink' },
+  CO_TEACHER: { label: 'ผู้สอนร่วม', chip: 'ผู้สอนร่วม', dot: 'bg-[#3157a8]', pill: 'bg-[#e3ecff] text-[#3157a8]' },
+  TA: { label: 'TA', chip: 'TA', dot: 'bg-[#7041a6]', pill: 'bg-[#f1e8ff] text-[#7041a6]' },
+  STUDENT: { label: 'นักศึกษา', chip: 'นักศึกษา', dot: 'bg-ok-600', pill: 'bg-ok-50 text-ok-700' },
 }
 
-const CLASSROOM_ROLE_STYLE: Record<string, { label: string; className: string }> = {
-  OWNER: { label: 'เจ้าของห้อง', className: 'bg-accent-soft text-accent-ink' },
-  CO_TEACHER: { label: 'ผู้สอนร่วม', className: 'bg-[#e3ecff] text-[#3157a8]' },
-  TA: { label: 'ผู้ช่วยสอน', className: 'bg-[#f1e8ff] text-[#7041a6]' },
-  STUDENT: { label: 'นักศึกษา', className: 'bg-ok-50 text-ok-700' },
+const THAI_MONTH_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+function thaiDate(iso: string, timezone = 'Asia/Bangkok', withTime = false): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(iso))
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+  const base = `${Number(get('day'))} ${THAI_MONTH_SHORT[Number(get('month')) - 1]} ${Number(get('year')) + 543}`
+  return withTime ? `${base} ${get('hour')}:${get('minute')}` : base
 }
 
-function ClassroomRolePill({ role }: { role?: string }) {
-  const style = role ? CLASSROOM_ROLE_STYLE[role] : undefined
-  if (!style) return null
-
-
-  return (
-    <span className={`inline-flex min-h-9 items-center justify-center rounded-full px-5 text-xs font-semibold ${style.className}`}>
-      {style.label}
-    </span>
-  )
+/** รหัสนักศึกษา KMITL เป็นตัวเลขล้วน — ใช้เดาว่าผู้ใช้ที่ยังไม่มีห้องเป็นนักศึกษา (Figma ST11)
+ *  หรือผู้สอนที่ยังไม่ได้สร้างห้อง (Figma J02) เพราะระบบไม่มี role ระดับบัญชี */
+function looksLikeStudent(email: string | undefined): boolean {
+  return /^\d+@/.test(email ?? '')
 }
 
 export default function ClassroomsPage() {
@@ -70,15 +47,18 @@ export default function ClassroomsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [search, setSearch] = useState('')
-  const [sort, setSort] = useState<SortOrder>('recent')
   const [roleFilter, setRoleFilter] = useState('ALL')
-  const [statusFilter, setStatusFilter] = useState('ACTIVE')
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE')
   const [semester, setSemester] = useState('ALL')
+  const [created, setCreated] = useState<Classroom | null>(null)
   const createDialog = useRef<HTMLDialogElement>(null)
   const roleByRoom = useMemo(() => new Map(me?.classrooms.map((room) => [room.classroomId, room.role])), [me])
-  const statusItems = items.filter((room) => room.status === statusFilter)
   const studentOnly = Boolean(me?.classrooms.length && me.classrooms.every((room) => room.role === 'STUDENT'))
+  // Figma C03 / T03 — ผู้สอนร่วมหรือ TA ที่ไม่ได้เป็นเจ้าของห้องไหน เห็นรายการแบบเรียบ ไม่มีแท็บ ตัวกรองบทบาท หรือปุ่มสร้างห้อง
+  const staffOnly = Boolean(me?.classrooms.length && me.classrooms.every((room) => room.role === 'CO_TEACHER' || room.role === 'TA'))
+  const staffLabel = me?.classrooms.every((room) => room.role === 'TA') ? 'ผู้ช่วยสอน (TA)' : me?.classrooms.every((room) => room.role === 'CO_TEACHER') ? 'ผู้สอนร่วม' : 'ทีมผู้สอน'
   const semesters = [...new Set(items.map((room) => room.semester).filter((value): value is string => Boolean(value)))]
+  const currentSemester = items.find((room) => room.status === 'ACTIVE' && room.semester)?.semester
 
   const refresh = useCallback(async () => {
     try {
@@ -99,138 +79,250 @@ export default function ClassroomsPage() {
     void refresh()
   }, [refresh])
 
-  async function handleCreated() {
+  async function handleCreated(room: Classroom) {
     createDialog.current?.close()
+    setCreated(room)
+    setStatusFilter('ACTIVE')
     await refresh()
   }
 
-  // ค้นหา + เรียงลำดับทำฝั่ง client เพราะจำนวนห้องเรียนต่ออาจารย์เล็กมาก
-  // (ไม่คุ้มเพิ่ม query param ให้ backend สำหรับ list ที่ไม่เกินไม่กี่สิบแถว)
+  const statusItems = items.filter((room) => room.status === statusFilter)
   const visibleItems = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const filtered = items.filter((room) => (
-      room.status === statusFilter
+    return items.filter((room) => (
+      (studentOnly || room.status === statusFilter)
       && (roleFilter === 'ALL' || roleByRoom.get(room.id) === roleFilter)
       && (semester === 'ALL' || room.semester === semester)
-      && (!q || [room.name, room.slug, room.courseCode, room.instructorName].some((value) => value?.toLowerCase().includes(q)))
+      && (!q || [room.name, room.courseCode, room.instructorName].some((value) => value?.toLowerCase().includes(q)))
     ))
-    return sort === 'name'
-      ? [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'th'))
-      : filtered
-  }, [items, search, sort, roleFilter, statusFilter, roleByRoom, semester])
+  }, [items, search, roleFilter, statusFilter, roleByRoom, semester, studentOnly])
 
-  const classroomTools = <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-5">
-    <div role="group" aria-label="สถานะห้องเรียน" className="flex flex-wrap gap-5">
-      {[{ value: 'ACTIVE', label: 'ใช้งานอยู่' }, { value: 'ARCHIVED', label: 'เก็บถาวร' }].map(({ value, label }) => <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-11 border-b-2 px-1 text-sm font-semibold ${FOCUS} ${statusFilter === value ? 'border-brand-600 text-accent-ink' : 'border-transparent text-muted hover:text-ink'}`}>{label} · {items.filter((room) => room.status === value).length}</button>)}
+  const noRooms = loaded && items.length === 0
+  const studentEmpty = noRooms && looksLikeStudent(me?.email)
+  const archivedTab = !studentOnly && statusFilter === 'ARCHIVED'
+
+  const subtitle = studentOnly || studentEmpty
+    ? 'งานที่ต้องประเมินจะขึ้นที่นี่เมื่ออาจารย์เปิดให้ประเมิน'
+    : noRooms
+      ? 'ยังไม่มีห้องเรียนที่คุณเป็นผู้สอน'
+      : staffOnly
+        ? `ห้องที่คุณเป็น${staffLabel}${currentSemester ? ` · ภาคเรียน ${currentSemester}` : ''}`
+        : `ทุกห้องที่คุณอยู่ พร้อมบทบาทของแต่ละห้อง${currentSemester ? ` · ภาคเรียน ${currentSemester}` : ''}`
+
+  const searchBox = (
+    <div className="relative">
+      <IconSearch className="pointer-events-none absolute top-1/2 left-6 size-8 -translate-y-1/2 text-brand-600" />
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={archivedTab ? 'ค้นหาในห้องที่ archive แล้ว' : studentOnly || noRooms ? 'ค้นหาห้องเรียนของฉัน' : 'ค้นหาชื่อห้อง รหัสวิชา หรือชื่ออาจารย์'}
+        aria-label="ค้นหาห้องเรียน"
+        className={`${CTRL.replace('rounded-xl', 'rounded-full')} min-h-15 pl-20 text-[15px]`}
+      />
     </div>
-    <button type="button" aria-label="เปิดหน้าต่างสร้างห้องเรียน" onClick={() => createDialog.current?.showModal()} className={btn('primary', 'md')}>+ สร้างห้องเรียน</button>
-  </div>
+  )
+
+  const createButton = (
+    <button type="button" aria-label="เปิดหน้าต่างสร้างห้องเรียน" onClick={() => createDialog.current?.showModal()} className={btn('primary', 'md', 'min-h-12 px-6 text-[15px]')}>
+      + สร้างห้องเรียน
+    </button>
+  )
 
   return (
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context="ห้องเรียนของฉัน" profile={me} />
 
-      <main className="mx-auto max-w-304 px-7 pt-8 pb-20 max-sm:px-4 max-sm:pt-5">
-        <div className={`relative isolate flex items-center rounded-3xl bg-[linear-gradient(110deg,#ff7d3d_0%,#ffb558_100%)] ${studentOnly ? 'mb-3 min-h-29 px-4 py-4 sm:mb-7 sm:min-h-37 sm:px-12 sm:py-6' : 'mb-7 min-h-37 px-12 py-6 max-sm:px-5'}`}>
-          <div className="relative z-10 max-w-[70%] max-sm:max-w-[70%]">
-            <h1 className="font-display text-[32px] leading-tight font-bold text-white max-sm:text-xl">
-              ห้องเรียนของฉัน
-            </h1>
-            <p className="mt-2 max-w-[54ch] text-[14px] leading-6 text-white max-sm:max-w-[24ch]">
-              {studentOnly ? 'งานที่ต้องประเมินจะขึ้นที่นี่เมื่ออาจารย์เปิดให้ประเมิน' : 'ทุกห้องที่คุณอยู่ พร้อมบทบาทของแต่ละห้อง'}
-            </p>
-          </div>
-          <img
-            src={classroomIllustration}
-            alt=""
-            width={640}
-            height={480}
-            className="pointer-events-none absolute -top-9 right-1 -z-10 h-52 w-72 object-contain max-sm:top-auto max-sm:right-2 max-sm:h-24 max-sm:w-28"
-          />
-        </div>
+      <main className="mx-auto max-w-290 pt-8 pb-20 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
+        <OrangeHero
+          title="ห้องเรียนของฉัน"
+          subtitle={subtitle}
+          image={classroomIllustration}
+          imageClassName="-top-7 right-2 h-46 w-82"
+        />
 
-        {!studentOnly && <div className="mb-6">{classroomTools}</div>}
+        <dialog ref={createDialog} aria-labelledby="h-create-classroom" className="fixed inset-0 m-auto max-h-[94dvh] w-[calc(100vw-2rem)] max-w-150 overflow-y-auto rounded-3xl bg-white p-0 text-ink shadow-xl backdrop:bg-ink/40">
+          <ClassroomCreateForm disabled={false} onCreated={handleCreated} onCancel={() => createDialog.current?.close()} />
+        </dialog>
 
-          <dialog ref={createDialog} aria-labelledby="h-create-classroom" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100vw-2rem)] max-w-xl overflow-y-auto rounded-3xl border border-edge bg-white p-0 text-ink shadow-xl backdrop:bg-ink/40">
-            <ClassroomCreateForm disabled={false} onCreated={handleCreated} onCancel={() => createDialog.current?.close()} />
-          </dialog>
+        {error && <Banner tone="err" data-testid="error-msg" role="alert" className="mt-6">{error}</Banner>}
 
-        {error && <Banner tone="err" data-testid="error-msg" role="alert" className="mb-6">{error}</Banner>}
-
-        <section className="min-w-0" aria-labelledby="h-classrooms">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative min-w-0 flex-1">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-5 size-5 -translate-y-1/2 text-brand-600" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={studentOnly ? 'ค้นหาห้องเรียนของฉัน' : 'ค้นหาห้องเรียน'}
-                aria-label="ค้นหาห้องเรียน"
-                className={`${CTRL.replace('rounded-xl', 'rounded-full')} min-h-12.5 pl-13`}
-              />
-            </div>
-            {!studentOnly && <Dropdown
-              value={sort}
-              options={SORT_OPTIONS}
-              onChange={setSort}
-              ariaLabel="เรียงลำดับ"
-              className="shrink-0 sm:w-52"
-            />}
-          </div>
-
-          {!studentOnly && <div role="group" aria-label="กรองตามบทบาท" className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs text-muted">บทบาท</span>
-            {[{ value: 'ALL', label: 'ทั้งหมด' }, ...Object.entries(CLASSROOM_ROLE_STYLE).map(([value, style]) => ({ value, label: style.label }))].map(({ value, label }) => (
-              <button key={value} type="button" aria-pressed={roleFilter === value} onClick={() => setRoleFilter(value)} className={`min-h-11 rounded-full border px-4 text-xs font-semibold transition-colors ${FOCUS} ${roleFilter === value ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-edge bg-white text-ink-2 hover:border-accent-line'}`}>
-                {label} · {value === 'ALL' ? statusItems.length : statusItems.filter((room) => roleByRoom.get(room.id) === value).length}
-              </button>
-            ))}
-            {semesters.length > 0 && <label className="ml-auto text-xs text-muted">ภาคเรียน <select aria-label="กรองภาคเรียน" value={semester} onChange={(event) => setSemester(event.target.value)} className="min-h-11 rounded-full border border-edge bg-white px-4 text-ink"><option value="ALL">ทุกภาคเรียน</option>{semesters.map((value) => <option key={value}>{value}</option>)}</select></label>}
-          </div>}
-
-          <h2 id="h-classrooms" className={studentOnly ? 'sr-only' : 'mt-6 flex items-center gap-2 font-display text-lg font-semibold'}><IconUsers className="size-4 text-brand-600" />ห้องเรียน {visibleItems.length} ห้อง</h2>
-
-          <div className={studentOnly ? 'mt-3' : 'mt-6'}>
-            {loaded && items.length === 0 ? (
-              <p data-testid="empty-state" className="py-10 text-center text-sm text-muted">
-                ยังไม่มีห้องเรียน
-              </p>
+        {/* --- นักศึกษา (ST10) และผู้ที่ยังไม่มีห้อง (ST11 / J02) --- */}
+        {(studentOnly || noRooms) && (
+          <section aria-labelledby="h-classrooms" className="mt-6">
+            <h2 id="h-classrooms" className="sr-only">ห้องเรียน</h2>
+            {searchBox}
+            {studentEmpty ? (
+              <div data-testid="empty-state" className="mt-6 text-center">
+                <img src={createClassroomIllustration} alt="" width={504} height={255} className="mx-auto h-auto w-126 max-w-full" />
+                <p className="mt-6 font-display text-[19px] font-semibold">ยังไม่มีห้องเรียนของคุณ</p>
+                <p className="mt-4 text-[15px] leading-6 text-ink-2">คุณเข้าสู่ระบบด้วย {me?.email}<br />ห้องเรียนจะแสดงที่นี่เมื่ออาจารย์หรือ TA เพิ่มอีเมลนี้เข้ารายชื่อห้อง</p>
+              </div>
+            ) : noRooms ? (
+              <div data-testid="empty-state" className="mt-6 flex flex-wrap items-center gap-4 rounded-3xl border border-edge bg-white px-5 py-4 shadow-[0_6px_20px_rgba(50,16,7,0.045)]">
+                <div className="min-w-0 flex-1 text-[14.5px] leading-6">
+                  <p className="text-[17px]">ยังไม่มีห้องเรียน</p>
+                  <p className="mt-1">สร้างห้องเรียนแรก แล้วนำเข้ารายชื่อนักศึกษาจาก CSV</p>
+                  <p>ถ้าเป็นผู้สอนร่วมในห้องอื่น ห้องนั้นจะแสดงที่นี่เมื่อเจ้าของห้องเพิ่มคุณ</p>
+                </div>
+                <button type="button" aria-label="เปิดหน้าต่างสร้างห้องเรียน" onClick={() => createDialog.current?.showModal()} className={btn('ghost', 'md', 'min-h-11 border-brand-600 px-6 text-accent-ink')}>+ สร้างห้องเรียน</button>
+              </div>
             ) : visibleItems.length === 0 ? (
-              <p data-testid="filtered-empty" className="py-10 text-center text-sm text-muted">ไม่พบห้องเรียนตามตัวกรองที่เลือก</p>
+              <p data-testid="filtered-empty" className="py-10 text-center text-sm text-muted">ไม่พบห้องเรียนที่ค้นหา</p>
             ) : (
-              <ul data-testid="classroom-list" className="flex flex-col gap-4">
+              <ul data-testid="classroom-list" className="mt-6 flex flex-col gap-6">
                 {visibleItems.map((c) => (
                   <li key={c.id}>
-                    <div className={`flex flex-wrap items-center gap-x-6 gap-y-4 border border-edge bg-white transition-colors hover:border-edge-strong ${studentOnly ? 'rounded-2xl p-4' : 'rounded-3xl px-6 py-5 shadow-[0_6px_20px_rgba(50,16,7,0.045)] max-sm:px-4'}`}>
-                      <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-display text-[17px] font-semibold wrap-break-word">{c.name}</p>
-                          <p className="mt-1 text-[13px] text-ink-2">{[c.courseCode ?? (studentOnly ? null : c.slug), c.groupName ? `กลุ่ม ${c.groupName}` : null, c.instructorName, !studentOnly ? `${c.studentCount ?? 0} คน · ${c.groupCount ?? 0} กลุ่ม` : null].filter(Boolean).join(' · ')}</p>
-                          {!studentOnly && <p className="mt-1 flex items-center gap-1.5 text-[13px] text-muted">
-                            <IconClock className="size-3.5 shrink-0" />
-                            {c.assignmentCount ? `งานประเมิน ${c.assignmentCount} งาน` : `เขตเวลา ${c.timezone}`}
-                          </p>}
-                          {studentOnly && (c.pendingAssignmentCount ?? 0) > 0 && <Pill tone="warn" className="mt-3 px-3 py-2">ยังไม่ได้ประเมิน {c.pendingAssignmentCount} งาน</Pill>}
-                        </div>
+                    <div className="flex min-h-22.5 flex-wrap items-center gap-x-4 gap-y-3 rounded-3xl border border-edge bg-white px-5 py-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display text-[17px] font-semibold wrap-break-word">{c.name}</p>
+                        <p className="mt-1 text-[13px] text-ink-2">{[c.groupName ? `กลุ่ม ${c.groupName}` : null, c.instructorName].filter(Boolean).join(' · ')}</p>
+                        {(c.pendingAssignmentCount ?? 0) > 0 && (
+                          <span className="mt-3 inline-flex min-h-9 items-center rounded-full bg-[#fbf0d9] px-3.5 font-display text-[13px] font-semibold text-[#7a5200] sm:hidden">ยังไม่ได้ประเมิน {c.pendingAssignmentCount} งาน</span>
+                        )}
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-3 max-sm:w-full max-sm:justify-between">
-                        {!studentOnly && <><ClassroomStatusPill status={c.status} /><ClassroomRolePill role={roleByRoom.get(c.id)} /></>}
-                        <Link to={`/classrooms/${c.id}`} className={btn('primary', studentOnly ? 'md' : 'sm', studentOnly ? 'max-sm:w-full' : '')}>
-                          {studentOnly ? 'ดูงานประเมิน' : 'เปิดห้องเรียน'}
-                        </Link>
-                        {roleByRoom.get(c.id) === 'OWNER' && <ClassroomActions room={c} onChanged={refresh} />}
-                      </div>
+                      {(c.pendingAssignmentCount ?? 0) > 0 && (
+                        <span className="rounded-full bg-[#fde5d4] px-3.5 py-0.5 text-[11.5px] text-accent-ink max-sm:hidden">ยังไม่ได้ประเมิน {c.pendingAssignmentCount} งาน</span>
+                      )}
+                      <Link to={`/classrooms/${c.id}`} className={btn('primary', 'sm', 'min-h-9.5 px-4.5 max-sm:min-h-12 max-sm:w-full max-sm:text-[15px]')}>ดูงานประเมิน</Link>
                     </div>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </section>
-        {studentOnly && <details className="mt-6"><summary className="cursor-pointer text-sm text-muted">ตัวกรองและเครื่องมือห้องเรียน</summary><div className="mt-4">{classroomTools}</div></details>}
+          </section>
+        )}
+
+        {/* --- ผู้สอน / หลายบทบาท (J04 · J04b · J04c) --- */}
+        {!studentOnly && !noRooms && loaded && (
+          <section aria-labelledby="h-classrooms" className="mt-6">
+            {!staffOnly && <div role="group" aria-label="สถานะห้องเรียน" className="flex gap-1 border-b border-edge">
+              {([['ACTIVE', 'ใช้งานอยู่'], ['ARCHIVED', 'Archive']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={statusFilter === value}
+                  onClick={() => setStatusFilter(value)}
+                  className={`-mb-px min-h-12 border-b-2 px-4.5 pb-2 text-[16px] ${FOCUS} ${statusFilter === value ? 'border-brand-600 font-semibold text-accent-ink' : 'border-transparent text-ink-2 hover:text-ink'}`}
+                >
+                  {label} · {items.filter((room) => room.status === value).length}
+                </button>
+              ))}
+            </div>}
+
+            {created && statusFilter === 'ACTIVE' && (
+              <div role="status" className="mt-6 flex items-start gap-5 rounded-3xl bg-[#e3f4e9] px-6 py-5 text-ok-700">
+                <span aria-hidden="true" className="mt-1 font-display text-xl font-bold">√</span>
+                <div>
+                  <p className="font-display text-[17px] font-semibold">สร้างห้องเรียนแล้ว</p>
+                  <p className="mt-1 text-[13.5px] text-ink-2">{created.name} · คุณเป็นเจ้าของห้อง · ขั้นต่อไป: นำเข้ารายชื่อนักศึกษา</p>
+                </div>
+              </div>
+            )}
+
+            <div className={staffOnly ? '' : 'mt-6'}>{searchBox}</div>
+
+            {staffOnly ? null : archivedTab ? (
+              <div className="mt-6 flex items-center gap-4 rounded-3xl bg-[#ebe9e6] px-6 py-5">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6 text-ink-2"><path fill="currentColor" d="M5 3h14v18H5zm2 2v5h10V5zm0 7v7h10v-7zm3-5h4v1.5h-4zm0 7h4v1.5h-4z" /></svg>
+                <div>
+                  <p className="font-display text-[17px] font-semibold">ห้องที่ archive แล้ว · อ่านอย่างเดียว</p>
+                  <p className="mt-1 text-[13.5px] text-ink-2">ไม่แสดงในรายการหลัก ดูรายงานและส่งออกได้ · เจ้าของห้องยกเลิก archive ได้จากเมนู ···</p>
+                </div>
+              </div>
+            ) : (
+              <div role="group" aria-label="กรองตามบทบาท" className="mt-6 flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[13px] text-muted">บทบาท</span>
+                {[['ALL', 'ทั้งหมด'], ...Object.entries(ROLE_STYLE).map(([value, style]) => [value, style.chip])].map(([value, label]) => {
+                  const count = value === 'ALL' ? statusItems.length : statusItems.filter((room) => roleByRoom.get(room.id) === value).length
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={roleFilter === value}
+                      onClick={() => setRoleFilter(value)}
+                      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 font-display text-[13.5px] font-semibold transition-colors ${FOCUS} ${roleFilter === value ? 'border-brand-600 bg-accent-soft text-accent-ink' : 'border-edge bg-white text-ink hover:border-accent-line'}`}
+                    >
+                      {value !== 'ALL' && <span aria-hidden="true" className={`size-2 rounded-full ${ROLE_STYLE[value].dot}`} />}
+                      {label} {count}
+                    </button>
+                  )
+                })}
+                {semesters.length > 0 && (
+                  <select
+                    aria-label="กรองภาคเรียน"
+                    value={semester}
+                    onChange={(event) => setSemester(event.target.value)}
+                    className={`ml-auto min-h-10 rounded-full border border-edge bg-white px-4 font-display text-[13.5px] font-semibold ${FOCUS}`}
+                  >
+                    <option value="ALL">ทุกภาคเรียน</option>
+                    {semesters.map((value) => <option key={value} value={value}>ภาคเรียน {value}</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            <div className={`mt-6 flex items-center justify-between gap-4 ${staffOnly ? 'sr-only' : ''}`}>
+              <h2 id="h-classrooms" className="font-display text-[17px] font-semibold">
+                {archivedTab ? `Archive ${visibleItems.length} ห้อง` : `ห้องเรียน ${visibleItems.length} ห้อง`}
+              </h2>
+              {!archivedTab && !staffOnly && createButton}
+            </div>
+
+            {visibleItems.length === 0 ? (
+              <p data-testid="filtered-empty" className="py-10 text-center text-sm text-muted">ไม่พบห้องเรียนตามตัวกรองที่เลือก</p>
+            ) : (
+              <ul data-testid="classroom-list" className="mt-6 flex flex-col gap-6">
+                {visibleItems.map((c) => {
+                  const role = roleByRoom.get(c.id) ?? 'STUDENT'
+                  const style = ROLE_STYLE[role] ?? ROLE_STYLE.STUDENT
+                  return (
+                    <li key={c.id}>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-3xl border border-edge bg-white px-5 py-4 shadow-[0_6px_20px_rgba(50,16,7,0.045)]">
+                        <div className="min-w-0 flex-1 text-[13.5px] leading-6">
+                          <p className="text-[17px] wrap-break-word">{c.name}</p>
+                          <p className="mt-0.5">{metaLine(c, role, me)}</p>
+                          <p>{statusLine(c, role)}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 max-sm:w-full max-sm:justify-between">
+                          <span className={`inline-flex min-h-9.5 min-w-33 items-center justify-center rounded-full px-5 font-display text-[13.5px] font-semibold ${style.pill}`}>{style.label}</span>
+                          <Link to={`/classrooms/${c.id}`} className={staffOnly ? btn('ghost', 'sm', 'min-h-9.5 border-brand-600 px-6 text-accent-ink') : btn('primary', 'sm', `min-h-9.5 ${archivedTab ? 'min-w-14 px-4' : 'px-6'}`)}>
+                            {archivedTab ? 'ดู' : role === 'STUDENT' ? 'ไปประเมิน' : 'เปิดห้องเรียน'}
+                          </Link>
+                          {role === 'OWNER' && <ClassroomActions room={c} onChanged={refresh} />}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+        )}
       </main>
     </div>
   )
+}
+
+function metaLine(c: Classroom, role: string, me: Me | null): string {
+  const instructor = c.instructorName ? `${c.instructorName}${role === 'OWNER' && me ? ' (คุณ)' : ''}` : null
+  if (role === 'STUDENT') return [c.courseCode, c.instructorName, c.groupName ? `กลุ่ม ${c.groupName}` : null].filter(Boolean).join(' · ')
+  return [c.courseCode, instructor, `${c.studentCount ?? 0} คน`, `${c.groupCount ?? 0} กลุ่ม`].filter(Boolean).join(' · ')
+}
+
+function statusLine(c: Classroom, role: string): string {
+  if (c.status === 'ARCHIVED') {
+    const when = c.archivedAt ? `archive เมื่อ ${thaiDate(c.archivedAt, c.timezone)}` : 'archive แล้ว'
+    return role === 'OWNER' ? `${when} · ประกาศผลครบ ${c.finalizedAssignmentCount ?? 0} งาน` : `${when} · โดยเจ้าของห้อง`
+  }
+  if (role === 'STUDENT') {
+    if (!c.pendingAssignmentCount) return 'ไม่มีงานที่ต้องประเมิน'
+    return `⏳ ต้องประเมิน ${c.pendingAssignmentCount} งาน${c.nextDeadlineUtc ? ` · ปิด ${thaiDate(c.nextDeadlineUtc, c.timezone, true)}` : ''}`
+  }
+  const parts: string[] = []
+  if (c.openAppealCount) parts.push(`คำร้องอุทธรณ์รอตอบ ${c.openAppealCount}`)
+  if (c.openAssignmentCount) parts.unshift(`งานเปิดอยู่ ${c.openAssignmentCount} · ส่งแล้ว ${c.openSubmittedStudents ?? 0} / ${c.studentCount ?? 0} คน`)
+  if (parts.length) return parts.join(' · ')
+  if (!c.assignmentCount) return `${c.timezone}${c.allowedEmailDomains.length ? ` · ${c.allowedEmailDomains.join(', ')}` : ''} · ${c.assignmentCount ?? 0} งานประเมิน`
+  return 'ยังไม่มีงานที่เปิดอยู่'
 }

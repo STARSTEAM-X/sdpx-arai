@@ -135,6 +135,8 @@ export type Me = {
   displayName: string | null
   status: string
   classrooms: { classroomId: string; classroomName: string; role: string }[]
+  /** null = ยังไม่เคยกดรับทราบประกาศความเป็นส่วนตัว (Figma ST03) */
+  privacyAcknowledgedAt?: string | null
 }
 
 /** ส่ง id_token ของ Google ให้ backend ตรวจ แล้วรับ session ของระบบเรากลับมา
@@ -151,6 +153,18 @@ export function signInWithGoogle(idToken: string): Promise<{ accessToken: string
 
 export function getMe(): Promise<Me> {
   return apiFetch<Me>('/api/me')
+}
+
+export function acknowledgePrivacy(): Promise<{ privacyAcknowledgedAt: string }> {
+  return apiFetch('/api/me/privacy-ack', { method: 'POST' })
+}
+
+export type DataCopyRequest = { id: number; requestedAt: string; status: 'IN_PROGRESS' | 'SENT' }
+export function listDataRequests(): Promise<{ items: DataCopyRequest[] }> {
+  return apiFetch('/api/me/data-requests')
+}
+export function createDataRequest(): Promise<DataCopyRequest> {
+  return apiFetch('/api/me/data-requests', { method: 'POST' })
 }
 
 export type Notification = { id: string; title: string; message: string; href: string; occurredAt: string; read: boolean }
@@ -178,6 +192,17 @@ export type Classroom = {
   groupCount?: number
   assignmentCount?: number
   pendingAssignmentCount?: number
+  openAssignmentCount?: number
+  openSubmittedStudents?: number
+  openAppealCount?: number
+  finalizedAssignmentCount?: number
+  nextDeadlineUtc?: string | null
+  archivedAt?: string | null
+}
+
+export type ClassroomDetails = { name: string; timezone: string; courseCode?: string | null; semester?: string | null }
+export function updateClassroom(id: string, body: ClassroomDetails): Promise<Classroom> {
+  return apiFetch(`/api/classrooms/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) })
 }
 
 export function listClassrooms(): Promise<{ items: Classroom[] }> {
@@ -349,6 +374,9 @@ export type AssignmentSummary = {
   answeredCount?: number
   submittedCount?: number
   submittedAt?: string | null
+  publishedAt?: string | null
+  submittedStudents?: number | null
+  studentCount?: number | null
 }
 
 /** งานประเมินทั้งหมดในห้องนี้ — นักศึกษาเห็นเฉพาะที่ไม่ใช่ DRAFT (US-07) */
@@ -637,6 +665,10 @@ export type MyScore = {
   participationRatio: string | null
   participationMultiplier: string | null
   finalScore: string | null
+  /** Figma ST31 — คะแนนชั่วคราวก่อนประกาศผล */
+  provisional?: boolean
+  individualEvaluatorCount?: number | null
+  minComparisons?: number | null
 }
 
 /** คะแนนของฉันเอง — เห็นได้ก็ต่อเมื่องานประกาศผลแล้ว (US-10)
@@ -650,6 +682,7 @@ export function getMyScore(assignmentId: string): Promise<MyScore> {
 
 export type Appeal = {
   id: string; assignmentId: string; assignmentName: string; studentName: string
+  studentEmail?: string; groupName?: string | null
   message: string; status: 'OPEN' | 'RESOLVED' | 'REJECTED'; resolution: string | null
   createdAt: string; resolvedAt: string | null
 }
@@ -676,3 +709,8 @@ export const getQuality = (assignmentId: string) => apiFetch<QualityReport>(`/ap
 export const revealReviewer = (assignmentId: string, key: string, reason: string) => apiFetch<{ displayName: string | null; email: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:identity`, { method: 'POST', body: JSON.stringify({ reason }) })
 export const setReviewerExclusion = (assignmentId: string, key: string, excluded: boolean, reason: string) => apiFetch<{ excluded: boolean; computedAt: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:exclusion`, { method: 'POST', body: JSON.stringify({ excluded, reason }) })
 export const changeMemberRole = (classroomId: string, memberId: string, role: InstructorRole, reason: string) => apiFetch(`/api/classrooms/${encodeURIComponent(classroomId)}/members/${encodeURIComponent(memberId)}`, { method: 'PATCH', body: JSON.stringify({ role, reason }) })
+
+export type MyGroupArtifact = { groupName: string | null; url: string | null; assignmentName: string | null }
+export function getMyGroupArtifact(classroomId: string): Promise<MyGroupArtifact> {
+  return apiFetch(`/api/classrooms/${encodeURIComponent(classroomId)}/my-group-artifact`)
+}

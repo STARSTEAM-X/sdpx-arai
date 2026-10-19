@@ -70,15 +70,15 @@ export function ComparisonRow({
         disabled={readOnly}
         className={`group flex min-h-32 min-w-0 flex-col items-center justify-center gap-3 rounded-2xl px-1 py-4 text-center text-xs font-medium transition-colors max-sm:min-h-12 max-sm:flex-row max-sm:justify-start max-sm:rounded-xl max-sm:border max-sm:border-edge max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-sm ${FOCUS} disabled:cursor-not-allowed disabled:opacity-60 ${
           selected
-            ? left ? 'bg-accent-soft text-accent-ink ring-2 ring-inset ring-accent-ink' : 'bg-[#DDE9FF] text-[#2455A6] ring-2 ring-inset ring-[#2455A6]'
-            : left ? 'text-accent-ink hover:bg-accent-soft/50' : 'text-[#2455A6] hover:bg-[#DDE9FF]/50'
+            ? left ? 'bg-[#fde5d4] text-accent-ink' : 'bg-[#DDE9FF] text-[#2455A6]'
+            : left ? 'text-accent-ink hover:bg-accent-soft/60' : 'text-[#2455A6] hover:bg-[#DDE9FF]/50'
         }`}
       >
         <span
           aria-hidden="true"
-          className={`shrink-0 rounded-full transition-transform group-hover:scale-110 max-sm:size-5 ${circleSize} ${circleColor} ${selected ? 'ring-2 ring-white/70 ring-offset-2 ring-offset-transparent' : ''}`}
+          className={`shrink-0 rounded-full transition-transform group-hover:scale-110 max-sm:size-5 ${circleSize} ${circleColor}`}
         />
-        <span className={`leading-5 ${selected ? 'font-semibold' : ''}`}><span className="hidden sm:inline">{c.label}</span><span className="sm:hidden">{left ? item.leftLabel : item.rightLabel} {c.label.replace(/^(ซ้าย|ขวา)/, '')}</span></span>
+        <span className={`leading-5 ${selected || c.strength === 2 ? 'font-semibold' : ''}`}><span className="hidden sm:inline">{c.label.replace(/^(ซ้าย|ขวา)/, '')}</span><span className="sm:hidden">{left ? item.leftLabel : item.rightLabel} {c.label.replace(/^(ซ้าย|ขวา)/, '')}</span></span>
         {selected && <IconCheck aria-hidden="true" className="ml-auto size-4 sm:hidden" />}
       </button>
     )
@@ -107,30 +107,35 @@ export function ComparisonRow({
         {!item.completed && choice === null && <Pill tone="warn">ยังไม่ได้ตอบ</Pill>}
       </div>
 
-      <div className="mt-4 flex justify-between gap-4 text-xs font-semibold max-sm:hidden" aria-hidden="true">
-        <span className="min-w-0 text-accent-ink wrap-break-word">{item.leftLabel} ดีกว่า</span>
-        <span className="min-w-0 text-right text-[#2455A6] wrap-break-word">{item.rightLabel} ดีกว่า</span>
-      </div>
-      <div
-        role="radiogroup"
-        aria-label={`เปรียบเทียบ ${item.leftLabel} กับ ${item.rightLabel}`}
-        className="mt-5 grid grid-cols-1 items-stretch gap-2 max-sm:mt-3 sm:grid-cols-6"
-      >
-        {COMPARISON_SCALE.map(choiceButton)}
+      <div className={compact ? 'rounded-2xl border border-edge px-4 pt-4 pb-6 max-sm:border-0 max-sm:p-0' : ''}>
+        <div className={`${compact ? '' : 'mt-4'} flex justify-between gap-4 text-xs font-semibold max-sm:hidden`} aria-hidden="true">
+          <span className="min-w-0 text-accent-ink wrap-break-word">{item.leftLabel} ดีกว่า</span>
+          <span className="min-w-0 text-right text-[#2455A6] wrap-break-word">{item.rightLabel} ดีกว่า</span>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label={`เปรียบเทียบ ${item.leftLabel} กับ ${item.rightLabel}`}
+          className="mt-5 grid grid-cols-1 items-stretch gap-2 max-sm:mt-3 sm:grid-cols-6"
+        >
+          {COMPARISON_SCALE.map(choiceButton)}
+        </div>
       </div>
 
-      <p className="mt-4 flex min-h-5 items-center gap-1.5 text-xs" aria-live="polite">
-        {state === 'idle' && choice === null && <span className="text-accent-ink">ยังไม่ได้เลือกคำตอบ</span>}
-        {state === 'pending' && (
-          <span className="text-muted">เลือกแล้ว — กำลังจะบันทึกอัตโนมัติ…</span>
-        )}
-        {state === 'saving' && <span className="text-muted">กำลังบันทึก…</span>}
-        {state === 'saved' && (
-          <span className="flex items-center gap-1.5 text-ok-700">
-            <IconCheck className="size-3.5" />
-            บันทึกแล้ว
-          </span>
-        )}
+      <p className="mt-4 flex min-h-5 items-center gap-1.5 text-xs font-semibold" aria-live="polite">
+        {choice === null && state !== 'error' && <span className="text-ink-2">ยังไม่ได้เลือกคำตอบ</span>}
+        {choice !== null && state !== 'error' && (() => {
+          const picked = COMPARISON_SCALE.find((entry) => entry.id === choice)
+          if (!picked) return null
+          const left = picked.winner === 'left'
+          return (
+            <span className={left ? 'text-accent-ink' : 'text-[#2455A6]'}>
+              คำตอบของคุณ: {left ? item.leftLabel : item.rightLabel} {picked.label.replace(/^(ซ้าย|ขวา)/, '')}
+              {(state === 'pending' || state === 'saving') && <span className="ml-2 font-normal text-muted">กำลังบันทึก…</span>}
+              {/* Figma ไม่แสดงข้อความนี้ แต่ผู้ใช้ screen reader ควรรู้ว่าคำตอบถึง server แล้ว */}
+              {state === 'saved' && <span className="sr-only"> · บันทึกแล้ว</span>}
+            </span>
+          )
+        })()}
         {state === 'error' && (
           <span className="flex items-center gap-1.5 text-err">
             <IconAlert className="size-3.5" />

@@ -1,24 +1,32 @@
 import { useMemo, useState } from 'react'
 
-import { Avatar, Card, CardHead, FOCUS, Pill, RolePill, StatusPill } from './Ui'
-import { IconRoster, IconSearch, IconUserPlus } from './icons'
+import { Avatar, CTRL, FOCUS } from './Ui'
 import type { RosterEntry } from '../lib/api'
 import { MemberRowActions } from './MemberRowActions'
 
-const PER_PAGE = 10
+const PER_PAGE = 20
 
-/** รายชื่อสมาชิกทั้งห้อง — US-03
+type Tab = 'ALL' | 'STUDENT' | 'STAFF'
+
+const ROLE_PILL: Record<RosterEntry['role'], { label: string; tone: string }> = {
+  OWNER: { label: 'เจ้าของห้อง', tone: 'bg-[#fde5d4] text-accent-ink' },
+  CO_TEACHER: { label: 'ผู้สอนร่วม', tone: 'bg-info-soft text-info-ink' },
+  TA: { label: 'TA', tone: 'bg-[#f1e8ff] text-[#7041a6]' },
+  STUDENT: { label: 'นักศึกษา', tone: 'bg-ok-50 text-ok-700' },
+}
+
+/** รายชื่อสมาชิกทั้งห้อง ตาม Figma J09 / J11 — US-03
  *
- *  ค้นหาและแบ่งหน้าทำฝั่ง client ทั้งคู่ เพราะ endpoint `/roster` ส่งมาทั้งชุดอยู่แล้ว
- *  และห้องเรียนหนึ่งมีหลักร้อยคนเป็นอย่างมาก การยิง API ใหม่ทุกครั้งที่พิมพ์
- *  จะช้ากว่าเดิมโดยไม่ได้อะไรกลับมา ถ้าวันหนึ่งห้องใหญ่กว่านี้จริงค่อยย้ายไปฝั่ง server
- */
+ *  ค้นหา กรองบทบาท และแบ่งหน้าทำฝั่ง client เพราะ `/roster` ส่งมาทั้งชุดอยู่แล้ว */
 export function RosterTable({
   items,
   loaded,
   canManageMembers,
   onRemove,
   onEnrollment,
+  onChangeRole,
+  onAddInstructor,
+  myEmail,
 }: {
   items: RosterEntry[]
   loaded: boolean
@@ -26,191 +34,135 @@ export function RosterTable({
   canManageMembers: boolean
   onEnrollment?: (entry: RosterEntry) => void
   onRemove: (entry: RosterEntry) => void
+  onChangeRole?: (entry: RosterEntry) => void
+  onAddInstructor?: () => void
+  myEmail?: string
 }) {
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState<Tab>('ALL')
   const [page, setPage] = useState(1)
+
+  const students = items.filter((m) => m.role === 'STUDENT')
+  const staff = items.filter((m) => m.role !== 'STUDENT')
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((m) =>
-      [m.displayName ?? '', m.email, m.groupName ?? ''].join(' ').toLowerCase().includes(q),
-    )
-  }, [items, query])
+    // เจ้าของห้องและทีมผู้สอนอยู่บนสุดตามแบบ แล้วตามด้วยนักศึกษาเรียงตามกลุ่ม
+    const order = { OWNER: 0, CO_TEACHER: 1, TA: 2, STUDENT: 3 }
+    return items
+      .filter((m) => tab === 'ALL' || (tab === 'STUDENT' ? m.role === 'STUDENT' : m.role !== 'STUDENT'))
+      .filter((m) => !q || [m.displayName ?? '', m.email, m.groupName ?? ''].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => order[a.role] - order[b.role] || (a.groupName ?? '').localeCompare(b.groupName ?? '') || (a.displayName ?? a.email).localeCompare(b.displayName ?? b.email, 'th'))
+  }, [items, query, tab])
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PER_PAGE))
   const current = Math.min(page, pageCount)
   const rows = visible.slice((current - 1) * PER_PAGE, current * PER_PAGE)
+  const tabLabel = tab === 'STAFF' ? 'แสดงทีมผู้สอน' : tab === 'STUDENT' ? 'แสดงนักศึกษา' : `แสดง ${rows.length} จาก ${visible.length}`
 
-  const students = items.filter((m) => m.role === 'STUDENT')
-  const groupCount = new Set(students.map((s) => s.groupName)).size
-
+  const chip = (value: Tab, label: string, count: number) => (
+    <button
+      key={value}
+      type="button"
+      aria-pressed={tab === value}
+      onClick={() => { setTab(value); setPage(1) }}
+      className={`min-h-10.5 rounded-full border px-4 font-display text-[14.5px] font-semibold ${FOCUS} ${tab === value ? 'border-brand-600 bg-accent-soft text-accent-ink' : 'border-edge bg-white text-ink'}`}
+    >
+      {label} {count}
+    </button>
+  )
 
   return (
-    <Card aria-labelledby="h-roster">
-      <CardHead
-        id="h-roster"
-        icon={<IconRoster className="size-5" />}
-        title="รายชื่อสมาชิก"
-        badge={<Pill>{items.length} คน</Pill>}
-        hint={
-          students.length > 0 ? (
+    <section aria-labelledby="h-roster" className="overflow-hidden rounded-3xl border border-edge bg-white">
+      <div className="border-b border-edge bg-surface-cream px-5 py-5">
+        <h2 id="h-roster" className="font-display text-[17px] font-semibold">สมาชิกในห้องเรียน</h2>
+        <p className="mt-1 text-[14px] text-ink-2">
+          {students.length > 0 ? (
             <span data-testid="student-count">
-              นักศึกษา <span className="font-mono tabular">{students.length}</span> คน ใน{' '}
-              <span className="font-mono tabular">{groupCount}</span> กลุ่ม · ผู้สอน{' '}
-              <span className="font-mono tabular">{items.length - students.length}</span> คน
+              {items.length} คน · นักศึกษา {students.length} · ทีมผู้สอน {staff.length} · {tabLabel}
             </span>
           ) : (
             'ยังไม่มีนักศึกษาในห้อง — นำเข้าไฟล์ CSV เพื่อเริ่มต้น'
-          )
-        }
-      />
-
-      <div className="p-6 max-sm:p-4">
-        {loaded && items.length === 0 ? (
-          <div
-            data-testid="roster-empty"
-            className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-edge-strong bg-ground px-6 py-10 text-center"
-          >
-            <span
-              aria-hidden="true"
-              className="grid size-11 place-items-center rounded-2xl border border-edge bg-sand text-muted"
-            >
-              <IconUserPlus className="size-5" />
-            </span>
-            <span className="font-display text-[15.5px] font-semibold">
-              ยังไม่มีรายชื่อในห้องเรียนนี้
-            </span>
-            <p className="max-w-[44ch] text-sm text-muted">
-              นำเข้าไฟล์ CSV ที่มีคอลัมน์ email และ group_name เพื่อเพิ่มนักศึกษาทั้งห้องพร้อมกัน
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <div className="relative min-w-55 flex-1">
-                <IconSearch
-                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted"
-                />
-                <label className="sr-only" htmlFor="roster-search">
-                  ค้นหาสมาชิก
-                </label>
-                <input
-                  id="roster-search"
-                  type="search"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value)
-                    setPage(1)
-                  }}
-                  placeholder="ค้นหาจากชื่อ อีเมล หรือกลุ่ม"
-                  className={
-                    'min-h-11 w-full rounded-xl border border-edge-strong bg-white py-2.5 pr-3.5 pl-10 ' +
-                    'outline-none transition-colors hover:border-muted focus:border-brand-600 focus:ring-3 focus:ring-accent-soft'
-                  }
-                />
-              </div>
-            </div>
-
-            {/* ตารางกว้างกว่าจอมือถือเสมอ — ให้เลื่อนในกล่องตัวเอง ไม่ใช่ให้ทั้งหน้าเลื่อนตามขวาง */}
-            <div className="relative overflow-x-auto rounded-xl border border-edge">
-              <table data-testid="roster-list" className="w-full min-w-160 border-collapse">
-                <caption className="sr-only">ตารางรายชื่อสมาชิกในห้องเรียน</caption>
-                <thead>
-                  <tr>
-                    {['สมาชิก', 'กลุ่ม', 'บทบาท', 'สถานะ'].map((h) => (
-                      <th
-                        key={h}
-                        scope="col"
-                        className="border-b border-edge bg-sand px-4 py-3 text-left font-display text-[12.5px] font-semibold tracking-wider text-ink-2 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                    <th scope="col" className="border-b border-edge bg-sand px-4 py-3">
-                      <span className="sr-only">จัดการ</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((m) => (
-                    <tr key={m.memberId} className="hover:bg-sand">
-                      <td className="border-b border-edge px-4 py-3 align-middle last:border-b-0">
-                        <span className="flex min-w-0 items-center gap-3">
-                          <Avatar name={m.displayName ?? m.email} muted={m.role === 'STUDENT'} />
-                          <span className="min-w-0">
-                            <span className="block truncate font-display text-[14.5px] font-semibold">
-                              {m.displayName ?? m.email}
-                            </span>
-                            <span className="block truncate text-[12.5px] text-muted">{m.email}</span>
-                          </span>
-                        </span>
-                      </td>
-                      <td className="border-b border-edge px-4 py-3 align-middle">
-                        {m.groupName ? (
-                          <Pill>{m.groupName}</Pill>
-                        ) : (
-                          <span className="text-sm text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="border-b border-edge px-4 py-3 align-middle">
-                        <RolePill role={m.role} />
-                      </td>
-                      <td className="border-b border-edge px-4 py-3 align-middle">
-                        {m.enrollmentStatus === 'WITHDRAWN' ? <Pill tone="neutral">ถอนรายวิชา</Pill> : <StatusPill status={m.status} />}
-                      </td>
-                      <td className="border-b border-edge px-4 py-3 text-right align-middle">
-                        <MemberRowActions member={m} canRemove={canManageMembers} onRemove={onRemove} onEnrollment={onEnrollment} />
-                      </td>
-                    </tr>
-                  ))}
-
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted">
-                        ไม่พบสมาชิกที่ตรงกับ “{query}”
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="mr-auto text-[13px] text-muted">
-                แสดง{' '}
-                <span className="font-mono tabular">
-                  {visible.length === 0 ? 0 : (current - 1) * PER_PAGE + 1}–
-                  {Math.min(current * PER_PAGE, visible.length)}
-                </span>{' '}
-                จาก <span className="font-mono tabular">{visible.length}</span> คน
-              </span>
-
-              {pageCount > 1 && (
-                <nav aria-label="แบ่งหน้ารายชื่อ" className="flex flex-wrap gap-2">
-                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setPage(n)}
-                      aria-current={n === current ? 'page' : undefined}
-                      className={
-                        `min-h-11 min-w-11 rounded-lg border px-3 font-mono text-[13.5px] tabular transition-colors ${FOCUS} ` +
-                        (n === current
-                          ? 'border-cta bg-cta text-white'
-                          : 'border-edge bg-white text-ink-2 hover:border-muted hover:bg-sand')
-                      }
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </nav>
-              )}
-            </div>
-          </>
-        )}
+          )}
+        </p>
       </div>
-    </Card>
+
+      {loaded && students.length === 0 && staff.length <= 1 ? (
+        <div data-testid="roster-empty" className="px-6 py-10 text-center text-[15px] text-muted">
+          <p className="font-display font-semibold text-ink">ยังไม่มีรายชื่อในห้องเรียนนี้</p>
+          <p className="mt-2">นำเข้าไฟล์ CSV ที่มีคอลัมน์ email และ group_name เพื่อเพิ่มนักศึกษาทั้งห้องพร้อมกัน</p>
+          {onAddInstructor && <button type="button" onClick={onAddInstructor} className={`mt-4 min-h-10 rounded-full border border-brand-600 px-5 font-display text-[14.5px] font-semibold text-accent-ink ${FOCUS}`}>+ เพิ่มผู้สอน</button>}
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2.5 border-b border-edge px-5 py-3.5">
+            <div role="group" aria-label="กรองสมาชิก" className="flex flex-wrap gap-1.5">
+              {chip('ALL', 'ทั้งหมด', items.length)}
+              {chip('STUDENT', 'นักศึกษา', students.length)}
+              {chip('STAFF', 'ทีมผู้สอน', staff.length)}
+            </div>
+            <div className="w-75 max-w-full">
+              <label className="sr-only" htmlFor="roster-search">ค้นหาสมาชิก</label>
+              <input
+                id="roster-search"
+                type="search"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setPage(1) }}
+                placeholder="ค้นหาชื่อหรืออีเมล"
+                className={`${CTRL} min-h-11`}
+              />
+            </div>
+            {onAddInstructor && (
+              <button type="button" onClick={onAddInstructor} className={`ml-auto min-h-10 rounded-full border border-brand-600 bg-white px-6 font-display text-[14.5px] font-semibold text-accent-ink hover:bg-accent-soft ${FOCUS}`}>
+                + เพิ่มผู้สอน
+              </button>
+            )}
+          </div>
+
+          <ul data-testid="roster-list" aria-label="รายชื่อสมาชิกในห้องเรียน" className="divide-y divide-edge">
+            {rows.map((m) => {
+              const role = ROLE_PILL[m.role]
+              const withdrawn = m.enrollmentStatus === 'WITHDRAWN'
+              return (
+                <li key={m.memberId} className="flex min-h-17.5 flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+                  <Avatar name={m.displayName ?? m.email} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[15px] ${withdrawn ? 'text-muted line-through' : ''}`}>{m.displayName ?? m.email}{m.email === myEmail ? ' (คุณ)' : ''}</p>
+                    <p className="truncate text-[13px] text-muted">{m.email}</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 font-display text-[13px] font-semibold ${role.tone}`}>
+                    {role.label}{m.role === 'STUDENT' && m.groupName ? ` · ${m.groupName}` : ''}
+                  </span>
+                  <span className={`rounded-full px-3 py-1 font-display text-[13px] font-semibold ${withdrawn ? 'bg-err-soft text-err' : m.status === 'ACTIVE' ? 'bg-ok-50 text-ok-700' : m.status === 'DISABLED' ? 'bg-err-soft text-err' : 'bg-[#ebe9e6] text-ink-2'}`}>
+                    {withdrawn ? 'ถอนรายวิชา' : m.status === 'ACTIVE' ? 'ใช้งานอยู่' : m.status === 'DISABLED' ? 'ถูกระงับ' : 'ไม่เคยเข้าสู่ระบบ'}
+                  </span>
+                  <span className="w-9">
+                    <MemberRowActions member={m} canRemove={canManageMembers} onRemove={onRemove} onEnrollment={onEnrollment} onChangeRole={onChangeRole} />
+                  </span>
+                </li>
+              )
+            })}
+            {rows.length === 0 && <li className="px-5 py-10 text-center text-sm text-muted">ไม่พบสมาชิกที่ตรงกับ “{query}”</li>}
+          </ul>
+
+          {pageCount > 1 && (
+            <nav aria-label="แบ่งหน้ารายชื่อ" className="flex flex-wrap justify-end gap-2 border-t border-edge px-5 py-3">
+              {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPage(n)}
+                  aria-current={n === current ? 'page' : undefined}
+                  className={`min-h-10 min-w-10 rounded-lg border px-3 font-mono text-[13.5px] ${FOCUS} ${n === current ? 'border-cta bg-cta text-white' : 'border-edge bg-white text-ink-2 hover:bg-sand'}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </nav>
+          )}
+        </>
+      )}
+    </section>
   )
 }

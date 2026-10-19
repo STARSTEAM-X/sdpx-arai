@@ -1,17 +1,12 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { GoogleSignInButton } from './GoogleSignInButton'
-import { isSignedIn } from '../lib/session'
-import { LogoMark } from './icons'
-import { FOCUS } from './Ui'
-
-const LINKS = [
-  { href: '#overview', label: 'ภาพรวม' },
-  { href: '/classrooms', label: 'สมาชิก' },
-  { href: '/classrooms', label: 'งานประเมิน' },
-  { href: '/classrooms', label: 'คะแนน' },
-]
+import { NotificationBell } from './NotificationBell'
+import { type Me, getMe } from '../lib/api'
+import { clearToken, isSignedIn } from '../lib/session'
+import { IconDoorExit, LogoMark } from './icons'
+import { Avatar, FOCUS } from './Ui'
 
 export function SiteNav() {
   const navigate = useNavigate()
@@ -20,6 +15,14 @@ export function SiteNav() {
   // ยกเว้นตอนกดปุ่มใน CtaBand ซึ่งพาไป /classrooms ทันทีอยู่แล้ว
   const signedIn = isSignedIn()
   const handleSignedIn = useCallback(() => navigate('/classrooms'), [navigate])
+  const [me, setMe] = useState<Me | null>(null)
+
+  useEffect(() => {
+    if (!signedIn) return
+    let active = true
+    void getMe().then((value) => { if (active) setMe(value) }).catch(() => { /* 401 ล้าง session ให้แล้ว */ })
+    return () => { active = false }
+  }, [signedIn])
 
   return (
     <header className="absolute inset-x-0 top-5 z-40 px-4 sm:top-7 sm:px-6">
@@ -33,25 +36,19 @@ export function SiteNav() {
           <span className="max-[420px]:hidden">PairEval</span>
         </Link>
 
-        {/* บนจอแคบใช้ปุ่มเข้าสู่ระบบ/ห้องเรียนเป็นทางเข้าหลัก */}
-        <ul className="hidden flex-1 items-center justify-center gap-8 text-sm font-semibold text-ink-2 lg:flex">
-          {LINKS.map((link) => (
-            <li key={link.label}>
-              <a href={link.href} className={`inline-flex min-h-11 items-center rounded-md transition-colors hover:text-accent-ink ${FOCUS}`}>
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-
-        <div className="ml-auto flex items-center gap-2.5 lg:ml-0">
+        <div className="ml-auto flex items-center gap-2.5">
           {signedIn ? (
-            <Link
-              to="/classrooms"
-              className={`inline-flex min-h-11 items-center justify-center rounded-full bg-cta px-5 text-sm font-semibold text-white transition-colors hover:bg-cta-hover sm:min-w-48 ${FOCUS}`}
-            >
-              ห้องเรียนของฉัน
-            </Link>
+            // Figma ST04: หน้าแรกหลังเข้าสู่ระบบแสดงบัญชีในแถบเดียวกัน ไม่มีปุ่มห้องเรียน
+            <div className="flex items-center gap-3 pr-3 max-sm:gap-1 max-sm:pr-0">
+              <p data-testid="current-user" aria-label={`บัญชีของ ${me?.displayName ?? me?.email ?? ''}`} className="flex items-center gap-3">
+                <span className="max-w-60 truncate text-[13px] text-muted max-md:hidden">{me?.email}</span>
+                {me && <Avatar name={me.displayName ?? me.email} small />}
+              </p>
+              <NotificationBell />
+              <button type="button" aria-label="ออกจากระบบ" onClick={() => { clearToken(); window.location.assign('/') }} className={`grid size-11 place-items-center rounded-full text-brand-600 hover:bg-white/70 ${FOCUS}`}>
+                <IconDoorExit className="size-5.5" />
+              </button>
+            </div>
           ) : (
             <div id="signin" className="relative flex min-h-11 w-49 shrink-0 items-center [&_[role=alert]]:absolute [&_[role=alert]]:top-full [&_[role=alert]]:right-0 [&_[role=alert]]:w-72 [&_[role=alert]]:rounded-2xl [&_[role=alert]]:bg-white [&_[role=alert]]:p-4 [&_[role=alert]]:shadow-lg">
               <GoogleSignInButton onSignedIn={handleSignedIn} width={196} shape="pill" text="signin" appearance="brand" />

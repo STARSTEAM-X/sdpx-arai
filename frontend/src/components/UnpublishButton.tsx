@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { ApiError, unpublishAssignment, unpublishImpact } from '../lib/api'
 import { Banner, CTRL, btn } from './Ui'
 
-export function UnpublishButton({ id, name, onChanged }: { id: string; name: string; onChanged: () => void }) {
+export function UnpublishButton({ id, name, onChanged, size = 'sm' }: { id: string; name: string; onChanged: () => void; size?: 'sm' | 'md' }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const [impact, setImpact] = useState<Awaited<ReturnType<typeof unpublishImpact>> | null>(null)
@@ -21,7 +21,7 @@ export function UnpublishButton({ id, name, onChanged }: { id: string; name: str
     catch (err) { setError(err instanceof ApiError ? err.message : 'ยกเลิกเผยแพร่ไม่สำเร็จ') }
     finally { setBusy(false) }
   }
-  return <><button ref={trigger} type="button" onClick={() => void open()} className={btn('ghost', 'sm')}>ยกเลิกเผยแพร่</button>
+  return <><button ref={trigger} type="button" onClick={() => void open()} className={btn('ghost', size, size === 'md' ? 'px-6' : '')}>ยกเลิกเผยแพร่</button>
     <dialog ref={dialog} aria-label="ยืนยันยกเลิกเผยแพร่" onCancel={(event) => { if (busy) event.preventDefault(); else { event.preventDefault(); close() } }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-auto rounded-3xl border border-edge bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40">
       <form onSubmit={(event) => { event.preventDefault(); void submit() }}><h2 className="font-display text-xl font-bold">ยกเลิกเผยแพร่ “{name}”?</h2><p className="mt-2 text-sm text-muted">งานจะกลับเป็นฉบับร่าง เพื่อแก้เกณฑ์หรือรายชื่อ แล้วเผยแพร่ใหม่</p>
         {impact ? <Banner tone="err" className="mt-5">นักศึกษา {impact.submittedEvaluators} คนส่งแล้ว · คำตอบที่ส่งแล้ว {impact.submittedComparisons} จาก {impact.assignedComparisons} ข้อจะไม่ใช้คำนวณในรอบใหม่ เก็บหลักฐานเดิมไว้ตรวจย้อนหลัง</Banner> : !error && <p role="status" className="mt-4">กำลังตรวจสอบผลกระทบ…</p>}
