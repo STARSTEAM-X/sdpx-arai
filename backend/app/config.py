@@ -82,6 +82,10 @@ if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
 
 SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "12"))  # FR-AUTH-04
 
+# PRD §12 FR-API-04 — เพดาน request ต่อนาทีต่อผู้ใช้ · stack dev/test ตั้งสูงเพราะ seed และ E2E ยิงถี่โดยชอบธรรม
+RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+EXPORT_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("EXPORT_RATE_LIMIT_PER_MINUTE", "5"))
+
 # Figma J24 ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ — ขัดกับ PRD G3/§7.3 ที่ให้อาจารย์เป็นผู้ประกาศ
 # ปิดเป็นค่าเริ่มต้นจนกว่าทีมจะตัดสินนโยบาย (แถบสถานะและการแจ้งเตือนหายไปด้วย) ดู docs/adr/ADR-002-auto-finalize.md
 AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "false").strip().lower() not in {"0", "false", "no", "off"}

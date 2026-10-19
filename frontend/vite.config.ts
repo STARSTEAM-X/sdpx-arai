@@ -9,6 +9,30 @@ export default defineConfig({
     react(),
     tailwindcss(),
     {
+      // PRD §14.3 FR-SEC-01 — CSP ใส่เป็น <meta> ตอน build เท่านั้น เพราะ connect-src ต้องรู้ URL ของ API
+      // ของ build นั้น (Render / E2E ต่างกัน) และ dev server ของ Vite ฉีด inline script ที่ CSP นี้จะบล็อก
+      // header อื่น (HSTS, nosniff, frame) อยู่ใน render.yaml และ nginx.conf · frame-ancestors ใช้ใน meta ไม่ได้
+      name: 'content-security-policy',
+      apply: 'build',
+      transformIndexHtml() {
+        const api = new URL(process.env.VITE_API_BASE_URL || 'http://localhost:8000').origin
+        const policy = [
+          "default-src 'self'",
+          // Google Identity Services: สคริปต์ ปุ่ม (iframe) และ style ของปุ่ม
+          "script-src 'self' https://accounts.google.com/gsi/client",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
+          'font-src https://fonts.gstatic.com',
+          "img-src 'self' data: blob: https:",
+          `connect-src 'self' ${api} https://accounts.google.com/gsi/`,
+          'frame-src https://accounts.google.com/gsi/',
+          "base-uri 'self'",
+          "form-action 'self'",
+          "object-src 'none'",
+        ].join('; ')
+        return [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' }]
+      },
+    },
+    {
       name: 'build-version',
       generateBundle() {
         this.emitFile({

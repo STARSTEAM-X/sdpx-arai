@@ -98,6 +98,9 @@ services:
       SESSION_SECRET: test-only-secret-value-that-is-long-enough-32b
       # ปิดเป็นค่าเริ่มต้นในทุกที่ (ADR-002) แต่เปิดใน E2E เพื่อให้ J24 ยังถูกทดสอบเมื่อทีมเลือกเปิดใช้
       AUTO_FINALIZE_ENABLED: "true"
+      # FR-API-04 — E2E ใช้ token อาจารย์คนเดียวยิงหลายร้อยครั้งต่อนาทีโดยชอบธรรม · ตัวจำกัดมี unit test คุม
+      RATE_LIMIT_PER_MINUTE: "100000"
+      EXPORT_RATE_LIMIT_PER_MINUTE: "1000"
     command: sh -c "python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     healthcheck:
       test:

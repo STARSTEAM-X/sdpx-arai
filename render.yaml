@@ -22,6 +22,22 @@ services:
       - path: /*
         name: Cross-Origin-Opener-Policy
         value: same-origin-allow-popups
+      # PRD §14.3 FR-SEC-01 — CSP อยู่ใน <meta> ที่ vite.config.ts ใส่ตอน build (ต้องรู้ URL ของ API)
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()
 
     # SPA routing: path อย่าง /classrooms ไม่มีไฟล์จริงบน disk
     # ถ้าไม่ rewrite กลับไป index.html การกด refresh บนหน้านั้นจะได้ 404

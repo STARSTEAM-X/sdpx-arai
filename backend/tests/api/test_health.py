@@ -33,3 +33,10 @@ def test_cors_เปิดให้หน้าเว็บอ่านชื่
 
     response = client.get("/api/health", headers={"Origin": CORS_ORIGINS[0]})
     assert "content-disposition" in response.headers["access-control-expose-headers"].lower()
+
+
+def test_FR_SEC_01_api_ส่ง_header_ความปลอดภัย():
+    response = client.get("/api/health")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"

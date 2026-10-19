@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import account as account_api
@@ -30,6 +31,7 @@ from app.api import roster as roster_api
 from app.api import scoring as scoring_api
 from app.api.errors import (
     domain_error_handler,
+    error_body,
     http_error_handler,
     validation_error_handler,
 )
@@ -38,7 +40,9 @@ from app.config import (
     CORS_ORIGINS,
     DEPLOYMENT_TIER,
     ENVIRONMENT,
+    EXPORT_RATE_LIMIT_PER_MINUTE,
     IS_PRODUCTION,
+    RATE_LIMIT_PER_MINUTE,
 )
 from app.daily_scoring import daily_scoring_loop
 from app.db import close_pool, open_pool
@@ -49,6 +53,13 @@ from app.observability import (
     request_id_var,
     request_start_var,
     user_ref,
+)
+from app.rate_limit import (
+    SlidingWindowLimiter,
+    client_key,
+    is_exempt,
+    is_export,
+    retry_after_header,
 )
 
 # ตั้งก่อนสร้าง app — log ทุกบรรทัดหลังจากนี้ (รวมของ uvicorn) ออกเป็น JSON
@@ -75,6 +86,36 @@ app = FastAPI(
     description="ระบบประเมินผลนักศึกษาแบบ pairwise comparison",
     lifespan=lifespan,
 )
+
+_general_limiter = SlidingWindowLimiter(RATE_LIMIT_PER_MINUTE)
+_export_limiter = SlidingWindowLimiter(EXPORT_RATE_LIMIT_PER_MINUTE)
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """FR-API-04 — เกินเพดานตอบ 429 + Retry-After ในรูป ErrorEnvelope เดียวกับ error อื่น
+
+    ประกาศก่อน CORS และ request_context โดยตั้งใจ: middleware ที่เพิ่มทีหลังอยู่ชั้นนอก
+    ตัวนี้จึงอยู่ในสุด — 429 ได้ header CORS (หน้าเว็บอ่านได้) และมี requestId กับ log ครบ
+    """
+    path = request.url.path
+    if request.method == "OPTIONS" or is_exempt(path):
+        return await call_next(request)
+    key = client_key(request.headers.get("authorization"), request.client.host if request.client else None)
+    wait = _general_limiter.hit(key)
+    message = "เรียกใช้งานถี่เกินไป กรุณารอสักครู่แล้วลองใหม่"
+    if wait is None and is_export(path):
+        wait = _export_limiter.hit(key)
+        message = f"ส่งออกได้ไม่เกิน {EXPORT_RATE_LIMIT_PER_MINUTE} ครั้งต่อนาที กรุณารอสักครู่แล้วลองใหม่"
+    if wait is not None:
+        request.state.error_code = "RATE_LIMITED"
+        return JSONResponse(
+            status_code=429,
+            content=error_body("RATE_LIMITED", message, getattr(request.state, "request_id", "")),
+            headers={"Retry-After": retry_after_header(wait)},
+        )
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,6 +147,12 @@ async def request_context(
         response = await call_next(request)
         status_code = response.status_code
         response.headers["x-request-id"] = request_id
+        # FR-SEC-01 — API ส่งแต่ JSON/ไฟล์ส่งออก ไม่มีหน้าเว็บ จึงห้าม sniff และห้ามฝังใน frame
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        if IS_PRODUCTION:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
     finally:
         # route pattern (/api/classrooms/{classroom_id}) ไม่ใช่ path จริง — path มี id ปน

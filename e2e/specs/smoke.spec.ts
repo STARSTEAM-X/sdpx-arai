@@ -62,3 +62,23 @@ test.describe('คู่มือการใช้งาน', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   })
 })
+
+test.describe('FR-SEC-01 header ความปลอดภัย', () => {
+  test('หน้าเว็บที่ build แล้วมี CSP และ header ป้องกัน โดยไม่มีอะไรถูก CSP บล็อก', async ({ page }) => {
+    const violations: string[] = []
+    page.on('console', (message) => {
+      if (/Content Security Policy|Refused to/i.test(message.text())) violations.push(message.text())
+    })
+    const response = await page.goto('/')
+    const headers = response?.headers() ?? {}
+    expect(headers['x-content-type-options']).toBe('nosniff')
+    expect(headers['x-frame-options']).toBe('DENY')
+    expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+    const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')
+    expect(csp).toContain("default-src 'self'")
+    expect(csp).toContain('https://accounts.google.com/gsi/client')
+    await page.goto('/guide')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    expect(violations).toEqual([])
+  })
+})

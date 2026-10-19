@@ -58,6 +58,9 @@ services:
       # ห้ามใช้ค่านี้บน service ที่เข้าถึงได้จาก internet — ดูเหตุผลเต็มใน AGENTS.md
       ENVIRONMENT: development
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      # FR-API-04 ค่าจริงคือ 120 / 5 ต่อนาที — dev ตั้งสูงเพราะ scripts/demo/seed_figma_demo.py ยิงหลายร้อยครั้งต่อนาที
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-100000}
+      EXPORT_RATE_LIMIT_PER_MINUTE: ${EXPORT_RATE_LIMIT_PER_MINUTE:-1000}
       # ค่า dev เท่านั้น (ต้องยาว >= 32 bytes ตาม RFC 7518 §3.2) — ของจริงบน Render
       # มาจาก generateValue ซึ่งไม่มีใครเห็นค่า แม้แต่คนตั้ง
       SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-not-for-production-use-32b}
