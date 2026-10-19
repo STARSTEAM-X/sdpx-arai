@@ -128,7 +128,7 @@ jobs:
     - name: Run tests (preserve container exit code)
       run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-web --no-build --abort-on-container-exit --exit-code-from unit-web
     - name: Test summary
-      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a
       if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
       with:
         name: test-fe
@@ -185,7 +185,7 @@ jobs:
     - name: Run tests (preserve container exit code)
       run: docker compose -f compose.test.yaml -f compose.ci.yaml up unit-api --no-build --abort-on-container-exit --exit-code-from unit-api
     - name: Test summary
-      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a
       if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
       with:
         name: test-be
@@ -237,7 +237,7 @@ jobs:
 
         PY'
     - name: Test summary
-      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a
       if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
       with:
         name: integration-be
@@ -275,7 +275,7 @@ jobs:
     - name: Run tests (preserve container exit code)
       run: docker compose -f compose.test.yaml -f compose.ci.yaml --profile e2e up e2e --no-build --abort-on-container-exit --exit-code-from e2e
     - name: Test summary
-      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+      uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a
       if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
       with:
         name: e2e
