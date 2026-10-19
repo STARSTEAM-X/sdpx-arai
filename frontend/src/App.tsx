@@ -11,6 +11,7 @@ import NotificationsPage from './pages/NotificationsPage'
 import AppealPage from './pages/AppealPage'
 import AuditPage from './pages/AuditPage'
 import QualityPage from './pages/QualityPage'
+import ExportPage from './pages/ExportPage'
 import GuidePage from './pages/GuidePage'
 import GroupPage from './pages/GroupPage'
 import AssignmentOverviewPage from './pages/AssignmentOverviewPage'
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/classrooms/:classroomId/assignments/:assignmentId" element={<AssignmentOverviewPage />} />
         <Route path="/classrooms/:classroomId/audit" element={<AuditPage />} />
         <Route path="/classrooms/:classroomId/assignments/:assignmentId/quality" element={<QualityPage />} />
+        <Route path="/classrooms/:classroomId/assignments/:assignmentId/export" element={<ExportPage />} />
         <Route
           path="/classrooms/:classroomId/assignments/:assignmentId/evaluate"
           element={<EvaluatePage />}

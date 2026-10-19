@@ -248,7 +248,7 @@ export default function AssignmentOverviewPage() {
                   </Link>
                 )}
                 {(finalized || closed) && (
-                  <Link to={`${base}#scores`} className={btn('ghost', 'md', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/export`} className={btn('ghost', 'md', 'px-6')}>
                     ส่งออกข้อมูล
                   </Link>
                 )}

@@ -7,12 +7,14 @@ import { Banner, Card, CTRL, FOCUS, btn } from '../components/Ui'
 import {
   ApiError,
   type Assignment,
+  type CoveragePair,
   type QualityReport,
   type Reviewer,
   getAssignment,
   getMe,
   getQuality,
   listClassrooms,
+  markReviewerReviewed,
   revealReviewer,
   setReviewerExclusion,
 } from '../lib/api'
@@ -54,6 +56,33 @@ function measure(reviewer: Reviewer, flag: string): { value: string; threshold: 
     return { value: `เฉลี่ย ${seconds} วิ / คู่`, threshold: '< 3 วิ' }
   }
   return { value: `ส่งแล้ว ${reviewer.submittedCount} / ${reviewer.assignedCount}`, threshold: '—' }
+}
+
+type RowStatus = 'TODO' | 'PENDING' | 'DONE'
+type SignalRow =
+  | { kind: 'evaluator'; key: string; item: Reviewer; status: RowStatus; pill: string }
+  | { kind: 'pair'; key: string; pair: CoveragePair; status: RowStatus; pill: string }
+
+/** Figma J28/J28b — สถานะของแต่ละรายการ: ต้องตรวจ · รอผล (ส่งให้ประเมินเพิ่มแล้ว) · เรียบร้อย */
+function evaluatorRow(item: Reviewer): SignalRow {
+  if (item.excluded) return { kind: 'evaluator', key: item.key, item, status: 'DONE', pill: 'ตัดคำตอบแล้ว' }
+  if (item.reviewedAt) return { kind: 'evaluator', key: item.key, item, status: 'DONE', pill: 'ดูแล้ว · เก็บไว้' }
+  return { kind: 'evaluator', key: item.key, item, status: 'TODO', pill: 'ต้องตรวจ' }
+}
+
+function pairRow(pair: CoveragePair): SignalRow | null {
+  const short = pair.submittedCount < pair.expectedCount
+  if (!short && !pair.instructorCount) return null
+  const key = `${pair.criterionId}-${pair.itemAId}-${pair.itemBId}`
+  if (!short) return { kind: 'pair', key, pair, status: 'DONE', pill: 'อาจารย์ประเมินเองแล้ว' }
+  if (pair.pendingCount > 0) return { kind: 'pair', key, pair, status: 'PENDING', pill: 'รอผล' }
+  return { kind: 'pair', key, pair, status: 'TODO', pill: 'ต้องตรวจ' }
+}
+
+const pillTone: Record<RowStatus, string> = {
+  TODO: 'bg-accent-soft text-accent-ink',
+  PENDING: 'bg-info-soft text-info-ink',
+  DONE: 'bg-ok-50 text-ok-700',
 }
 
 export default function QualityPage() {
@@ -142,16 +171,40 @@ export default function QualityPage() {
     }
   }
   const writable = !archived && assignment && ['PUBLISHED', 'OPEN', 'CLOSED'].includes(assignment.status)
-  // Figma J28 แสดงเฉพาะรายการที่มีสัญญาณหรือถูกตัดคำตอบ — แถวที่ไม่มีอะไรให้ตรวจไม่ต้องรก
-  const signalled = data?.evaluators.filter((item) => item.flags.length > 0 || item.excluded) ?? []
-  const visible = signalled.filter(
-    (item) => filter === 'ALL' || (filter === 'EXCLUDED' ? item.excluded : item.flags.length > 0 && !item.excluded),
-  )
-  const flagCount = signalled.reduce((sum, item) => sum + item.flags.length, 0)
-  const counts = {
+  // Figma J28 แสดงเฉพาะรายการที่มีสัญญาณ: ผู้ประเมิน (QS-02–05) และคู่ที่ได้ผลน้อย (QS-01)
+  const signalled: SignalRow[] = [
+    ...(data?.evaluators.filter((item) => item.flags.length > 0 || item.excluded).map(evaluatorRow) ?? []),
+    ...(data?.pairCoverage.map(pairRow).filter((row): row is SignalRow => row !== null) ?? []),
+  ]
+  const visible = signalled.filter((row) => filter === 'ALL' || row.status === filter)
+  const flagCount = signalled.reduce((sum, row) => sum + (row.kind === 'pair' ? 1 : row.item.flags.length), 0)
+  const counts: Record<string, number> = {
     ALL: signalled.length,
-    FLAGGED: signalled.filter((item) => item.flags.length > 0 && !item.excluded).length,
-    EXCLUDED: signalled.filter((item) => item.excluded).length,
+    TODO: signalled.filter((row) => row.status === 'TODO').length,
+    PENDING: signalled.filter((row) => row.status === 'PENDING').length,
+    DONE: signalled.filter((row) => row.status === 'DONE').length,
+  }
+  const filterLabels: Record<string, string> = { TODO: 'ต้องตรวจ', PENDING: 'รอผล', DONE: 'เรียบร้อย' }
+  const multiCriteria = new Set(data?.pairCoverage.map((pair) => pair.criterionId)).size > 1
+  function openAnswers(item: Reviewer, button: HTMLButtonElement) {
+    trigger.current = button
+    setSelected(item)
+    setMode('answers')
+    setReason('')
+    setIdentity(null)
+    setActionError(null)
+    // เปิดดูครั้งแรก = "ดูแล้ว · เก็บไว้" จนกว่าจะตัดคำตอบ · ห้องที่เก็บเข้าคลังอ่านอย่างเดียวจึงไม่บันทึก
+    if (item.flags.length && !item.reviewedAt && !item.excluded && !archived)
+      void markReviewerReviewed(assignmentId, item.key)
+        .then(({ reviewedAt }) =>
+          setData((current) =>
+            current && {
+              ...current,
+              evaluators: current.evaluators.map((row) => (row.key === item.key ? { ...row, reviewedAt } : row)),
+            },
+          ),
+        )
+        .catch(() => undefined)
   }
   const tabClass = (active: boolean) =>
     `inline-flex min-h-11 items-center rounded-xl px-4 font-display text-[14.5px] font-semibold ${FOCUS} ${active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-sand'}`
@@ -219,6 +272,11 @@ export default function QualityPage() {
             {notice}
           </Banner>
         )}
+        {view === 'signals' && data?.evaluators.some((item) => item.excluded) && (
+          <Banner tone="info" className="mb-5">
+            ระบบไม่เคยตัดคำตอบทิ้งเองจากสัญญาณเหล่านี้ การยกเว้นคำตอบใดเป็นการตัดสินของอาจารย์ และคำตอบเดิมยังเก็บไว้เสมอ
+          </Banner>
+        )}
         {!data && !error && <p role="status">กำลังโหลดรายงาน…</p>}
         {data && (
           <>
@@ -254,22 +312,27 @@ export default function QualityPage() {
                   <div>
                     <h2 className="font-display text-[16px] font-semibold">สัญญาณคุณภาพ</h2>
                     <p className="mt-1 text-[13.5px] text-ink-2">
-                      ตรวจครบ 7 แบบ · พบ {flagCount} สัญญาณใน {signalled.length} รายการ · ระบบไม่ตัดคำตอบให้เอง
+                      ตรวจครบ 7 แบบ ·{' '}
+                      {filter === 'ALL'
+                        ? `พบ ${flagCount} สัญญาณใน ${signalled.length} รายการ`
+                        : `แสดง${filterLabels[filter]} ${visible.length} จาก ${signalled.length} รายการ`}{' '}
+                      · ระบบไม่ตัดคำตอบให้เอง
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(
                       [
-                        ['ALL', 'ทั้งหมด', ''],
-                        ['FLAGGED', 'ต้องตรวจ', 'bg-brand-600'],
-                        ['EXCLUDED', 'ตัดคำตอบแล้ว', 'bg-ok-600'],
+                        ['ALL', 'ทั้งหมด', '', 'border-ink bg-white'],
+                        ['TODO', 'ต้องตรวจ', 'bg-brand-600', 'border-accent-ink bg-accent-soft'],
+                        ['PENDING', 'รอผล', 'bg-info-ink', 'border-info-ink bg-info-soft'],
+                        ['DONE', 'เรียบร้อย', 'bg-ok-600', 'border-ok-700 bg-ok-50 text-ok-700'],
                       ] as const
-                    ).map(([value, label, dot]) => (
+                    ).map(([value, label, dot, active]) => (
                       <button
                         key={value}
                         aria-pressed={filter === value}
                         onClick={() => setFilter(value)}
-                        className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 font-display text-[14px] font-semibold ${FOCUS} ${filter === value ? 'border-ink bg-white' : 'border-edge bg-white'}`}
+                        className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 font-display text-[14px] font-semibold ${FOCUS} ${filter === value ? active : 'border-edge bg-white'}`}
                       >
                         {dot && <span aria-hidden="true" className={`size-2 rounded-full ${dot}`} />}
                         {label}
@@ -291,57 +354,83 @@ export default function QualityPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {visible.map((item) => (
-                        <tr key={item.key} className="border-b border-edge">
-                          <th scope="row" className="px-5 py-4 text-left font-semibold">
-                            <span className="block text-[12px] font-normal text-muted">ผู้ประเมิน</span>
-                            {item.label}
-                          </th>
-                          <td className="px-5 py-4">
-                            {item.flags.length ? (
-                              item.flags.map((flag) => (
-                                <p key={flag}>
-                                  {signalLabels[flag]} · {flag}
+                      {visible.map((row) => (
+                        <tr key={row.key} className="border-b border-edge">
+                          {row.kind === 'evaluator' ? (
+                            <>
+                              <th scope="row" className="px-5 py-4 text-left font-semibold">
+                                <span className="block text-[12px] font-normal text-muted">ผู้ประเมิน</span>
+                                {row.item.label}
+                              </th>
+                              <td className="px-5 py-4">
+                                {row.item.flags.length ? (
+                                  row.item.flags.map((flag) => (
+                                    <p key={flag}>
+                                      {signalLabels[flag]} · {flag}
+                                    </p>
+                                  ))
+                                ) : (
+                                  <p>{row.item.submittedCount ? 'ไม่พบสัญญาณที่ตรวจได้' : 'ยังไม่มีคำตอบที่ส่ง'}</p>
+                                )}
+                                {row.item.submittedCount > 0 && row.item.submittedCount < 3 && (
+                                  <p className="mt-1 text-xs text-muted">ข้อมูลยังน้อย กรุณาพิจารณาประกอบ</p>
+                                )}
+                              </td>
+                              <td className="px-5 py-4">
+                                {row.item.flags.map((flag) => (
+                                  <p key={flag}>{measure(row.item, flag).value}</p>
+                                ))}
+                              </td>
+                              <td className="px-5 py-4 text-ink-2">
+                                {row.item.flags.map((flag) => (
+                                  <p key={flag}>{measure(row.item, flag).threshold}</p>
+                                ))}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <th scope="row" className="px-5 py-4 text-left font-semibold">
+                                <span className="block text-[12px] font-normal text-muted">คู่</span>
+                                {row.pair.itemALabel} – {row.pair.itemBLabel}
+                              </th>
+                              <td className="px-5 py-4">
+                                <p>
+                                  {signalLabels['QS-01']} · QS-01
                                 </p>
-                              ))
-                            ) : (
-                              <p>{item.submittedCount ? 'ไม่พบสัญญาณที่ตรวจได้' : 'ยังไม่มีคำตอบที่ส่ง'}</p>
-                            )}
-                            {item.submittedCount > 0 && item.submittedCount < 3 && (
-                              <p className="mt-1 text-xs text-muted">ข้อมูลยังน้อย กรุณาพิจารณาประกอบ</p>
-                            )}
-                          </td>
-                          <td className="px-5 py-4">
-                            {item.flags.map((flag) => (
-                              <p key={flag}>{measure(item, flag).value}</p>
-                            ))}
-                          </td>
-                          <td className="px-5 py-4 text-ink-2">
-                            {item.flags.map((flag) => (
-                              <p key={flag}>{measure(item, flag).threshold}</p>
-                            ))}
-                          </td>
+                                {multiCriteria && <p className="mt-1 text-xs text-muted">{row.pair.criterionName}</p>}
+                              </td>
+                              <td className="px-5 py-4">
+                                {row.pair.instructorCount
+                                  ? `${row.pair.submittedCount - row.pair.instructorCount} ครั้ง → ${row.pair.submittedCount} (รวมอาจารย์)`
+                                  : `${row.pair.submittedCount} ครั้ง${row.pair.pendingCount ? ` · รออีก ${row.pair.pendingCount}` : ''}`}
+                              </td>
+                              <td className="px-5 py-4 text-ink-2">&lt; {row.pair.expectedCount} ครั้ง</td>
+                            </>
+                          )}
                           <td className="px-5 py-4">
                             <span
-                              className={`inline-flex min-h-9.5 min-w-33 items-center justify-center rounded-full px-4 font-display text-[13.5px] font-semibold ${item.excluded ? 'bg-ok-50 text-ok-700' : 'bg-accent-soft text-accent-ink'}`}
+                              className={`inline-flex min-h-9.5 min-w-33 items-center justify-center rounded-full px-4 font-display text-[13.5px] font-semibold ${pillTone[row.status]}`}
                             >
-                              {item.excluded ? 'ตัดคำตอบแล้ว' : 'ต้องตรวจ'}
+                              {row.pill}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-right">
-                            <button
-                              className={btn(item.excluded ? 'ghost' : 'primary', 'sm', 'px-5')}
-                              onClick={(event) => {
-                                trigger.current = event.currentTarget
-                                setSelected(item)
-                                setMode('answers')
-                                setReason('')
-                                setIdentity(null)
-                                setActionError(null)
-                              }}
-                            >
-                              ดูคำตอบ<span className="sr-only"> {item.label}</span>
-                            </button>
+                            {row.kind === 'evaluator' ? (
+                              <button
+                                className={btn(row.status === 'TODO' ? 'primary' : 'ghost', 'sm', 'px-5')}
+                                onClick={(event) => openAnswers(row.item, event.currentTarget)}
+                              >
+                                ดูคำตอบ<span className="sr-only"> {row.item.label}</span>
+                              </button>
+                            ) : (
+                              <button className={btn('ghost', 'sm', 'px-5')} onClick={() => setView('coverage')}>
+                                ดู coverage
+                                <span className="sr-only">
+                                  {' '}
+                                  {row.pair.itemALabel} เทียบ {row.pair.itemBLabel}
+                                </span>
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

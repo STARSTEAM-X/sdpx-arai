@@ -25,6 +25,7 @@ from app.api import enrollment as enrollment_api
 from app.api import members as members_api
 from app.api import notifications as notifications_api
 from app.api import quality as quality_api
+from app.api import reports_export as reports_export_api
 from app.api import roster as roster_api
 from app.api import scoring as scoring_api
 from app.api.errors import (
@@ -81,6 +82,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # หน้าเว็บอยู่คนละ origin — ต้องเปิดให้อ่านชื่อไฟล์จาก header ไม่งั้นไฟล์ส่งออกได้ชื่อสำรอง
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -157,6 +160,7 @@ app.include_router(lifecycle_api.router)
 app.include_router(enrollment_api.router)
 app.include_router(quality_api.router)
 app.include_router(coverage_api.router)
+app.include_router(reports_export_api.router)
 
 # ---------------------------------------------------------------------------
 # endpoint สำหรับ test จะถูกลงทะเบียนก็ต่อเมื่อไม่ใช่ production เท่านั้น

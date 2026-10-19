@@ -638,4 +638,75 @@ test.describe('US-15 export raw comparison (FR-EXPORT-03/04)', () => {
     expect(entry).toBeTruthy()
     expect(entry.reason).toBe(reason)
   })
+
+  // Figma J36/S10 — หน้าส่งออกได้ไฟล์ XLSX ชื่อตามรูปแบบ และประวัติบันทึกผู้ส่งออก
+  test('J36: ส่งออก XLSX จากหน้าเว็บได้ชื่อไฟล์ตามแบบ และเห็นในประวัติการส่งออก (S10)', async ({
+    api,
+    signedInPage: page,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/export`)
+    await expect(page.getByRole('heading', { name: 'ส่งออกข้อมูล' })).toBeVisible()
+    await expect(page.getByLabel('รายงานคะแนนกลุ่ม · รวมเสมอ')).toBeChecked()
+    await expect(page.getByLabel('รายงานคะแนนกลุ่ม · รวมเสมอ')).toBeDisabled()
+
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'ส่งออก', exact: true }).click()
+    expect((await download).suggestedFilename()).toMatch(/_all-reports_\d{8}-\d{4}\.xlsx$/)
+    await expect(page.getByTestId('export-notice')).toContainText('รหัสแทนชื่อ')
+
+    await page.getByRole('button', { name: 'ดูประวัติการส่งออก' }).click()
+    const drawer = page.getByRole('dialog', { name: 'ประวัติการส่งออก' })
+    await expect(drawer).toContainText('แสดง 1 รายการล่าสุด')
+    await expect(drawer).toContainText('XLSX · รหัสแทนชื่อ')
+    await expect(drawer).toContainText('Owner')
+  })
+
+  // failure cases ของ J36: ตัวตนจริงต้องเป็น Owner และต้องมีผลเปรียบเทียบดิบ — ไม่ผ่านต้องไม่ได้ไฟล์
+  test('J36: ส่งออกพร้อมอีเมลถูกปฏิเสธเมื่อเป็นผู้สอนร่วม หรือไม่ได้เลือกผลเปรียบเทียบดิบ', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    await api.post(`/api/classrooms/${classroomId}/members`, {
+      ...auth(instructorToken),
+      data: { email: 'co-teacher-export3@kmitl.ac.th', role: 'CO_TEACHER' },
+    })
+    const coTeacherToken = await issueToken(api, 'co-teacher-export3@kmitl.ac.th')
+    const identified = { reports: ['RAW_COMPARISONS'], format: 'CSV', identity: 'EMAIL', reason: 'ตรวจสอบ' }
+
+    const asCoTeacher = await api.post(`/api/assignments/${assignmentId}/reports:export`, { ...auth(coTeacherToken), data: identified })
+    expect(asCoTeacher.status()).toBe(403)
+    const withoutRaw = await api.post(`/api/assignments/${assignmentId}/reports:export`, {
+      ...auth(instructorToken),
+      data: { ...identified, reports: ['GROUP'] },
+    })
+    expect(withoutRaw.status()).toBe(422)
+    const history = await api.get(`/api/assignments/${assignmentId}/exports`, auth(instructorToken))
+    expect((await history.json()).items).toHaveLength(0)
+  })
+
+  // Figma J28 — เปิดดูคำตอบของผู้ประเมินที่มีสัญญาณแล้วสถานะเป็น "ดูแล้ว · เก็บไว้" และคงอยู่หลังโหลดใหม่
+  test('J28: เปิดดูคำตอบแล้วสถานะเปลี่ยนเป็นดูแล้ว · เก็บไว้ และนับเป็นเรียบร้อย', async ({
+    api,
+    signedInPage: page,
+    instructorToken,
+    classroomId,
+  }) => {
+    const assignmentId = await setupWithOneSubmission(api, instructorToken, classroomId)
+    await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/quality`)
+    const row = page.getByRole('row', { name: /ผู้ประเมิน.*QS-02/ })
+    await expect(row).toContainText('ต้องตรวจ')
+    await row.getByRole('button', { name: /^ดูคำตอบ/ }).click()
+    await page.getByRole('button', { name: 'ปิดคำตอบ' }).click()
+    await expect(row).toContainText('ดูแล้ว · เก็บไว้')
+
+    await page.reload()
+    await expect(page.getByRole('row', { name: /ผู้ประเมิน.*QS-02/ })).toContainText('ดูแล้ว · เก็บไว้')
+    await page.getByRole('button', { name: /^เรียบร้อย/ }).click()
+    await expect(page.getByText(/แสดงเรียบร้อย 1 จาก \d+ รายการ/)).toBeVisible()
+  })
 })

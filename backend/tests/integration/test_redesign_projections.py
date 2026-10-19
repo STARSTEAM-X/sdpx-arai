@@ -152,3 +152,85 @@ def test_unpublish_preserves_submitted_history_and_republish_uses_only_new_gener
         assert answer['choice'] == 6 and answer['status'] == 'SUBMITTED'
         cur.execute('SELECT choice FROM comparison_revision WHERE comparison_id = %s ORDER BY revision_no', (answer['id'],))
         assert [revision['choice'] for revision in cur.fetchall()] == [1, 6]
+
+
+def test_review_state_instructor_pairs_and_report_exports_are_recorded(db, monkeypatch):
+    import io
+    import zipfile
+
+    from app.api import reports_export
+    from app.domain.errors import ForbiddenError, ValidationError
+
+    owner = f'export-owner-{uuid.uuid4().hex}@example.com'
+    teacher = f'export-co-{uuid.uuid4().hex}@example.com'
+    with db.cursor() as cur:
+        for email, name in ((owner, 'สมชาย ใจดี'), (teacher, 'ปรียา')):
+            cur.execute("INSERT INTO app_user (id, email_normalized, email_raw, display_name, status) VALUES (%s,%s,%s,%s,'ACTIVE')", (str(uuid.uuid4()), email, email, name))
+    rooms = PgClassroomRepository(db)
+    room = rooms.save(Classroom(id=str(uuid.uuid4()), name='Exports', slug=uuid.uuid4().hex, timezone='Asia/Bangkok', created_by=owner, created_at=datetime.now(UTC), course_code='SDPX', semester='1/2569'))
+    rooms.save_member(ClassroomMember(room.id, owner, MemberRole.OWNER))
+    rooms.save_member(ClassroomMember(room.id, teacher, MemberRole.CO_TEACHER))
+    rows = [RosterRow(i + 2, f'export{i}-{uuid.uuid4().hex}@example.com', f'raw{i}@example.com', f'Group-{i // 2}') for i in range(6)]
+    rooms.replace_roster(room.id, rows)
+    repo = PgAssignmentRepository(db)
+    assignment = repo.create(Assignment(id=str(uuid.uuid4()), classroom_id=room.id, name='Group work 1', group_max_score=Decimal(15), individual_max_score=Decimal(0), group_deadline_utc=datetime(2099, 1, 1, tzinfo=UTC), created_by=owner, target_coverage=1, criteria=[Criterion(str(uuid.uuid4()), Side.GROUP, '=HYPERLINK("x")', Decimal(100))]))
+    for module in (assignments_api, quality, coverage, reports_export):
+        monkeypatch.setattr(module, 'transaction', lambda: nullcontext(db))
+    request = Request({'type': 'http', 'client': ('127.0.0.1', 1234)})
+    assignments_api.publish_assignment(assignment.id, owner, request, 7)
+    answers = PgComparisonRepository(db)
+    pair = repo.my_pairs(assignment.id, side=Side.GROUP, evaluator_email=rows[0].email_normalized)[0]
+    answers.save(pair.pair_assignment_id, choice=1, time_on_task_ms=500, now=datetime.now(UTC))
+    answers.submit_all(assignment_id=assignment.id, side=Side.GROUP, evaluator_email=rows[0].email_normalized, now=datetime.now(UTC))
+
+    # "ดูแล้ว · เก็บไว้": ครั้งแรกที่เปิดดูถูกบันทึก ครั้งถัดไปไม่เลื่อนเวลา และไม่กระทบคะแนน
+    reviewer = next(item for item in quality.quality_report(assignment.id, owner).evaluators if item['submittedCount'])
+    assert reviewer['reviewedAt'] is None
+    first = quality.mark_reviewed(assignment.id, reviewer['key'], teacher).reviewedAt
+    assert quality.mark_reviewed(assignment.id, reviewer['key'], owner).reviewedAt == first
+    assert next(item for item in quality.quality_report(assignment.id, owner).evaluators if item['key'] == reviewer['key'])['reviewedAt'] == first
+    with pytest.raises(Exception, match='ไม่พบผู้ประเมิน'):
+        quality.mark_reviewed(assignment.id, 'not-a-key', owner)
+
+    # อาจารย์ประเมินเองนับแยก และไม่โผล่เป็นผู้ประเมินที่ต้องตรวจสัญญาณ
+    target = next(p for p in quality.quality_report(assignment.id, owner).pairCoverage if p['submittedCount'] == 0)
+    coverage.instructor_comparison(assignment.id, coverage.InstructorComparisonIn(criterionId=target['criterionId'], itemAId=target['itemAId'], itemBId=target['itemBId'], reason='ผู้สอนประเมินเองเพื่อเติมคู่', choice=2), owner, request)
+    report = quality.quality_report(assignment.id, owner)
+    updated = next(p for p in report.pairCoverage if (p['itemAId'], p['itemBId']) == (target['itemAId'], target['itemBId']))
+    assert updated['instructorCount'] == 1 and updated['submittedCount'] == 1
+    assert len(report.evaluators) == len({row.email_normalized for row in rows if repo.my_pairs(assignment.id, side=Side.GROUP, evaluator_email=row.email_normalized)})
+
+    # XLSX ครบ 4 sheet มาตรฐาน · ข้อความที่ขึ้นต้นด้วย "=" ถูก escape และไม่เป็นสูตร
+    body = reports_export.ExportIn(reports=['GROUP', 'INDIVIDUAL', 'PAIR_COVERAGE', 'METADATA'], format='XLSX')
+    response = reports_export.export_reports(assignment.id, body, teacher, request)
+    assert 'sdpx-1-2569_group-work-1_all-reports_' in response.headers['content-disposition']
+    with zipfile.ZipFile(io.BytesIO(response.body)) as book:
+        workbook_xml = book.read('xl/workbook.xml').decode()
+        assert [name in workbook_xml for name in ('Group Summary', 'Individual Summary', 'Pair Coverage', 'Metadata')] == [True] * 4
+        coverage_xml = book.read('xl/worksheets/sheet3.xml').decode()
+        assert "'=HYPERLINK" in coverage_xml and '<f>' not in coverage_xml
+
+    # CSV หลายรายงาน → zip ไฟล์ละรายงาน มี BOM · ผู้ประเมินเป็นรหัส ไม่ใช่อีเมล
+    raw = reports_export.export_reports(assignment.id, reports_export.ExportIn(reports=['GROUP', 'RAW_COMPARISONS'], format='CSV'), owner, request)
+    with zipfile.ZipFile(io.BytesIO(raw.body)) as files:
+        names = files.namelist()
+        assert len(names) == 2 and all(name.endswith('.csv') for name in names)
+        text = files.read(next(name for name in names if 'raw-comparisons' in name)).decode('utf-8')
+        assert text.startswith('﻿') and 'E1' in text and rows[0].email_normalized not in text
+
+    # failure cases: ตัวตนจริงต้องเป็น Owner + เหตุผล + มีผลเปรียบเทียบดิบ — ไม่ผ่านต้องไม่บันทึกประวัติ
+    with pytest.raises(ForbiddenError):
+        reports_export.export_reports(assignment.id, reports_export.ExportIn(reports=['RAW_COMPARISONS'], format='CSV', identity='EMAIL', reason='ตรวจสอบ'), teacher, request)
+    with pytest.raises(ValidationError, match='เหตุผล'):
+        reports_export.export_reports(assignment.id, reports_export.ExportIn(reports=['RAW_COMPARISONS'], format='CSV', identity='EMAIL', reason='  '), owner, request)
+    with pytest.raises(ValidationError, match='ผลเปรียบเทียบดิบ'):
+        reports_export.export_reports(assignment.id, reports_export.ExportIn(reports=['GROUP'], identity='EMAIL', reason='ตรวจสอบ'), owner, request)
+    identified = reports_export.export_reports(assignment.id, reports_export.ExportIn(reports=['RAW_COMPARISONS'], format='CSV', identity='EMAIL', reason='ส่งกรรมการตรวจสอบ'), owner, request)
+    assert rows[0].email_normalized in identified.body.decode('utf-8')
+
+    history = reports_export.export_history(assignment.id, owner).items
+    assert [(item.format, item.identified, item.actorName, item.actorRole) for item in history] == [
+        ('CSV', True, 'สมชาย ใจดี', 'Owner'), ('CSV', False, 'สมชาย ใจดี', 'Owner'), ('XLSX', False, 'ปรียา', 'Co-teacher')]
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM audit_log WHERE resource_id = %s AND action = 'IDENTIFIED_EXPORT'", (assignment.id,))
+        assert cur.fetchone()['n'] == 1

@@ -11,14 +11,32 @@ class PgQualityRepository:
             cur.execute('''
                 SELECT p.id, p.side, p.criterion_id, p.item_a_id, p.item_b_id,
                        p.display_left_item_id, p.evaluator_user_id, c.choice, c.status,
-                       c.time_on_task_ms, COALESCE(x.excluded, false) AS excluded
-                FROM pair_assignment p LEFT JOIN comparison c ON c.pair_assignment_id = p.id
+                       c.time_on_task_ms, COALESCE(x.excluded, false) AS excluded,
+                       r.reviewed_at,
+                       EXISTS (SELECT 1 FROM classroom_member m WHERE m.classroom_id = a.classroom_id
+                         AND m.user_id = p.evaluator_user_id AND m.role <> 'STUDENT') AS by_instructor
+                FROM pair_assignment p JOIN assignment a ON a.id = p.assignment_id
+                LEFT JOIN comparison c ON c.pair_assignment_id = p.id
                 LEFT JOIN assignment_exclusion x ON x.assignment_id = p.assignment_id
                   AND x.evaluator_user_id = p.evaluator_user_id
+                LEFT JOIN quality_review r ON r.assignment_id = p.assignment_id
+                  AND r.evaluator_user_id = p.evaluator_user_id
                 WHERE p.assignment_id = %s AND p.retired_at IS NULL
                 ORDER BY p.criterion_id, p.id
                 ''', (assignment_id,))
             return list(cur.fetchall())
+
+    def mark_reviewed(self, assignment_id: str, evaluator_user_id: str, reviewer_email: str):
+        """บันทึกว่าผู้สอนเปิดดูคำตอบแล้ว — ครั้งแรกเท่านั้นที่นับ เพื่อให้เวลาที่แสดงคือตอนตรวจจริง"""
+        with self._conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO quality_review (assignment_id, evaluator_user_id, reviewed_by)
+                SELECT %s, %s, u.id FROM app_user u WHERE u.email_normalized = %s
+                ON CONFLICT (assignment_id, evaluator_user_id) DO NOTHING
+                ''', (assignment_id, evaluator_user_id, reviewer_email))
+            cur.execute('SELECT reviewed_at FROM quality_review WHERE assignment_id = %s AND evaluator_user_id = %s',
+                        (assignment_id, evaluator_user_id))
+            return cur.fetchone()['reviewed_at']
 
     def labels(self, classroom_id: str) -> dict[str, str]:
         with self._conn.cursor() as cur:

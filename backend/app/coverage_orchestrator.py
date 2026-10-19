@@ -34,6 +34,9 @@ def coverage_rows(conn: Connection, assignment: Assignment, rows: list[dict], la
             a, b = sorted((a, b))
             assigned = pairs[(criterion.id, a, b)]
             submitted = sum(row['status'] == 'SUBMITTED' and not row['excluded'] for row in assigned)
+            # J28: แยกผลที่อาจารย์ประเมินเอง และคู่ที่ส่งให้คนอื่นแล้วยังรอคำตอบ ("รอผล")
+            instructor = sum(row['status'] == 'SUBMITTED' and row.get('by_instructor', False) for row in assigned)
+            pending = sum(row['status'] != 'SUBMITTED' and not row['excluded'] for row in assigned)
             expected = assignment.target_coverage if criterion.side is Side.GROUP else max(1, len(eligible_evaluators(groups, criterion.side, a, b)))
             already_assigned = {str(row['evaluator_user_id']) for row in assigned}
             eligible = eligible_evaluators(groups, criterion.side, a, b) - already_assigned
@@ -41,5 +44,6 @@ def coverage_rows(conn: Connection, assignment: Assignment, rows: list[dict], la
                 'itemAId': a, 'itemBId': b, 'itemALabel': labels.get(a, a), 'itemBLabel': labels.get(b, b),
                 'artifactAUrl': artifacts.get(a), 'artifactBUrl': artifacts.get(b),
                 'assignedCount': len(assigned), 'submittedCount': submitted, 'expectedCount': expected,
+                'instructorCount': instructor, 'pendingCount': pending,
                 'eligibleCount': sum(workloads[(criterion.id, user_id)] < assignment.max_workload for user_id in eligible)})
     return result

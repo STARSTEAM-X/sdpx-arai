@@ -48,6 +48,10 @@ class IdentityOut(BaseModel):
     email: str
 
 
+class ReviewedOut(BaseModel):
+    reviewedAt: datetime
+
+
 class ExclusionOut(BaseModel):
     excluded: bool
     computedAt: datetime
@@ -67,10 +71,13 @@ def quality_report(assignment_id: str, user_email: CurrentUser) -> QualityOut:
         repo = PgQualityRepository(conn)
         rows, labels = repo.rows(assignment_id), repo.labels(assignment.classroom_id)
         by_evaluator = defaultdict(list)
+        # คำตอบที่อาจารย์ประเมินเอง (J26b) ไม่ใช่ผู้ประเมินที่ต้องตรวจสัญญาณ — นับแยกใน coverage แทน
         for row in rows:
-            by_evaluator[str(row['evaluator_user_id'])].append(row)
+            if not row['by_instructor']:
+                by_evaluator[str(row['evaluator_user_id'])].append(row)
         ordered = sorted((evaluator_key(assignment_id, user_id, SESSION_SECRET), answers) for user_id, answers in by_evaluator.items())
-        evaluators = [dict(key=key, label=f'E{index + 1}', excluded=any(row['excluded'] for row in answers), **signals(answers)) for index, (key, answers) in enumerate(ordered)]
+        evaluators = [dict(key=key, label=f'E{index + 1}', excluded=any(row['excluded'] for row in answers),
+                           reviewedAt=answers[0]['reviewed_at'], **signals(answers)) for index, (key, answers) in enumerate(ordered)]
         criteria_names = {criterion.id: criterion.name for criterion in assignment.criteria}
         for result, (_, answers) in zip(evaluators, ordered, strict=True):
             result['answers'] = [{
@@ -120,6 +127,17 @@ def reveal_identity(assignment_id: str, reviewer_key: str, body: ReasonIn,
             after_state={'reviewerKey': reviewer_key}, reason=body.reason.strip(), ip=request.client.host if request.client else None))
         response.headers['Cache-Control'] = 'private, no-store'
         return IdentityOut(displayName=identity['display_name'], email=identity['email_normalized'])
+
+
+@router.post('/{assignment_id}/quality/{reviewer_key}:reviewed', response_model=ReviewedOut)
+def mark_reviewed(assignment_id: str, reviewer_key: str, user_email: CurrentUser) -> ReviewedOut:
+    """Figma J28 "ดูแล้ว · เก็บไว้" — ผู้สอนเปิดดูคำตอบแล้ว ไม่ได้ตัด · ไม่กระทบคะแนนจึงไม่ต้องมีเหตุผล"""
+    with transaction() as conn:
+        assignment = _load_for_instructor(conn, assignment_id, user_email)
+        require_writable_classroom(conn, assignment.classroom_id)
+        repo = PgQualityRepository(conn)
+        user_id = _resolve([row for row in repo.rows(assignment_id) if not row['by_instructor']], assignment_id, reviewer_key)
+        return ReviewedOut(reviewedAt=repo.mark_reviewed(assignment_id, user_id, user_email))
 
 
 @router.post('/{assignment_id}/quality/{reviewer_key}:exclusion', response_model=ExclusionOut)

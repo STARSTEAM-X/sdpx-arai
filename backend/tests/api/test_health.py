@@ -25,3 +25,11 @@ def test_health_มี_version_เสมอ():
     body = client.get("/api/health").json()
     assert "version" in body
     assert body["version"] != ""
+
+
+def test_cors_เปิดให้หน้าเว็บอ่านชื่อไฟล์ส่งออก():
+    """หน้าเว็บอยู่คนละ origin — ถ้าไม่ expose Content-Disposition ไฟล์ส่งออกจะได้ชื่อสำรองแทนชื่อจริง"""
+    from app.config import CORS_ORIGINS
+
+    response = client.get("/api/health", headers={"Origin": CORS_ORIGINS[0]})
+    assert "content-disposition" in response.headers["access-control-expose-headers"].lower()

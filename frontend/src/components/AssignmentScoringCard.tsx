@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { Banner, Pill, Spinner, btn } from './Ui'
 import { FinalizeDialog, IdentifiedExportDialog, OverrideScoreDialog, ReopenDialog } from './ScoringDialogs'
@@ -342,6 +343,14 @@ function AssignmentRow({
               role="menu"
               className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-72 max-w-[calc(100vw-3rem)] rounded-xl border border-edge bg-white p-2 shadow-[0_14px_36px_-12px_rgba(23,32,51,0.3)]"
             >
+              <Link
+                role="menuitem"
+                to={`/classrooms/${classroomId}/assignments/${item.id}/export`}
+                className="block w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-sand"
+              >
+                <span className="block font-display font-semibold">ส่งออกรายงาน (XLSX / CSV)</span>
+                <span className="mt-0.5 block text-xs text-muted">เลือกรายงาน รูปแบบไฟล์ และดูประวัติการส่งออก</span>
+              </Link>
               <button
                 type="button"
                 role="menuitem"
