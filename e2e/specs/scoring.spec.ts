@@ -471,9 +471,12 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
       )
       await page.goto(`/classrooms/${classroomId}#scores`)
 
+      // Figma J25 — รายงานคะแนนเป็นหน้าแยก
       const card = page.getByTestId('assignment-scoring-card')
-      await card.getByRole('button', { name: 'ดูรายงานคะแนน' }).click()
-      await expect(card.getByTestId('scores-final-flag')).toHaveText('ชั่วคราว — อาจเปลี่ยนแปลงได้')
+      await card.getByRole('link', { name: 'ดูรายงานคะแนน' }).click()
+      await expect(page).toHaveURL(new RegExp(`/assignments/${assignmentId}/report$`))
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('รายงานคะแนนกลุ่ม')
+      await expect(page.getByTestId('scores-final-flag')).toHaveText('ชั่วคราว — อาจเปลี่ยนแปลงได้')
     })
   })
 })
@@ -494,11 +497,9 @@ test.describe('แก้คะแนนด้วยมือบนหน้า�
       ([key, token]) => window.localStorage.setItem(key, token),
       ['paireval.session', instructorToken] as const,
     )
-    await page.goto(`/classrooms/${classroomId}#scores`)
-    const card = page.getByTestId('assignment-scoring-card')
-    await card.getByRole('button', { name: 'ดูรายงานคะแนน' }).click()
+    await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/report`)
     // Figma J25 — ปุ่มเดียวใต้ตาราง แล้วเลือกกลุ่มใน dialog (J25c)
-    await card.getByRole('button', { name: 'แก้คะแนนด้วยมือ', exact: true }).click()
+    await page.getByRole('button', { name: 'แก้คะแนนด้วยมือ', exact: true }).click()
 
     const dialog = page.getByTestId('override-dialog')
     await expect(dialog).toBeVisible()
@@ -513,7 +514,7 @@ test.describe('แก้คะแนนด้วยมือบนหน้า�
     await dialog.getByLabel(/^คะแนนใหม่/).fill('11.5')
     await dialog.getByRole('button', { name: 'บันทึกคะแนนที่แก้' }).click()
     await expect(dialog).toHaveCount(0)
-    await expect(card.getByRole('table')).toContainText('11.5')
+    await expect(page.getByRole('region', { name: 'ตารางคะแนน' })).toContainText('11.5')
   })
 })
 

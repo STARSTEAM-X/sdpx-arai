@@ -14,7 +14,7 @@ from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import ConflictError, NotFoundError, ValidationError
-from app.domain.quality import evaluator_key, signals
+from app.domain.quality import criterion_agreement, evaluator_key, favoritism, signals
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import (
@@ -33,6 +33,10 @@ class QualityOut(BaseModel):
     coverage: list[dict]
     limitations: list[str]
     pairCoverage: list[dict]
+    # Figma J28 แถว QS-07 / J28c การกระจายคำตอบต่อเกณฑ์
+    criteria: list[dict] = []
+    # Figma J28 บรรทัดท้าย "ไม่พบ: ลำเอียงให้เพื่อนร่วมกลุ่ม · QS-06"
+    favoritismAssessed: bool = False
 
 
 class ReasonIn(BaseModel):
@@ -75,9 +79,22 @@ def quality_report(assignment_id: str, user_email: CurrentUser) -> QualityOut:
         for row in rows:
             if not row['by_instructor']:
                 by_evaluator[str(row['evaluator_user_id'])].append(row)
-        ordered = sorted((evaluator_key(assignment_id, user_id, SESSION_SECRET), answers) for user_id, answers in by_evaluator.items())
-        evaluators = [dict(key=key, label=f'E{index + 1}', excluded=any(row['excluded'] for row in answers),
-                           reviewedAt=answers[0]['reviewed_at'], **signals(answers)) for index, (key, answers) in enumerate(ordered)]
+        answered = [row for row in rows if row['status'] == 'SUBMITTED' and row['choice'] is not None]
+        bias = favoritism([row for row in answered if not row['by_instructor'] and not row['excluded']])
+        ordered = sorted((evaluator_key(assignment_id, user_id, SESSION_SECRET), user_id, answers)
+                         for user_id, answers in by_evaluator.items())
+        evaluators = []
+        for index, (key, user_id, answers) in enumerate(ordered):
+            result = dict(key=key, label=f'E{index + 1}', excluded=any(row['excluded'] for row in answers),
+                          reviewedAt=answers[0]['reviewed_at'], **signals(answers))
+            # QS-07 เป็นสัญญาณระดับเกณฑ์ (ด้านล่าง) · QS-06 ประเมินได้เมื่อมีข้อมูลรายบุคคลพอเทียบ
+            result['unassessed'] = [flag for flag in result['unassessed']
+                                    if flag != 'QS-07' and not (flag == 'QS-06' and bias['assessed'])]
+            if user_id in bias['flagged']:
+                result['flags'].append('QS-06')
+                result['favoritismGapPct'] = bias['flagged'][user_id]
+            evaluators.append(result)
+        ordered = [(key, answers) for key, _, answers in ordered]
         criteria_names = {criterion.id: criterion.name for criterion in assignment.criteria}
         for result, (_, answers) in zip(evaluators, ordered, strict=True):
             result['answers'] = [{
@@ -103,11 +120,20 @@ def quality_report(assignment_id: str, user_email: CurrentUser) -> QualityOut:
                     'submittedCount': submitted, 'minimum': assignment.min_comparisons,
                     'flags': ['QS-01'] if submitted < assignment.min_comparisons else []})
         pair_coverage = coverage_rows(conn, assignment, rows, labels)
-    return QualityOut(evaluators=evaluators, coverage=coverage, pairCoverage=pair_coverage, limitations=[
+        counted = [row for row in answered if not row['excluded']]
+        criteria = [{
+            'criterionId': criterion.id, 'name': criterion.name, 'side': str(criterion.side),
+            'weightPct': criterion.weight_pct,
+            'instructorAnswers': sum(row['by_instructor'] for row in counted if str(row['criterion_id']) == criterion.id),
+            **criterion_agreement([row for row in counted if str(row['criterion_id']) == criterion.id]),
+        } for criterion in assignment.criteria]
+    return QualityOut(evaluators=evaluators, coverage=coverage, pairCoverage=pair_coverage, criteria=criteria,
+                      favoritismAssessed=bias['assessed'], limitations=[
         'สัญญาณเป็นข้อมูลให้ผู้สอนทบทวน ไม่ตัดคำตอบหรือลดคะแนนอัตโนมัติ',
         'เวลาเฉลี่ยใช้เฉพาะคำตอบที่มีข้อมูลเวลาขณะเปิดหน้าประเมิน ไม่รวมการอ่านผลงานในแท็บอื่น',
-        'QS-06 ยังประเมินไม่ได้: ข้อมูลไม่มีความสัมพันธ์เพื่อนสนิทหรือกลุ่มเดิมเพื่อใช้เป็นฐานเปรียบเทียบ',
-        "QS-07 ยังประเมินไม่ได้: ผู้ประเมินได้รับคู่ต่างชุดกัน ยังไม่มีอันดับร่วมที่ครบสำหรับ Kendall's W",
+        'QS-06 เทียบอัตราที่ผู้ประเมินให้เพื่อนแต่ละคนชนะกับที่คนอื่นให้ (z > 2) · ต้องมีคำตอบรายบุคคลพอเทียบ',
+        "QS-07 ใช้ Kendall's u (ค่าความสอดคล้องสำหรับข้อมูลเปรียบเทียบเป็นคู่) แทน Kendall's W "
+        'เพราะแต่ละคนได้คู่ไม่ครบชุด · ต้องเทียบคำตอบของผู้ประเมินในคู่เดียวกันได้อย่างน้อย 3 ครั้ง',
     ])
 
 

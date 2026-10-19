@@ -138,12 +138,17 @@ export default function ClassroomsPage() {
     <div className="min-h-screen bg-ground font-body text-ink">
       <AppNav context="ห้องเรียนของฉัน" profile={me} />
 
-      <main className="mx-auto max-w-290 pt-12.5 pb-20 max-xl:px-7 max-sm:px-4 max-sm:pt-5">
+      {/* Figma ST10 (นักศึกษา) กับ J04b (ผู้สอน) วางหัวหน้าต่างกัน — ยึดเฟรมของแต่ละบทบาท */}
+      <main
+        className={`mx-auto max-w-290 pb-20 max-xl:px-7 max-sm:px-4 max-sm:pt-5 ${studentOnly || !me ? 'pt-12.5' : 'pt-8'}`}
+      >
         <OrangeHero
           title="ห้องเรียนของฉัน"
           subtitle={subtitle}
           image={classroomIllustration}
-          imageClassName="-top-[63px] right-[14px] h-[256px] w-[341px]"
+          imageClassName={
+            studentOnly || !me ? '-top-[63px] right-[14px] h-[256px] w-[341px]' : '-top-[72px] right-0 h-[273px] w-[364px]'
+          }
         />
 
         <dialog

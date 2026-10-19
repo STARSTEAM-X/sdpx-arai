@@ -427,34 +427,34 @@ export function AssignmentPanel({
             <div className="flex flex-col gap-3 px-5 py-5">
               {/* Figma J13a — สัดส่วนแสดงเป็นเปอร์เซ็นต์ จำนวนแสดงหน่วย · เก็บเป็นสัดส่วน 0–1 ตาม API */}
               <Field id="score-floor" label="ช่วงคะแนน (floor – ceiling)">
-                <div className="flex max-w-95 items-center gap-2">
-                  <Unit unit="%">
-                    <input
-                      id="score-floor"
-                      aria-label="คะแนนขั้นต่ำ (เปอร์เซ็นต์)"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={percent(draft.scoreFloor ?? 0.6)}
-                      onChange={(event) => set('scoreFloor', Number(event.target.value) / 100)}
-                      className={`${CTRL} min-h-10 pr-9 text-[14px]`}
-                    />
-                  </Unit>
-                  <span aria-hidden="true">–</span>
-                  <Unit unit="%">
-                    <input
-                      id="score-ceiling"
-                      aria-label="คะแนนขั้นสูง (เปอร์เซ็นต์)"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={percent(draft.scoreCeiling ?? 1)}
-                      onChange={(event) => set('scoreCeiling', Number(event.target.value) / 100)}
-                      className={`${CTRL} min-h-10 pr-9 text-[14px]`}
-                    />
-                  </Unit>
+                {/* Figma J13a — กรอบเดียว "60% – 100%" แต่ยังเป็นสองช่องที่แก้แยกกันได้ */}
+                <div
+                  className={`${CTRL} flex min-h-10 max-w-95 items-center gap-1 text-[14px] focus-within:border-brand-600 focus-within:ring-3 focus-within:ring-accent-soft`}
+                >
+                  <input
+                    id="score-floor"
+                    aria-label="คะแนนขั้นต่ำ (เปอร์เซ็นต์)"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={percent(draft.scoreFloor ?? 0.6)}
+                    onChange={(event) => set('scoreFloor', Number(event.target.value) / 100)}
+                    className="min-h-6 w-12 bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span aria-hidden="true">% –</span>
+                  <input
+                    id="score-ceiling"
+                    aria-label="คะแนนขั้นสูง (เปอร์เซ็นต์)"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={percent(draft.scoreCeiling ?? 1)}
+                    onChange={(event) => set('scoreCeiling', Number(event.target.value) / 100)}
+                    className="min-h-6 w-12 bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span aria-hidden="true">%</span>
                 </div>
               </Field>
               <Field id="instructor-weight" label="น้ำหนักคำตอบของอาจารย์ (instructor_weight)">

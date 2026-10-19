@@ -3,11 +3,14 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { AppNav } from '../components/AppNav'
 import { BackChevron, ForbiddenState, forbiddenCopy } from '../components/PageChrome'
 import { CoverageActions } from '../components/CoverageActions'
+import { DistributionDialog } from '../components/DistributionDialog'
+import { ReportTabs } from '../components/ReportTabs'
 import { Banner, Card, CTRL, FOCUS, btn } from '../components/Ui'
 import {
   ApiError,
   type Assignment,
   type CoveragePair,
+  type CriterionAgreement,
   type QualityReport,
   type Reviewer,
   getAssignment,
@@ -29,6 +32,8 @@ const signalLabels: Record<string, string> = {
   'QS-03': 'เลือกฝั่งเดียวเกือบทุกข้อ',
   'QS-04': 'ตอบวนกัน (A>B>C>A)',
   'QS-05': 'ตอบเร็วผิดปกติ',
+  'QS-06': 'ลำเอียงให้เพื่อนร่วมกลุ่ม',
+  'QS-07': 'ผู้ประเมินเห็นไม่ตรงกัน',
 }
 
 /** ค่าที่วัดได้และเกณฑ์ของแต่ละสัญญาณ (Figma J28) — คิดจากคำตอบที่ส่งแล้วด้วยกฎเดียวกับ backend/app/domain/quality.py */
@@ -56,6 +61,8 @@ function measure(reviewer: Reviewer, flag: string): { value: string; threshold: 
     const seconds = reviewer.meanTimeMs === null ? '—' : (reviewer.meanTimeMs / 1000).toFixed(1)
     return { value: `เฉลี่ย ${seconds} วิ / คู่`, threshold: '< 3 วิ' }
   }
+  if (flag === 'QS-06')
+    return { value: `ให้เพื่อนคนหนึ่งชนะมากกว่าคนอื่น +${reviewer.favoritismGapPct ?? 0}%`, threshold: 'z > 2' }
   return { value: `ส่งแล้ว ${reviewer.submittedCount} / ${reviewer.assignedCount}`, threshold: '—' }
 }
 
@@ -63,8 +70,13 @@ type RowStatus = 'TODO' | 'PENDING' | 'DONE'
 type SignalRow =
   | { kind: 'evaluator'; key: string; item: Reviewer; status: RowStatus; pill: string }
   | { kind: 'pair'; key: string; pair: CoveragePair; status: RowStatus; pill: string }
+  | { kind: 'criterion'; key: string; criterion: CriterionAgreement; status: RowStatus; pill: string }
 
 /** Figma J28/J28b — สถานะของแต่ละรายการ: ต้องตรวจ · รอผล (ส่งให้ประเมินเพิ่มแล้ว) · เรียบร้อย */
+function pairKey(pair: CoveragePair): string {
+  return `${pair.criterionId}-${pair.itemAId}-${pair.itemBId}`
+}
+
 function evaluatorRow(item: Reviewer): SignalRow {
   if (item.excluded) return { kind: 'evaluator', key: item.key, item, status: 'DONE', pill: 'ตัดคำตอบแล้ว' }
   if (item.reviewedAt) return { kind: 'evaluator', key: item.key, item, status: 'DONE', pill: 'ดูแล้ว · เก็บไว้' }
@@ -93,7 +105,8 @@ export default function QualityPage() {
   const [owner, setOwner] = useState(false)
   const [archived, setArchived] = useState(false)
   const { hash } = useLocation()
-  const [view, setView] = useState(hash === '#coverage' ? 'coverage' : 'signals')
+  // Figma J26 / J28 — แท็บเป็นลิงก์ (ReportTabs) จึงอ่านมุมมองจาก hash ทุกครั้ง
+  const view = hash === '#coverage' ? 'coverage' : 'signals'
   const [roomName, setRoomName] = useState('')
   const [filter, setFilter] = useState('ALL')
   const [now, setNow] = useState(Date.now)
@@ -105,6 +118,10 @@ export default function QualityPage() {
   const [forbidden, setForbidden] = useState<string | false>(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [selected, setSelected] = useState<Reviewer | null>(null)
+  // Figma J26 — ปุ่มท้ายการ์ดทำกับคู่ที่เลือก (คลิกแถวที่ข้อมูลไม่พอ) · เริ่มที่คู่แรกที่ข้อมูลไม่พอ
+  const [pickedPair, setPickedPair] = useState<string | null>(null)
+  const [showDistribution, setShowDistribution] = useState(false)
+  const distributionTrigger = useRef<HTMLButtonElement | null>(null)
   const [mode, setMode] = useState<'answers' | 'identity' | 'exclusion'>('answers')
   const [identity, setIdentity] = useState<{ displayName: string | null; email: string } | null>(null)
   const [reason, setReason] = useState('')
@@ -172,13 +189,29 @@ export default function QualityPage() {
     }
   }
   const writable = !archived && assignment && ['PUBLISHED', 'OPEN', 'CLOSED'].includes(assignment.status)
+  const shortPairs = (data?.pairCoverage ?? [])
+    .filter((pair) => pair.submittedCount < pair.expectedCount)
+    .map((pair) => ({ key: pairKey(pair), pair }))
+  const currentPair = shortPairs.find((entry) => entry.key === pickedPair) ?? shortPairs[0] ?? null
   // Figma J28 แสดงเฉพาะรายการที่มีสัญญาณ: ผู้ประเมิน (QS-02–05) และคู่ที่ได้ผลน้อย (QS-01)
   const signalled: SignalRow[] = [
     ...(data?.evaluators.filter((item) => item.flags.length > 0 || item.excluded).map(evaluatorRow) ?? []),
     ...(data?.pairCoverage.map(pairRow).filter((row): row is SignalRow => row !== null) ?? []),
+    // Figma J28 — เกณฑ์ที่ผู้ประเมินเห็นไม่ตรงกัน แก้คำอธิบายในงานถัดไป (แก้หลังเผยแพร่ไม่ได้) จึงนับเป็นเรียบร้อย
+    ...(data?.criteria ?? [])
+      .filter((criterion) => criterion.flags.includes('QS-07'))
+      .map(
+        (criterion): SignalRow => ({
+          kind: 'criterion',
+          key: criterion.criterionId,
+          criterion,
+          status: 'DONE',
+          pill: 'ปรับในงานถัดไป',
+        }),
+      ),
   ]
   const visible = signalled.filter((row) => filter === 'ALL' || row.status === filter)
-  const flagCount = signalled.reduce((sum, row) => sum + (row.kind === 'pair' ? 1 : row.item.flags.length), 0)
+  const flagCount = signalled.reduce((sum, row) => sum + (row.kind === 'evaluator' ? row.item.flags.length : 1), 0)
   const counts: Record<string, number> = {
     ALL: signalled.length,
     TODO: signalled.filter((row) => row.status === 'TODO').length,
@@ -207,8 +240,6 @@ export default function QualityPage() {
         )
         .catch(() => undefined)
   }
-  const tabClass = (active: boolean) =>
-    `inline-flex min-h-11 items-center rounded-xl px-4 font-display text-[14.5px] font-semibold ${FOCUS} ${active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-sand'}`
   if (forbidden !== false) {
     const copy = forbiddenCopy(forbidden || null, classroomId)
     return (
@@ -281,32 +312,12 @@ export default function QualityPage() {
         {!data && !error && <p role="status">กำลังโหลดรายงาน…</p>}
         {data && (
           <>
-            <div
-              role="group"
-              aria-label="เลือกรายงาน"
-              className="mb-5 inline-flex flex-wrap gap-1 rounded-2xl border border-edge bg-white p-1.5"
-            >
-              <Link to={`/classrooms/${classroomId}#scores`} className={tabClass(false)}>
-                คะแนนกลุ่ม
-              </Link>
-              <Link to={`/classrooms/${classroomId}#scores`} className={tabClass(false)}>
-                คะแนนรายบุคคล
-              </Link>
-              <button
-                aria-pressed={view === 'coverage'}
-                onClick={() => setView('coverage')}
-                className={tabClass(view === 'coverage')}
-              >
-                coverage รายคู่
-              </button>
-              <button
-                aria-pressed={view === 'signals'}
-                onClick={() => setView('signals')}
-                className={tabClass(view === 'signals')}
-              >
-                คุณภาพการประเมิน
-              </button>
-            </div>
+            <ReportTabs
+              classroomId={classroomId}
+              assignmentId={assignmentId}
+              active={view}
+              showAppeals={assignment?.status === 'FINALIZED'}
+            />
             {view === 'signals' ? (
               <Card className="overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge bg-surface-cream px-5 py-4">
@@ -388,6 +399,20 @@ export default function QualityPage() {
                                 ))}
                               </td>
                             </>
+                          ) : row.kind === 'criterion' ? (
+                            <>
+                              <th scope="row" className="px-5 py-4 text-left font-semibold">
+                                <span className="block text-[12px] font-normal text-muted">เกณฑ์</span>
+                                {row.criterion.name}
+                              </th>
+                              <td className="px-5 py-4">
+                                {signalLabels['QS-07']} · QS-07
+                              </td>
+                              <td className="px-5 py-4" title="Kendall's u — ค่าความสอดคล้องสำหรับข้อมูลเปรียบเทียบเป็นคู่">
+                                u = {row.criterion.agreement?.toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-ink-2">&lt; 0.20</td>
+                            </>
                           ) : (
                             <>
                               <th scope="row" className="px-5 py-4 text-left font-semibold">
@@ -423,14 +448,24 @@ export default function QualityPage() {
                               >
                                 ดูคำตอบ<span className="sr-only"> {row.item.label}</span>
                               </button>
+                            ) : row.kind === 'criterion' ? (
+                              <button
+                                className={btn('ghost', 'sm', 'px-5')}
+                                onClick={(event) => {
+                                  distributionTrigger.current = event.currentTarget
+                                  setShowDistribution(true)
+                                }}
+                              >
+                                ดูการกระจาย<span className="sr-only"> {row.criterion.name}</span>
+                              </button>
                             ) : (
-                              <button className={btn('ghost', 'sm', 'px-5')} onClick={() => setView('coverage')}>
+                              <Link to="#coverage" className={btn('ghost', 'sm', 'px-5')}>
                                 ดู coverage
                                 <span className="sr-only">
                                   {' '}
                                   {row.pair.itemALabel} เทียบ {row.pair.itemBLabel}
                                 </span>
-                              </button>
+                              </Link>
                             )}
                           </td>
                         </tr>
@@ -445,11 +480,19 @@ export default function QualityPage() {
                       : 'ยังไม่พบสัญญาณคุณภาพ · ระบบตรวจซ้ำทุกครั้งที่มีคำตอบใหม่'}
                   </p>
                 )}
+                {/* Figma J28 — บรรทัดท้ายบอกผล QS-06 เมื่อไม่พบ */}
+                {!data.evaluators.some((item) => item.flags.includes('QS-06')) && (
+                  <p className="px-5 py-3.5 text-[13px] text-ink-2">
+                    {data.favoritismAssessed
+                      ? '✓ ไม่พบ: ลำเอียงให้เพื่อนร่วมกลุ่ม · QS-06 (ไม่มีใครได้คะแนนรายบุคคลสูงผิดปกติ)'
+                      : 'QS-06 ลำเอียงให้เพื่อนร่วมกลุ่ม · ยังตรวจไม่ได้ — คำตอบรายบุคคลยังไม่พอเทียบ'}
+                  </p>
+                )}
               </Card>
             ) : (
               assignment && (
                 <Card className="overflow-hidden">
-                  {/* Figma J26 — ตารางเดียว "ทุกคู่ในงานนี้" · คู่ที่ได้ผลน้อยกว่าเป้าหมายติดป้ายข้อมูลไม่พอ และสั่งเพิ่มได้ในแถวนั้น */}
+                  {/* Figma J26 — ตารางเดียว "ทุกคู่ในงานนี้" · คู่ที่ได้ผลน้อยกว่าเป้าหมายติดป้ายข้อมูลไม่พอ · ปุ่มสั่งเพิ่มอยู่ท้ายการ์ด */}
                   <div className="border-b border-edge bg-surface-cream px-5 py-4">
                     <h2 className="font-display text-[16px] font-semibold">ทุกคู่ในงานนี้</h2>
                     <p className="mt-1 text-[13.5px] text-ink-2">
@@ -465,7 +508,7 @@ export default function QualityPage() {
                       </caption>
                       <thead className="bg-table-head">
                         <tr>
-                          {['คู่ที่เทียบ', 'เกณฑ์', 'ส่งแล้ว / มอบหมาย', 'ผลเฉลี่ย', 'สถานะ', ''].map((label, index) => (
+                          {['คู่ที่เทียบ', 'เกณฑ์', 'ส่งแล้ว / มอบหมาย', 'ผลเฉลี่ย', 'สถานะ'].map((label, index) => (
                             <th
                               key={index}
                               scope="col"
@@ -480,10 +523,30 @@ export default function QualityPage() {
                       <tbody className="divide-y divide-edge">
                         {data.pairCoverage.map((pair) => {
                           const short = pair.submittedCount < pair.expectedCount
+                          const key = pairKey(pair)
+                          const picked = short && key === currentPair?.key
                           return (
-                            <tr key={`${pair.criterionId}-${pair.itemAId}-${pair.itemBId}`}>
+                            <tr
+                              key={key}
+                              onClick={short ? () => setPickedPair(key) : undefined}
+                              className={picked ? 'bg-caution-soft/40' : short ? 'cursor-pointer hover:bg-sand/40' : ''}
+                            >
                               <th scope="row" className="px-5 py-3.5 font-normal">
-                                {pair.itemALabel} เทียบ {pair.itemBLabel}
+                                {short ? (
+                                  <button
+                                    type="button"
+                                    aria-pressed={picked}
+                                    onClick={() => setPickedPair(key)}
+                                    className={`min-h-6 text-left ${FOCUS}`}
+                                  >
+                                    {pair.itemALabel} เทียบ {pair.itemBLabel}
+                                    <span className="sr-only"> · เลือกคู่นี้เพื่อสั่งประเมินเพิ่ม</span>
+                                  </button>
+                                ) : (
+                                  <>
+                                    {pair.itemALabel} เทียบ {pair.itemBLabel}
+                                  </>
+                                )}
                               </th>
                               <td className="px-5 py-3.5">{pair.criterionName}</td>
                               <td className="px-5 py-3.5 text-right font-mono tabular">
@@ -508,25 +571,6 @@ export default function QualityPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-5 py-3.5 text-right">
-                                {short && (
-                                  <CoverageActions
-                                    pair={pair}
-                                    assignmentId={assignmentId}
-                                    canReview={Boolean(writable)}
-                                    canAssign={
-                                      Boolean(writable) &&
-                                      now <
-                                        Date.parse(
-                                          pair.side === 'GROUP'
-                                            ? assignment.groupDeadlineUtc
-                                            : (assignment.individualDeadlineUtc ?? assignment.groupDeadlineUtc),
-                                        )
-                                    }
-                                    onChanged={refresh}
-                                  />
-                                )}
-                              </td>
                             </tr>
                           )
                         })}
@@ -535,6 +579,33 @@ export default function QualityPage() {
                   </div>
                   {!data.pairCoverage.length && (
                     <p className="p-5 text-sm text-muted">ยังไม่มีคู่ที่เปรียบเทียบได้จากสมาชิกปัจจุบัน</p>
+                  )}
+                  {currentPair && (
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-edge px-5 py-4">
+                      <p className="flex-1 text-[13.5px] text-ink-2">
+                        คู่ที่ข้อมูลไม่พอ สั่งให้คนอื่นประเมินเพิ่ม หรืออาจารย์ประเมินเองก็ได้
+                        <span className="block text-[12.5px] text-muted">
+                          คู่ที่เลือก: {currentPair.pair.itemALabel} เทียบ {currentPair.pair.itemBLabel} ·{' '}
+                          {currentPair.pair.criterionName}
+                        </span>
+                      </p>
+                      <CoverageActions
+                        key={currentPair.key}
+                        pair={currentPair.pair}
+                        assignmentId={assignmentId}
+                        canReview={Boolean(writable)}
+                        canAssign={
+                          Boolean(writable) &&
+                          now <
+                            Date.parse(
+                              currentPair.pair.side === 'GROUP'
+                                ? assignment.groupDeadlineUtc
+                                : (assignment.individualDeadlineUtc ?? assignment.groupDeadlineUtc),
+                            )
+                        }
+                        onChanged={refresh}
+                      />
+                    </div>
                   )}
                 </Card>
               )
@@ -551,6 +622,16 @@ export default function QualityPage() {
               </div>
             )}
           </>
+        )}
+        {showDistribution && data?.criteria && (
+          <DistributionDialog
+            assignmentName={assignment?.name ?? ''}
+            criteria={data.criteria}
+            onClose={() => {
+              setShowDistribution(false)
+              distributionTrigger.current?.focus()
+            }}
+          />
         )}
         {/* Figma J29 / J30 — รายละเอียดผู้ประเมินเป็น drawer ด้านขวา · ตัวตนจริงซ่อนจนกว่าเจ้าของห้องจะเปิดดูพร้อมเหตุผล */}
         <dialog

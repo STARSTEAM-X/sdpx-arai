@@ -4,7 +4,7 @@
 การบันทึกลง database เป็นของ repo ชั้นนี้ทดสอบได้โดยไม่ต้องมี DB หรือ HTTP
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.domain.errors import ConflictError, ValidationError
 
@@ -43,3 +43,26 @@ def assert_can_override(*, reason: str | None) -> None:
     """เหตุผลเป็น field บังคับ ไม่ใช่ช่องให้เปล่าได้ (FR-SCORE-08)"""
     if not reason or not reason.strip():
         raise ValidationError("ต้องระบุเหตุผลก่อนแก้คะแนน", field="reason")
+
+
+# Figma J24: ถ้าอาจารย์ยังไม่ประกาศ ระบบประกาศให้เอง 14 วันหลังปิดรับ และเตือนล่วงหน้า
+AUTO_FINALIZE_AFTER = timedelta(days=14)
+AUTO_FINALIZE_WARN_BEFORE = timedelta(days=3)
+
+
+def auto_finalize_at(*, deadline: datetime, status: str, finalized_at: datetime | None) -> datetime | None:
+    """วันที่ระบบจะประกาศผลให้อัตโนมัติ — None เมื่อไม่เข้าเงื่อนไข
+
+    งานที่เคยประกาศแล้ว (finalized_at ไม่ว่าง) จะไม่ถูกประกาศอัตโนมัติอีก
+    แม้อาจารย์ reopen กลับมาแก้ — การประกาศรอบหลังเป็นการตัดสินใจของอาจารย์เท่านั้น
+    """
+    if status not in ("PUBLISHED", "OPEN", "CLOSED") or finalized_at is not None:
+        return None
+    return deadline + AUTO_FINALIZE_AFTER
+
+
+def is_auto_finalize_due(
+    *, now: datetime, deadline: datetime, status: str, finalized_at: datetime | None
+) -> bool:
+    at = auto_finalize_at(deadline=deadline, status=status, finalized_at=finalized_at)
+    return at is not None and now >= at

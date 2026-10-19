@@ -18,7 +18,8 @@ export function CoverageActions({
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement | null>(null)
-  const [mode, setMode] = useState<'extra' | 'teacher' | null>(null)
+  // blocked = Figma J27 · ส่งให้ประเมินเพิ่มไม่ได้เพราะไม่มีผู้มีสิทธิ์เหลือ
+  const [mode, setMode] = useState<'extra' | 'teacher' | 'blocked' | null>(null)
   const [count, setCount] = useState(1)
   const [choice, setChoice] = useState<number | null>(null)
   const [timeMs, setTimeMs] = useState<number | undefined>()
@@ -26,7 +27,7 @@ export function CoverageActions({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  function open(next: 'extra' | 'teacher', button: HTMLButtonElement) {
+  function open(next: 'extra' | 'teacher' | 'blocked', button: HTMLButtonElement) {
     trigger.current = button
     setMode(next)
     setCount(1)
@@ -64,18 +65,12 @@ export function CoverageActions({
   }
   return (
     <div>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2.5">
         <button
           type="button"
-          disabled={!canAssign || pair.eligibleCount === 0}
-          title={
-            pair.eligibleCount === 0
-              ? 'ไม่มีผู้มีสิทธิ์เหลือ'
-              : canAssign
-                ? undefined
-                : 'ขยายกำหนดส่งก่อนมอบหมายเพิ่มเติม'
-          }
-          onClick={(event) => open('extra', event.currentTarget)}
+          disabled={!canAssign}
+          title={canAssign ? undefined : 'ขยายกำหนดส่งก่อนมอบหมายเพิ่มเติม'}
+          onClick={(event) => open(pair.eligibleCount === 0 ? 'blocked' : 'extra', event.currentTarget)}
           className={btn('primary', 'sm', 'order-2')}
         >
           ส่งให้ประเมินเพิ่ม
@@ -84,7 +79,7 @@ export function CoverageActions({
           type="button"
           disabled={!canReview}
           onClick={(event) => open('teacher', event.currentTarget)}
-          className={btn('ghost', 'sm', 'border-brand-600 text-accent-ink')}
+          className={btn('ghost', 'md', 'border-brand-600 text-accent-ink')}
         >
           ประเมินเอง
         </button>
@@ -96,14 +91,60 @@ export function CoverageActions({
       )}
       <dialog
         ref={dialog}
-        aria-label={mode === 'extra' ? 'ส่งให้ประเมินเพิ่ม' : 'ผู้สอนประเมินเอง'}
+        aria-label={
+          mode === 'blocked' ? 'ส่งให้ประเมินเพิ่มไม่ได้' : mode === 'extra' ? 'ส่งให้ประเมินเพิ่ม' : 'ผู้สอนประเมินเอง'
+        }
         onCancel={(event) => {
           event.preventDefault()
           if (!busy) close()
         }}
-        className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-auto rounded-3xl border border-edge bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40"
+        data-testid="coverage-dialog"
+        className={`fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] overflow-auto rounded-3xl border border-edge bg-white text-ink shadow-xl backdrop:bg-ink/40 ${mode === 'blocked' ? 'max-w-130 p-0' : 'max-w-3xl p-6'}`}
       >
-        {mode && (
+        {mode === 'blocked' && (
+          <>
+            <div className="border-b border-edge bg-surface-cream px-6 pt-6 pb-3.5">
+              <h2 className="font-display text-[22px] leading-[35px] font-bold">
+                ส่งให้ประเมินเพิ่มไม่ได้ — {pair.itemALabel} เทียบ {pair.itemBLabel}
+              </h2>
+              <p className="mt-1.5 text-[13.5px] leading-5 text-ink-2">
+                ผู้มีสิทธิ์ทุกคนได้รับคู่นี้แล้ว หรือเป็นสมาชิกของกลุ่มในคู่
+                <br />
+                และคนเดิมประเมินคู่เดิมซ้ำในเกณฑ์เดียวกันไม่ได้
+              </p>
+            </div>
+            <dl className="mx-6 my-5 space-y-2 rounded-2xl bg-table-head px-4 py-3.5 text-[13.5px]">
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">coverage ปัจจุบัน</dt>
+                <dd className="font-semibold">
+                  {pair.submittedCount} ครั้ง (ควรได้อย่างน้อย {pair.expectedCount})
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">ผู้มีสิทธิ์ที่ยังไม่ได้รับคู่นี้</dt>
+                <dd className="font-semibold">0 คน</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">ทางเลือก</dt>
+                <dd className="font-semibold">ประเมินเอง หรือแก้คะแนนด้วยมือ</dd>
+              </div>
+            </dl>
+            <div className="flex justify-end gap-2.5 border-t border-edge bg-table-head px-6 py-4">
+              <button type="button" onClick={close} className={btn('ghost')}>
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={!canReview}
+                onClick={() => setMode('teacher')}
+                className={btn('primary')}
+              >
+                ประเมินเอง
+              </button>
+            </div>
+          </>
+        )}
+        {mode && mode !== 'blocked' && (
           <form
             onSubmit={(event) => {
               event.preventDefault()

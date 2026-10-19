@@ -2273,6 +2273,13 @@ components:
           type: [string, 'null']
           format: date-time
           description: เวลาประกาศผล (Figma J31b) — นักศึกษายื่นอุทธรณ์ได้ภายใน 7 วันหลังจากนี้
+        autoFinalizeAt:
+          type: [string, 'null']
+          format: date-time
+          description: >-
+            วันที่ระบบจะประกาศผลให้อัตโนมัติ (Figma J24) = กำหนดส่งสุดท้าย + 14 วัน ·
+            null เมื่อเคยประกาศแล้ว (รวมถึงหลัง reopen) หรือยังไม่เผยแพร่ ·
+            ระบบข้ามงานที่มีรายการข้อมูลไม่พอ
 
     Criterion:
       type: object

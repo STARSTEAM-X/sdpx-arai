@@ -31,7 +31,7 @@ _TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", 
 
 _HREF_SUFFIX = {
     "finalized": "score", "published": "evaluate", "regenerated": "evaluate",
-    "assigned": "evaluate", "appeal": "appeal", "due": "evaluate",
+    "assigned": "evaluate", "appeal": "appeal", "due": "evaluate", "auto_finalize": "",
 }
 
 
@@ -66,6 +66,12 @@ def _text(event: dict) -> tuple[str, str]:
         return "คู่ประเมินถูกจัดใหม่", f"อาจารย์แก้งานและเผยแพร่ใหม่ · คำตอบเดิมไม่นับ ต้องประเมินใหม่ · {name}"
     if kind == "assigned":
         return "ได้รับมอบหมายให้ประเมินเพิ่ม", f'คู่ใหม่ {event.get("new_count", 1)} คู่ใน{name}'
+    if kind == "auto_finalize":
+        when = _short_deadline(event.get("auto_at"), event.get("timezone"))
+        return (
+            "ระบบจะประกาศผลอัตโนมัติ",
+            f"{name} · ถ้ายังไม่ประกาศ ระบบจะประกาศให้ {when} · ตรวจรายงานก่อน",
+        )
     if kind == "finalized":
         return "ประกาศผลคะแนนแล้ว", f"ดูคะแนนของคุณในระบบ · ยื่นอุทธรณ์ได้ภายใน 7 วัน · {name}"
     return "ผู้สอนตอบคำร้องอุทธรณ์แล้ว", f'{name} · {event["classroom_name"]}'
@@ -80,7 +86,7 @@ def notifications(user_email: CurrentUser) -> NotificationList:
         title, message = _text(event)
         items.append(NotificationOut(
             id=event["event_key"], title=title, message=message,
-            href=f'/classrooms/{event["classroom_id"]}/assignments/{event["assignment_id"]}/{_HREF_SUFFIX[event["kind"]]}',
+            href=f'/classrooms/{event["classroom_id"]}/assignments/{event["assignment_id"]}/{_HREF_SUFFIX[event["kind"]]}'.rstrip("/"),
             occurredAt=event["occurred_at"], read=event["read_at"] is not None,
         ))
     return NotificationList(items=items, unreadCount=sum(not item.read for item in items))

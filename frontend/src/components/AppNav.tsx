@@ -6,6 +6,7 @@ import { clearToken, isSignedIn } from '../lib/session'
 import { Avatar, FOCUS } from './Ui'
 import { NotificationBell } from './NotificationBell'
 import { IconDoorExit, LogoMark } from './icons'
+import { useMenu } from './useMenu'
 
 type AppNavProps = {
   context?: string
@@ -18,7 +19,8 @@ type AppNavProps = {
 /** Navbar กลางของหน้าหลังเข้าสู่ระบบ ตาม Figma (Nav 1440×63)
  *
  *  แบรนด์ทางซ้าย · อีเมล + อักษรย่อ + กระดิ่ง + ปุ่มออกจากระบบทางขวา
- *  ไม่มีเมนูบัญชีแบบ dropdown เพราะไม่มีในแบบ
+ *  มือถือ (Figma M01–M09): โลโก้ใหญ่ขึ้น · กระดิ่งก่อนอักษรย่อ · ไม่มีไอคอนออกจากระบบในแถบ
+ *  จึงให้อักษรย่อเปิดเมนูที่มี "ออกจากระบบ" แทน ไม่งั้นบนมือถือจะออกจากระบบไม่ได้
  */
 export function AppNav({ context, profile }: AppNavProps) {
   const navigate = useNavigate()
@@ -43,6 +45,7 @@ export function AppNav({ context, profile }: AppNavProps) {
   }, [profile])
 
   const displayName = me?.displayName ?? me?.email ?? ''
+  const { open: menuOpen, setOpen: setMenuOpen, rootRef, triggerRef, onKeyDown } = useMenu()
 
   function handleSignOut() {
     clearToken()
@@ -62,8 +65,8 @@ export function AppNav({ context, profile }: AppNavProps) {
           aria-label="PairEval หน้าแรก"
           className={`flex min-h-11 shrink-0 items-center gap-2 rounded-lg font-display text-[18px] font-semibold tracking-tight ${FOCUS}`}
         >
-          <LogoMark className="size-7.5" />
-          <span>PairEval</span>
+          <LogoMark className="size-7.5 max-sm:size-10" />
+          <span className="max-sm:text-[24px]">PairEval</span>
         </Link>
 
         {isSignedIn() && (
@@ -74,14 +77,51 @@ export function AppNav({ context, profile }: AppNavProps) {
               className="flex min-w-0 items-center gap-5"
             >
               <span className="max-w-60 truncate text-[15px] text-muted max-md:hidden">{me?.email ?? ''}</span>
-              {displayName && <Avatar name={displayName} small />}
+              {displayName && (
+                <span className="max-sm:hidden">
+                  <Avatar name={displayName} small />
+                </span>
+              )}
             </p>
             <NotificationBell />
+            {displayName && (
+              <div ref={rootRef} onKeyDown={onKeyDown} className="relative sm:hidden">
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  aria-label={`เมนูบัญชีของ ${displayName}`}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className={`grid size-11 place-items-center rounded-full ${FOCUS}`}
+                >
+                  <Avatar name={displayName} small />
+                </button>
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    aria-label="บัญชี"
+                    className="absolute top-[calc(100%+0.25rem)] right-0 z-50 w-56 rounded-xl border border-edge bg-white p-2 shadow-[0_12px_30px_rgba(50,16,7,0.16)]"
+                  >
+                    <p className="truncate px-3 py-2 text-[13px] text-muted">{me?.email}</p>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleSignOut}
+                      className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-[15px] text-brand-600 hover:bg-accent-soft ${FOCUS}`}
+                    >
+                      <IconDoorExit className="size-5" />
+                      ออกจากระบบ
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               type="button"
               aria-label="ออกจากระบบ"
               onClick={handleSignOut}
-              className={`grid size-11 place-items-center rounded-full text-brand-600 hover:bg-accent-soft ${FOCUS}`}
+              className={`grid size-11 place-items-center rounded-full text-brand-600 hover:bg-accent-soft max-sm:hidden ${FOCUS}`}
             >
               <IconDoorExit className="size-6" />
             </button>

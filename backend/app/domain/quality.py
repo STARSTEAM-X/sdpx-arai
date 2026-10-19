@@ -52,3 +52,90 @@ def signals(rows: list[dict]) -> dict:
     return {'assignedCount': len(rows), 'submittedCount': len(submitted), 'flags': flags,
             'meanTimeMs': mean_ms, 'timedCount': len(times), 'checkedTriples': triples,
             'cycles': cycles, 'unassessed': unassessed}
+
+
+def _winner(row: dict) -> str:
+    left = str(row['display_left_item_id'])
+    a, b = str(row['item_a_id']), str(row['item_b_id'])
+    return left if row['choice'] <= 3 else (b if left == a else a)
+
+
+# QS-07 ต้องมีการเทียบคำตอบระหว่างผู้ประเมินสองคนในคู่เดียวกันอย่างน้อยเท่านี้ (Σ C(n,2))
+# ค่าความสอดคล้องจึงมีความหมาย — นับเป็นคู่ผู้ประเมิน ไม่ใช่จำนวนคู่ผลงาน เพราะห้องที่มีแค่ 3 กลุ่มมีเพียง 3 คู่
+AGREEMENT_MIN_RATER_PAIRS = 3
+AGREEMENT_THRESHOLD = 0.2
+
+
+def criterion_agreement(rows: list[dict]) -> dict:
+    """ความสอดคล้องของผู้ประเมินในเกณฑ์เดียว (PRD QS-07) และการกระจายคำตอบ 6 ระดับ (Figma J28c)
+
+    PRD ระบุ Kendall's W ซึ่งต้องให้ทุกคนจัดอันดับครบทุกชิ้น แต่ระบบนี้แต่ละคนได้คู่ไม่ครบชุด
+    จึงใช้ Kendall's u (coefficient of agreement for paired comparisons) ซึ่งเป็นค่าคู่กันของ W
+    สำหรับข้อมูลเปรียบเทียบเป็นคู่: ต่อคู่ที่มี n คำตอบ (a เลือกชิ้นหนึ่ง n−a เลือกอีกชิ้น)
+    นับคู่ผู้ประเมินที่เห็นตรงกัน C(a,2)+C(n−a,2) จากทั้งหมด C(n,2) แล้ว u = 2p − 1
+    (1 = เห็นตรงกันทุกคู่ · ใกล้ 0 หรือติดลบ = แตกกันเหมือนสุ่ม)
+    """
+    distribution = [0] * 6
+    votes: dict[tuple[str, str], Counter] = defaultdict(Counter)
+    for row in rows:
+        distribution[row['choice'] - 1] += 1
+        votes[tuple(sorted((str(row['item_a_id']), str(row['item_b_id']))))][_winner(row)] += 1
+    agree = total = 0
+    pairs = 0
+    for counter in votes.values():
+        n = sum(counter.values())
+        if n < 2:
+            continue
+        pairs += 1
+        total += n * (n - 1) // 2
+        agree += sum(k * (k - 1) // 2 for k in counter.values())
+    coefficient = round(2 * agree / total - 1, 2) if total >= AGREEMENT_MIN_RATER_PAIRS else None
+    return {
+        'distribution': distribution,
+        'answerCount': len(rows),
+        'pairsChecked': pairs,
+        'agreement': coefficient,
+        'flags': ['QS-07'] if coefficient is not None and coefficient < AGREEMENT_THRESHOLD else [],
+    }
+
+
+FAVORITISM_Z = 2.0
+FAVORITISM_MIN_SAMPLES = 5
+
+
+def favoritism(rows: list[dict]) -> dict:
+    """ลำเอียงให้เพื่อนร่วมกลุ่ม (PRD QS-06) — ฝั่งรายบุคคลเปรียบเทียบเพื่อนในกลุ่มเดียวกัน
+
+    ต่อผู้ประเมิน e และเพื่อน t: อัตราที่ e ให้ t ชนะ เทียบกับอัตราที่คนอื่นให้ t ชนะ
+    ส่วนต่างที่เป็น z > 2 (เทียบส่วนต่างของทุกคู่ e–t ในงาน) = ให้ t สูงผิดปกติ
+    ใช้ได้เมื่อ t ถูกคนอื่นประเมินด้วย (กลุ่ม 3 คนแต่ละคนเทียบเพื่อนได้ครั้งเดียวต่อเกณฑ์)
+    และมีส่วนต่างให้เทียบอย่างน้อย FAVORITISM_MIN_SAMPLES ค่า ไม่งั้นถือว่ายังตรวจไม่ได้
+    คืน {'assessed': bool, 'flagged': {evaluator_user_id: ส่วนต่างสูงสุดเป็น % }}
+    """
+    stats: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])  # (evaluator, target) → [wins, n]
+    for row in rows:
+        if str(row['side']) != 'INDIVIDUAL':
+            continue
+        winner = _winner(row)
+        for target in (str(row['item_a_id']), str(row['item_b_id'])):
+            entry = stats[(str(row['evaluator_user_id']), target)]
+            entry[0] += winner == target
+            entry[1] += 1
+    by_target: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for (_, target), (wins, n) in stats.items():
+        by_target[target][0] += wins
+        by_target[target][1] += n
+    gaps = []
+    for (evaluator, target), (wins, n) in stats.items():
+        other_wins, other_n = by_target[target][0] - wins, by_target[target][1] - n
+        if n >= 1 and other_n >= 1:
+            gaps.append((evaluator, wins / n - other_wins / other_n))
+    if len(gaps) < FAVORITISM_MIN_SAMPLES:
+        return {'assessed': False, 'flagged': {}}
+    mean = sum(gap for _, gap in gaps) / len(gaps)
+    sd = (sum((gap - mean) ** 2 for _, gap in gaps) / len(gaps)) ** 0.5
+    flagged: dict[str, int] = {}
+    for evaluator, gap in gaps:
+        if sd > 0 and gap > 0 and (gap - mean) / sd > FAVORITISM_Z:
+            flagged[evaluator] = max(flagged.get(evaluator, 0), round(gap * 100))
+    return {'assessed': True, 'flagged': flagged}

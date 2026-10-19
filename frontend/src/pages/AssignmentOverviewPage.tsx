@@ -4,7 +4,6 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import closedIllustration from '../assets/figma/closed.png'
 import assignmentIllustration from '../assets/figma/create-assignment.png'
 import { AppNav } from '../components/AppNav'
-import { AppealsPanel } from '../components/AppealsPanel'
 import { AssignmentActions } from '../components/AssignmentActions'
 import { BackChevron } from '../components/PageChrome'
 import { btn, FOCUS } from '../components/Ui'
@@ -134,7 +133,7 @@ export default function AssignmentOverviewPage() {
                   .filter(Boolean)
                   .join(' · ')}
                 action={
-                  <Link to={`${base}/assignments/${assignmentId}#appeals`} className={btn('ghost', 'sm', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report#appeals`} className={btn('ghost', 'sm', 'px-6')}>
                     ดูคำร้อง
                   </Link>
                 }
@@ -146,7 +145,7 @@ export default function AssignmentOverviewPage() {
                 title="ประกาศผลคะแนนแล้ว"
                 body={`นักศึกษาดูคะแนนและยื่นอุทธรณ์ได้ภายใน 7 วัน · ส่งคำตอบ ${submitted} / ${total} คน`}
                 action={
-                  <Link to={`${base}#scores`} className={btn('ghost', 'sm', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report`} className={btn('ghost', 'sm', 'px-6')}>
                     ดูคะแนนและรายงาน
                   </Link>
                 }
@@ -156,9 +155,13 @@ export default function AssignmentOverviewPage() {
                 tone="info"
                 icon="🔒"
                 title={`ปิดรับคำตอบแล้ว · ${deadlineText}`}
-                body={`ส่งครบ ${submitted} / ${total} คน · ตรวจรายงานก่อนประกาศผล · รายการที่ข้อมูลไม่พอให้ผู้สอนตรวจหรือแก้คะแนนก่อน`}
+                body={
+                  item?.autoFinalizeAt
+                    ? `ส่งครบ ${submitted} / ${total} คน · ตรวจรายงานก่อนประกาศผล · ถ้ายังไม่ประกาศ ระบบจะประกาศอัตโนมัติวันที่ ${thaiDate(item.autoFinalizeAt, { timeZone: timezone })} (14 วันหลังปิดรับ) และเตือนคุณก่อน · ยกเว้นรายการที่ข้อมูลไม่พอ จะไม่ประกาศอัตโนมัติ`
+                    : `ส่งครบ ${submitted} / ${total} คน · ตรวจรายงานก่อนประกาศผล · รายการที่ข้อมูลไม่พอให้ผู้สอนตรวจหรือแก้คะแนนก่อน`
+                }
                 action={
-                  <Link to={`${base}#scores`} className={btn('ghost', 'sm', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report`} className={btn('ghost', 'sm', 'px-6')}>
                     ดูคะแนนและรายงาน
                   </Link>
                 }
@@ -257,7 +260,7 @@ export default function AssignmentOverviewPage() {
               </p>
               <div className="mt-4 flex flex-wrap items-start gap-3">
                 {finalized && (
-                  <Link to={`${base}/assignments/${assignmentId}#appeals`} className={btn('primary', 'md', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report#appeals`} className={btn('primary', 'md', 'px-6')}>
                     ดูคำร้องอุทธรณ์{openAppeals ? ` (${openAppeals})` : ''}
                   </Link>
                 )}
@@ -267,7 +270,7 @@ export default function AssignmentOverviewPage() {
                   </Link>
                 )}
                 {(finalized || closed) && (
-                  <Link to={`${base}#scores`} className={btn(closed ? 'primary' : 'ghost', 'md', 'px-6')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report`} className={btn(closed ? 'primary' : 'ghost', 'md', 'px-6')}>
                     ดูคะแนนและรายงาน
                   </Link>
                 )}
@@ -298,23 +301,13 @@ export default function AssignmentOverviewPage() {
                   </Link>
                 )}
                 {finalized && (
-                  <Link to={`${base}#scores`} className={btn('ghost', 'md', 'px-6 text-err')}>
+                  <Link to={`${base}/assignments/${assignmentId}/report`} className={btn('ghost', 'md', 'px-6 text-err')}>
                     เปิดผลใหม่
                   </Link>
                 )}
               </div>
             </section>
 
-            {finalized && (
-              <div id="appeals" className="mt-6 scroll-mt-24">
-                <AppealsPanel
-                  classroomId={classroomId}
-                  assignmentId={assignmentId}
-                  readOnly={room?.status === 'ARCHIVED'}
-                  until={appealUntil}
-                />
-              </div>
-            )}
           </>
         )}
       </main>

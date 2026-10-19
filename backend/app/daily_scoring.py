@@ -5,6 +5,7 @@ import logging
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from app.auto_finalize import run_due_auto_finalizes
 from app.db import transaction
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.scoring_orchestrator import run_recompute
@@ -70,8 +71,13 @@ def run_due_recomputes(now: datetime | None = None) -> int:
     return completed
 
 
+# ประกาศผลอัตโนมัติไม่ต้องตรงนาที — ตรวจทุก 15 นาทีพอ ลดการคำนวณ final ซ้ำของงานที่ข้อมูลไม่พอ
+AUTO_FINALIZE_EVERY_TICKS = 15
+
+
 async def daily_scoring_loop() -> None:
     """ตรวจทุกนาที; upsert + advisory lock ทำให้รันหลาย instance แล้วไม่สร้างผลซ้ำ."""
+    tick = 0
     while True:
         try:
             count = await asyncio.to_thread(run_due_recomputes)
@@ -79,4 +85,12 @@ async def daily_scoring_loop() -> None:
                 log.info("daily scoring recomputed %s assignment(s)", count)
         except Exception:
             log.exception("daily scoring failed")
+        if tick % AUTO_FINALIZE_EVERY_TICKS == 0:
+            try:
+                finalized = await asyncio.to_thread(run_due_auto_finalizes)
+                if finalized:
+                    log.info("auto-finalized %s assignment(s)", finalized)
+            except Exception:
+                log.exception("auto-finalize failed")
+        tick += 1
         await asyncio.sleep(60)

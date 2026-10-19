@@ -1,6 +1,8 @@
 """In-app events projected from real assignment transitions; no scores in the payload."""
 from psycopg import Connection
 
+from app.domain.finalize_service import AUTO_FINALIZE_AFTER, AUTO_FINALIZE_WARN_BEFORE
+
 
 class PgNotificationRepository:
     def __init__(self, conn: Connection):
@@ -86,6 +88,25 @@ class PgNotificationRepository:
                 "WHERE u.email_normalized = %s AND a.status IN ('PUBLISHED', 'OPEN') AND progress.remaining > 0 "
                 "AND (a.opens_at_utc IS NULL OR a.opens_at_utc <= now())",
                 (email,),
+            )
+            events.extend(cur.fetchall())
+            # Figma J24: เตือนเจ้าของห้องก่อนระบบประกาศผลให้อัตโนมัติ (เฉพาะงานที่ยังไม่เคยประกาศ)
+            cur.execute(
+                "SELECT a.id AS assignment_id, a.classroom_id, a.name AS assignment_name, "
+                "c.name AS classroom_name, 'auto_finalize' AS kind, c.timezone, "
+                "d.deadline + %s - %s AS occurred_at, d.deadline + %s AS auto_at, key.event_key, nr.read_at "
+                "FROM assignment a JOIN classroom c ON c.id = a.classroom_id AND c.status = 'ACTIVE' "
+                "JOIN classroom_member m ON m.classroom_id = c.id AND m.role = 'OWNER' "
+                "JOIN app_user u ON u.id = m.user_id "
+                "CROSS JOIN LATERAL (SELECT GREATEST(a.group_deadline_utc, "
+                "COALESCE(a.individual_deadline_utc, a.group_deadline_utc)) AS deadline) d "
+                "CROSS JOIN LATERAL (SELECT a.id::text || ':auto_finalize:' || "
+                "EXTRACT(EPOCH FROM d.deadline)::text AS event_key) key "
+                "LEFT JOIN notification_read nr ON nr.user_id = u.id AND nr.event_key = key.event_key "
+                "WHERE u.email_normalized = %s AND a.status IN ('PUBLISHED', 'OPEN', 'CLOSED') "
+                "AND a.finalized_at IS NULL AND d.deadline + %s - %s <= now()",
+                (AUTO_FINALIZE_AFTER, AUTO_FINALIZE_WARN_BEFORE, AUTO_FINALIZE_AFTER, email,
+                 AUTO_FINALIZE_AFTER, AUTO_FINALIZE_WARN_BEFORE),
             )
             events.extend(cur.fetchall())
             return sorted(events, key=lambda event: event["occurred_at"], reverse=True)[:100]

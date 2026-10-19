@@ -1,6 +1,6 @@
 """unit test ของการตัดสินและประกาศคะแนน — อ้าง US-13"""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -10,6 +10,8 @@ from app.domain.finalize_service import (
     assert_can_override,
     assert_finalizable,
     assert_reopenable,
+    auto_finalize_at,
+    is_auto_finalize_due,
 )
 
 
@@ -69,3 +71,32 @@ class TestAssertCanOverride:
         with pytest.raises(ValidationError) as exc:
             assert_can_override(reason=reason)
         assert exc.value.field == "reason"
+
+
+# --- Figma J24: ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ ---
+
+_DEADLINE = datetime(2026, 10, 20, 16, 59, tzinfo=UTC)
+
+
+def test_auto_finalize_is_fourteen_days_after_last_deadline():
+    assert auto_finalize_at(deadline=_DEADLINE, status="CLOSED", finalized_at=None) == _DEADLINE + timedelta(days=14)
+
+
+def test_auto_finalize_not_due_one_second_before():
+    at = _DEADLINE + timedelta(days=14)
+    assert not is_auto_finalize_due(now=at - timedelta(seconds=1), deadline=_DEADLINE, status="OPEN", finalized_at=None)
+    assert is_auto_finalize_due(now=at, deadline=_DEADLINE, status="OPEN", finalized_at=None)
+
+
+def test_auto_finalize_never_after_reopen():
+    # เคยประกาศแล้ว reopen กลับมา → การประกาศรอบหลังเป็นของอาจารย์เท่านั้น
+    reopened = _DEADLINE + timedelta(days=15)
+    assert auto_finalize_at(deadline=_DEADLINE, status="CLOSED", finalized_at=reopened) is None
+    assert not is_auto_finalize_due(
+        now=_DEADLINE + timedelta(days=60), deadline=_DEADLINE, status="CLOSED", finalized_at=reopened
+    )
+
+
+def test_auto_finalize_skips_draft_finalized_and_archived():
+    for status in ("DRAFT", "FINALIZED", "ARCHIVED"):
+        assert auto_finalize_at(deadline=_DEADLINE, status=status, finalized_at=None) is None

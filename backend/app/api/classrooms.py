@@ -18,6 +18,7 @@ from app.domain.assignment_service import Assignment
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.classroom_service import ClassroomService
 from app.domain.errors import ConflictError, NotFoundError, ValidationError
+from app.domain.finalize_service import auto_finalize_at
 from app.domain.models import Classroom, ClassroomStatus
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
@@ -229,6 +230,8 @@ class AssignmentSummaryOut(BaseModel):
     publishedAt: datetime | None = None
     # Figma J31b: วันประกาศผล และนักศึกษายื่นอุทธรณ์ได้ถึง +7 วัน
     finalizedAt: datetime | None = None
+    # Figma J24: วันที่ระบบจะประกาศผลให้อัตโนมัติถ้ายังไม่ประกาศ
+    autoFinalizeAt: datetime | None = None
     submittedStudents: int | None = None
     studentCount: int | None = None
 
@@ -242,6 +245,11 @@ class AssignmentSummaryOut(BaseModel):
             groupDeadlineUtc=a.group_deadline_utc,
             individualDeadlineUtc=a.individual_deadline_utc,
             finalizedAt=a.finalized_at,
+            autoFinalizeAt=auto_finalize_at(
+                deadline=max(a.group_deadline_utc, a.individual_deadline_utc or a.group_deadline_utc),
+                status=str(a.status),
+                finalized_at=a.finalized_at,
+            ),
         )
 
 

@@ -423,11 +423,14 @@ class PgScoringRepository:
             return {(r["side"], str(r["item_id"])) for r in cur.fetchall()}
 
     def formula_version(self, assignment_id: str, *, is_final: bool) -> str | None:
+        return (self.latest_batch(assignment_id, is_final=is_final) or {}).get("formula_version")
+
+    def latest_batch(self, assignment_id: str, *, is_final: bool) -> dict | None:
+        """สูตรและเวลาคำนวณของชุดล่าสุด — Figma J25 "คำนวณล่าสุด 02:00 น." """
         with self._conn.cursor() as cur:
-            cur.execute("SELECT formula_version FROM computed_score WHERE assignment_id = %s AND is_final = %s "
-                        "ORDER BY computed_at DESC LIMIT 1", (assignment_id, is_final))
-            row = cur.fetchone()
-            return row["formula_version"] if row else None
+            cur.execute("SELECT formula_version, computed_at FROM computed_score WHERE assignment_id = %s "
+                        "AND is_final = %s ORDER BY computed_at DESC LIMIT 1", (assignment_id, is_final))
+            return cur.fetchone()
 
     def criterion_breakdown(self, assignment_id: str, *, is_final: bool) -> list[dict]:
         """คะแนนรายเกณฑ์ของทุก item (Figma J25 แถวกางรายละเอียด) — q, จำนวนผลประเมิน และคะแนนส่วนนี้

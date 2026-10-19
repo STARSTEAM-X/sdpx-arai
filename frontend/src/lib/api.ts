@@ -376,6 +376,8 @@ export type AssignmentSummary = {
   submittedAt?: string | null
   publishedAt?: string | null
   finalizedAt?: string | null
+  /** Figma J24 — วันที่ระบบจะประกาศผลให้อัตโนมัติ (null เมื่อเคยประกาศแล้วหรือยังไม่เผยแพร่) */
+  autoFinalizeAt?: string | null
   submittedStudents?: number | null
   studentCount?: number | null
 }
@@ -588,6 +590,8 @@ export type Scores = {
   isFinal: boolean
   items: ComputedScoreItem[]
   formulaVersion?: string | null
+  /** เวลาคำนวณของชุดล่าสุด — Figma J25 "คำนวณล่าสุด 02:00 น." */
+  computedAt?: string | null
 }
 
 /** คะแนนที่คำนวณล่าสุดของทุก item ในงาน — เฉพาะอาจารย์เรียกได้ (US-13)
@@ -732,12 +736,14 @@ export const resolveAppeal = (classroomId: string, appealId: string, status: 'RE
 
 export type AuditRecord = { id: string; actorEmail: string; actorName?: string | null; action: string; resourceType: string; resourceId: string | null; beforeState: Record<string, unknown> | null; afterState: Record<string, unknown> | null; reason: string | null; occurredAt: string }
 export const getAudit = (classroomId: string) => apiFetch<{ items: AuditRecord[] }>(`/api/classrooms/${encodeURIComponent(classroomId)}/audit`)
-export type Reviewer = { key: string; label: string; excluded: boolean; reviewedAt: string | null; assignedCount: number; submittedCount: number; flags: string[]; unassessed: string[]; meanTimeMs: number | null; timedCount: number; checkedTriples: number; cycles: number; answers: { criterionName: string; side: CriterionSide; leftLabel: string; rightLabel: string; choice: number; timeOnTaskMs: number | null; status: string }[] }
+export type Reviewer = { key: string; label: string; excluded: boolean; reviewedAt: string | null; assignedCount: number; submittedCount: number; flags: string[]; unassessed: string[]; meanTimeMs: number | null; timedCount: number; checkedTriples: number; cycles: number; favoritismGapPct?: number; answers: { criterionName: string; side: CriterionSide; leftLabel: string; rightLabel: string; choice: number; timeOnTaskMs: number | null; status: string }[] }
 export type CoveragePair = { criterionId: string; criterionName: string; side: CriterionSide; itemAId: string; itemBId: string; itemALabel: string; itemBLabel: string; artifactAUrl: string | null; artifactBUrl: string | null; assignedCount: number; submittedCount: number; expectedCount: number; eligibleCount: number; instructorCount: number; pendingCount: number; meanScoreA: number | null }
 export type PairSelection = { criterionId: string; itemAId: string; itemBId: string; reason: string }
 export const assignAdditional = (assignmentId: string, input: PairSelection & { count: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/additional-evaluations`, { method: 'POST', body: JSON.stringify(input) })
 export const submitInstructorComparison = (assignmentId: string, input: PairSelection & { choice: number; timeOnTaskMs?: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/instructor-comparisons`, { method: 'POST', body: JSON.stringify(input) })
-export type QualityReport = { pairCoverage: CoveragePair[]; evaluators: Reviewer[]; coverage: { itemId: string; side: CriterionSide; criterionId: string; criterionName: string; itemLabel: string; assignedCount: number; submittedCount: number; minimum: number; flags: string[] }[]; limitations: string[] }
+/** Figma J28 แถว QS-07 / J28c — ความสอดคล้อง (Kendall's u) และการกระจายคำตอบ 6 ระดับต่อเกณฑ์ */
+export type CriterionAgreement = { criterionId: string; name: string; side: CriterionSide; weightPct: number; instructorAnswers: number; distribution: number[]; answerCount: number; pairsChecked: number; agreement: number | null; flags: string[] }
+export type QualityReport = { pairCoverage: CoveragePair[]; evaluators: Reviewer[]; criteria?: CriterionAgreement[]; favoritismAssessed?: boolean; coverage: { itemId: string; side: CriterionSide; criterionId: string; criterionName: string; itemLabel: string; assignedCount: number; submittedCount: number; minimum: number; flags: string[] }[]; limitations: string[] }
 export const getQuality = (assignmentId: string) => apiFetch<QualityReport>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality`)
 export const revealReviewer = (assignmentId: string, key: string, reason: string) => apiFetch<{ displayName: string | null; email: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:identity`, { method: 'POST', body: JSON.stringify({ reason }) })
 export const setReviewerExclusion = (assignmentId: string, key: string, excluded: boolean, reason: string) => apiFetch<{ excluded: boolean; computedAt: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:exclusion`, { method: 'POST', body: JSON.stringify({ excluded, reason }) })

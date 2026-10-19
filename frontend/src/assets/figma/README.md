@@ -21,6 +21,8 @@ These are local originals, not generated replacements or expiring Figma image UR
 | `appeal.png` | M09 / Illustration/Appeal · `516:1442` | PNG, 240 × 180; exported 2026-10-19 directly from Figma |
 | `roster-empty-heading.png` | J06 / Art / Owner heading · `330:482` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
 | `coverage-heading.png` | J26 / Art / Owner heading · `334:2057` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
+| `score-report-heading.png` | J25 / Art / Owner heading · `334:1956` | PNG, 220 × 165; exported 2026-10-19 directly from Figma |
+| `appeals-heading.png` | J35 / Art / Owner heading · `334:4859` | PNG, 156 × 165 (cropped by the frame); exported 2026-10-19 directly from Figma |
 
 Illustration library page: `20:190`. Home Guest frame: `175:3`.
 Figma is still being revised; use the node IDs to re-export assets when the design changes.

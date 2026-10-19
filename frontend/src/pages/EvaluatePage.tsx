@@ -206,7 +206,9 @@ export default function EvaluatePage() {
           <div className="relative z-10 min-w-0 flex-1">
             <h1 className="font-display text-[32px] leading-[1.5] font-bold max-sm:pt-1.5 max-sm:text-[20px] max-sm:leading-7">งานที่ต้องประเมิน</h1>
             <p className="mt-1 font-display text-[15px] font-semibold max-sm:mt-0 max-sm:text-[13px] max-sm:font-body max-sm:font-normal max-sm:text-ink-2">
-              {[current?.assignmentName, classroomName].filter(Boolean).join(' · ')}
+              {/* Figma ST20 / ST22 / M04 — บรรทัดรองเป็นชื่อห้องอย่างเดียว · ชื่องานอ่านได้จากโปรแกรมอ่านหน้าจอ */}
+              {current?.assignmentName && <span className="sr-only">{current.assignmentName} · </span>}
+              {classroomName}
             </p>
           </div>
           <img src={heroComparison} alt="" aria-hidden="true" className="pointer-events-none absolute -top-[72px] right-[3px] h-[246px] w-auto max-w-none object-contain max-md:hidden" />
