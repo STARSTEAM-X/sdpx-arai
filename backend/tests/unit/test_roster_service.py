@@ -46,6 +46,12 @@ def service(repo: FakeClassroomRepo) -> RosterService:
 
 
 class TestImportCsv:
+    def test_preview_validates_all_rows_without_writing(self, service, repo):
+        result = service.preview_csv(classroom_id=ROOM, actor_email=AJARN, raw=GOOD_CSV)
+        assert len(result.rows) == 4
+        assert repo.replace_roster_call_count == 0
+        assert repo.roster_of(ROOM) == []
+
     def test_AC_ไฟล์ถูกต้องทั้งไฟล์บันทึกครบทุกแถว(
         self, service: RosterService, repo: FakeClassroomRepo
     ):

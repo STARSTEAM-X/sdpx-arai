@@ -35,6 +35,7 @@ class RosterEntryOut(BaseModel):
     role: str
     groupName: str | None
     status: str
+    enrollmentStatus: str = 'ACTIVE'
 
     @staticmethod
     def of(m: RosterMember) -> "RosterEntryOut":
@@ -46,6 +47,7 @@ class RosterEntryOut(BaseModel):
             role=str(m.role),
             groupName=m.group_name,
             status=m.status,
+            enrollmentStatus=m.enrollment_status,
         )
 
 
@@ -70,6 +72,32 @@ class RosterImportOut(BaseModel):
             groupsCreated=len(r.groups),
             warnings=[RosterWarningOut(type=w.type, message=w.message) for w in r.warnings],
         )
+
+
+class RosterPreviewRow(BaseModel):
+    email: str
+    displayName: str | None
+    groupName: str
+
+
+class RosterPreviewOut(RosterImportOut):
+    rows: list[RosterPreviewRow]
+
+
+@router.post("/{classroom_id}/roster:preview", response_model=RosterPreviewOut)
+async def preview_roster(classroom_id: str, user_email: CurrentUser,
+                         file: UploadFile = File(...)) -> RosterPreviewOut:
+    raw = await file.read()
+    if not raw or len(raw) > MAX_UPLOAD_BYTES:
+        raise ValidationError("เลือกไฟล์ CSV ที่ไม่ว่างและมีขนาดไม่เกิน 2 MB", field="file")
+    with transaction() as conn:
+        result = RosterService(PgClassroomRepository(conn), ALLOWED_EMAIL_DOMAINS).preview_csv(
+            classroom_id=classroom_id, actor_email=user_email, raw=raw,
+        )
+    return RosterPreviewOut(**RosterImportOut.of(result).model_dump(), rows=[
+        RosterPreviewRow(email=row.email_normalized, displayName=row.display_name, groupName=row.group_name)
+        for row in result.rows
+    ])
 
 
 @router.get("/{classroom_id}/roster", response_model=RosterList)

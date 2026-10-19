@@ -8,6 +8,7 @@ import uuid
 
 from psycopg import Connection
 
+from app.domain.errors import ConflictError, NotFoundError
 from app.domain.models import (
     Classroom,
     ClassroomMember,
@@ -17,6 +18,27 @@ from app.domain.models import (
     RosterRow,
 )
 from app.domain.repositories import ClassroomRepository
+
+
+def require_writable_classroom(conn: Connection, classroom_id: str) -> None:
+    """Share-lock against archive/delete until the surrounding write transaction commits."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT status FROM classroom WHERE id = %s FOR SHARE", (classroom_id,))
+        row = cur.fetchone()
+    if row is None:
+        raise NotFoundError("ไม่พบห้องเรียนนี้")
+    if row["status"] == "ARCHIVED":
+        raise ConflictError("ห้องเรียนนี้เก็บเข้าคลังแล้ว — อ่านข้อมูลได้อย่างเดียว กรุณาคืนห้องเรียนก่อนแก้ไข")
+
+
+def require_editable_roster(conn: Connection, classroom_id: str) -> None:
+    """Serialize roster replacement against publication; never invalidate live pairs implicitly."""
+    with conn.cursor() as cur:
+        cur.execute('SELECT id FROM classroom WHERE id = %s FOR UPDATE', (classroom_id,))
+        require_writable_classroom(conn, classroom_id)
+        cur.execute("SELECT count(*) AS n FROM assignment WHERE classroom_id = %s AND status NOT IN ('DRAFT', 'ARCHIVED')", (classroom_id,))
+        if cur.fetchone()['n']:
+            raise ConflictError('ห้องเรียนมีงานที่เผยแพร่แล้ว กรุณายกเลิกเผยแพร่งานก่อนแก้รายชื่อ', field='roster')
 
 
 class PgClassroomRepository:
@@ -33,7 +55,7 @@ class PgClassroomRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains,
+                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains, c.course_code, c.semester,
                        c.status, c.created_at, u.email_normalized AS created_by
                 FROM classroom c
                 JOIN app_user u ON u.id = c.created_by
@@ -64,8 +86,8 @@ class PgClassroomRepository:
             cur.execute(
                 """
                 INSERT INTO classroom
-                    (id, name, slug, timezone, allowed_email_domains, status, created_by, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (id, name, slug, timezone, allowed_email_domains, status, created_by, created_at, course_code, semester)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     classroom.id,
@@ -76,6 +98,8 @@ class PgClassroomRepository:
                     str(classroom.status),
                     creator_id,
                     classroom.created_at,
+                    classroom.course_code,
+                    classroom.semester,
                 ),
             )
         return classroom
@@ -115,6 +139,7 @@ class PgClassroomRepository:
         ถ้าแถวสุดท้ายพัง แถวก่อนหน้าจะถูก rollback ไปด้วย — กฎ atomic (R1)
         ไม่ได้อาศัยแค่การ parse ให้จบก่อน แต่ชั้นเก็บข้อมูลก็รับประกันซ้ำอีกชั้น
         """
+        require_editable_roster(self._conn, classroom_id)
         with self._conn.cursor() as cur:
             # ผู้ใช้ที่ยังไม่เคยมีในระบบถูกสร้างเป็น PENDING
             # ไม่แตะ status ของคนที่ login ไปแล้ว — การ import ไม่ควรถีบใครกลับไป PENDING
@@ -188,7 +213,7 @@ class PgClassroomRepository:
             cur.execute(
                 """
                 SELECT u.id, u.email_normalized, u.display_name, u.status,
-                       m.id AS member_id, m.role, m.group_name
+                       m.id AS member_id, m.role, m.group_name, m.enrollment_status
                 FROM classroom_member m
                 JOIN app_user u ON u.id = m.user_id
                 WHERE m.classroom_id = %s
@@ -205,6 +230,7 @@ class PgClassroomRepository:
                     role=MemberRole(row["role"]),
                     status=row["status"],
                     group_name=row["group_name"],
+                    enrollment_status=row['enrollment_status'],
                 )
                 for row in cur.fetchall()
             ]
@@ -240,7 +266,7 @@ class PgClassroomRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains,
+                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains, c.course_code, c.semester,
                        c.status, c.created_at, owner.email_normalized AS created_by
                 FROM classroom c
                 JOIN classroom_member m ON m.classroom_id = c.id
@@ -253,6 +279,34 @@ class PgClassroomRepository:
             )
             return [self._to_entity(row) for row in cur.fetchall()]
 
+    def context_for_user(self, email: str) -> dict[str, dict]:
+        """Only rooms the caller belongs to; counts exclude draft work from student context."""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id, owner.display_name AS instructor_name, m.group_name,
+                  (SELECT COUNT(*) FROM classroom_member s WHERE s.classroom_id = c.id
+                    AND s.role = 'STUDENT' AND s.enrollment_status = 'ACTIVE') AS student_count,
+                  (SELECT COUNT(DISTINCT s.group_id) FROM classroom_member s
+                    WHERE s.classroom_id = c.id AND s.role = 'STUDENT' AND s.enrollment_status = 'ACTIVE') AS group_count,
+                  (SELECT COUNT(*) FROM assignment a WHERE a.classroom_id = c.id
+                    AND a.status NOT IN ('DRAFT', 'ARCHIVED')) AS assignment_count,
+                  (SELECT COUNT(*) FROM assignment a WHERE a.classroom_id = c.id
+                    AND c.status = 'ACTIVE' AND m.role = 'STUDENT' AND m.enrollment_status = 'ACTIVE'
+                    AND a.status IN ('PUBLISHED', 'OPEN') AND (a.opens_at_utc IS NULL OR a.opens_at_utc <= now())
+                    AND EXISTS (SELECT 1 FROM pair_assignment p LEFT JOIN comparison r ON r.pair_assignment_id = p.id
+                      WHERE p.assignment_id = a.id AND p.evaluator_user_id = m.user_id AND p.retired_at IS NULL
+                      AND (r.status IS NULL OR r.status != 'SUBMITTED')
+                      AND CASE WHEN p.side = 'GROUP' THEN a.group_deadline_utc ELSE COALESCE(a.individual_deadline_utc, a.group_deadline_utc) END > now())) AS pending_assignment_count
+                FROM classroom c JOIN classroom_member m ON m.classroom_id = c.id
+                JOIN app_user u ON u.id = m.user_id
+                JOIN app_user owner ON owner.id = c.created_by
+                WHERE u.email_normalized = %s
+                """,
+                (email,),
+            )
+            return {str(row["id"]): row for row in cur.fetchall()}
+
     @staticmethod
     def _to_entity(row: dict) -> Classroom:
         return Classroom(
@@ -264,6 +318,8 @@ class PgClassroomRepository:
             allowed_email_domains=list(row["allowed_email_domains"] or []),
             status=ClassroomStatus(row["status"]),
             created_at=row["created_at"],
+            course_code=row.get("course_code"),
+            semester=row.get("semester"),
         )
 
     # --- จัดการสมาชิกฝั่งผู้สอน (US-12) ---
@@ -277,7 +333,7 @@ class PgClassroomRepository:
         with self._conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains,
+                SELECT c.id, c.name, c.slug, c.timezone, c.allowed_email_domains, c.course_code, c.semester,
                        c.status, c.created_at, u.email_normalized AS created_by
                 FROM classroom c
                 JOIN app_user u ON u.id = c.created_by
@@ -298,6 +354,29 @@ class PgClassroomRepository:
             )
             return cur.fetchone()["n"]
 
+    def lock(self, classroom_id: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT id FROM classroom WHERE id = %s FOR UPDATE", (classroom_id,))
+
+    def set_status(self, classroom_id: str, status: ClassroomStatus) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute("UPDATE classroom SET status = %s WHERE id = %s", (str(status), classroom_id))
+
+    def has_activity(self, classroom_id: str) -> bool:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """SELECT EXISTS(SELECT 1 FROM assignment WHERE classroom_id = %s)
+                    OR EXISTS(SELECT 1 FROM group_entity WHERE classroom_id = %s)
+                    OR EXISTS(SELECT 1 FROM classroom_member WHERE classroom_id = %s AND role != 'OWNER')
+                    OR EXISTS(SELECT 1 FROM audit_log WHERE classroom_id = %s) AS occupied""",
+                (classroom_id,) * 4,
+            )
+            return cur.fetchone()["occupied"]
+
+    def delete_empty(self, classroom_id: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute("DELETE FROM classroom WHERE id = %s", (classroom_id,))
+
     def add_instructor(
         self, classroom_id: str, *, email_normalized: str, email_raw: str, role: MemberRole
     ) -> str:
@@ -306,6 +385,7 @@ class PgClassroomRepository:
         เส้นทางเดียวกับที่ roster import ใช้ (US-03) เพื่อให้คนที่ถูกเพิ่มไว้ก่อน
         แล้วค่อย login ทีหลัง จับคู่กับบัญชีเดิมได้ ไม่กลายเป็นคนใหม่
         """
+        require_writable_classroom(self._conn, classroom_id)
         with self._conn.cursor() as cur:
             cur.execute(
                 """
@@ -350,6 +430,7 @@ class PgClassroomRepository:
         return (row["email_normalized"], MemberRole(row["role"])) if row else None
 
     def remove_member(self, classroom_id: str, member_id: str) -> None:
+        require_writable_classroom(self._conn, classroom_id)
         with self._conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM classroom_member WHERE id = %s AND classroom_id = %s",

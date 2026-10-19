@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { getToken } from './session'
+import { clearToken, getToken } from './session'
 
 // build-time env ของ Vite — เปลี่ยนค่าแล้วต้อง rebuild ไม่ใช่แค่ restart
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
@@ -56,6 +56,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (res.ok) {
     return (res.status === 204 ? undefined : await res.json()) as T
   }
+
+  // 401 หมายถึง session ใช้ไม่ได้แล้ว — guard ต้องปิดหน้าภายในทันที
+  if (res.status === 401 && token === getToken()) clearToken()
 
   let code = 'UNKNOWN'
   let message = `เกิดข้อผิดพลาด (HTTP ${res.status})`
@@ -150,6 +153,14 @@ export function getMe(): Promise<Me> {
   return apiFetch<Me>('/api/me')
 }
 
+export type Notification = { id: string; title: string; message: string; href: string; occurredAt: string; read: boolean }
+export function listNotifications(): Promise<{ items: Notification[]; unreadCount: number }> {
+  return apiFetch('/api/notifications')
+}
+export function readNotification(id: string): Promise<void> {
+  return apiFetch(`/api/notifications/${encodeURIComponent(id)}:read`, { method: 'POST' })
+}
+
 // --- Classroom (US-02) ---
 
 export type Classroom = {
@@ -159,16 +170,33 @@ export type Classroom = {
   timezone: string
   allowedEmailDomains: string[]
   status: string
+  courseCode?: string | null
+  semester?: string | null
+  instructorName?: string | null
+  groupName?: string | null
+  studentCount?: number
+  groupCount?: number
+  assignmentCount?: number
+  pendingAssignmentCount?: number
 }
 
 export function listClassrooms(): Promise<{ items: Classroom[] }> {
   return apiFetch<{ items: Classroom[] }>('/api/classrooms')
 }
 
+export function archiveClassroom(id: string, archived: boolean): Promise<Classroom> {
+  return apiFetch(`/api/classrooms/${encodeURIComponent(id)}:${archived ? 'archive' : 'restore'}`, { method: 'POST' })
+}
+export function deleteClassroom(id: string): Promise<void> {
+  return apiFetch(`/api/classrooms/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 export function createClassroom(input: {
   name: string
   timezone: string
   allowedEmailDomains?: string[]
+  courseCode?: string
+  semester?: string
 }): Promise<Classroom> {
   return apiFetch<Classroom>('/api/classrooms', {
     method: 'POST',
@@ -187,7 +215,10 @@ export type RosterEntry = {
   role: 'OWNER' | 'CO_TEACHER' | 'TA' | 'STUDENT'
   groupName: string | null
   status: 'PENDING' | 'ACTIVE' | 'DISABLED'
+  enrollmentStatus?: 'ACTIVE' | 'WITHDRAWN'
 }
+
+export const changeEnrollment = (classroomId: string, memberId: string, withdrawn: boolean, reason: string) => apiFetch<{ enrollmentStatus: 'ACTIVE' | 'WITHDRAWN'; repairs: { assignmentId: string; generation: number; pairsAdded: number; warnings: string[] }[] }>(`/api/classrooms/${encodeURIComponent(classroomId)}/members/${encodeURIComponent(memberId)}/enrollment`, { method: 'PATCH', body: JSON.stringify({ withdrawn, reason }) })
 
 export type RosterImportResult = {
   imported: number
@@ -226,6 +257,7 @@ export type Criterion = {
   name: string
   weightPct: number
   displayOrder: number
+  question?: string | null
 }
 
 export type Assignment = {
@@ -236,7 +268,27 @@ export type Assignment = {
   groupDeadlineUtc: string
   individualDeadlineUtc: string | null
   criteria: Criterion[]
+  opensAtUtc?: string | null
+  description?: string | null
+  artifactUrl?: string | null
+  groupArtifactUrls?: Record<string, string>
+  groupMaxScore: string | number
+  individualMaxScore: string | number
+  targetCoverage: number
+  maxWorkload: number
+  instructorWeight: string | number
+  minComparisons: number
+  scoreFloor: string | number
+  scoreCeiling: string | number
+  completionThreshold: string | number
 }
+
+export const getAssignment = (id: string) => apiFetch<Assignment>(`/api/assignments/${encodeURIComponent(id)}`)
+export const updateAssignment = (id: string, input: Parameters<typeof createAssignment>[0]) => apiFetch<Assignment>(`/api/assignments/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })
+export const extendDeadline = (id: string, input: { groupDeadlineUtc: string; individualDeadlineUtc: string | null; reason: string }) => apiFetch<Assignment>(`/api/assignments/${encodeURIComponent(id)}:extend-deadline`, { method: 'POST', body: JSON.stringify(input) })
+export const copyAssignment = (id: string, input: { name: string; groupDeadlineUtc: string; individualDeadlineUtc: string | null }) => apiFetch<Assignment>(`/api/assignments/${encodeURIComponent(id)}:copy`, { method: 'POST', body: JSON.stringify(input) })
+export const unpublishImpact = (id: string) => apiFetch<{ submittedEvaluators: number; submittedComparisons: number; assignedComparisons: number }>(`/api/assignments/${encodeURIComponent(id)}/unpublish-impact`)
+export const unpublishAssignment = (id: string, reason: string) => apiFetch<Assignment>(`/api/assignments/${encodeURIComponent(id)}:unpublish`, { method: 'POST', body: JSON.stringify({ reason, confirmInvalidate: true }) })
 
 export type Feasibility = {
   side: CriterionSide
@@ -287,11 +339,16 @@ export function publishAssignment(assignmentId: string): Promise<PublishResult> 
 }
 
 export type AssignmentSummary = {
+  opensAtUtc?: string | null
   id: string
   name: string
   status: Assignment['status']
   groupDeadlineUtc: string
   individualDeadlineUtc: string | null
+  assignedCount?: number
+  answeredCount?: number
+  submittedCount?: number
+  submittedAt?: string | null
 }
 
 /** งานประเมินทั้งหมดในห้องนี้ — นักศึกษาเห็นเฉพาะที่ไม่ใช่ DRAFT (US-07) */
@@ -306,6 +363,8 @@ export function listClassroomAssignments(
 // --- รายการที่ต้องประเมิน (US-07) ---
 
 export type EvaluationItem = {
+  leftArtifactUrl?: string | null
+  rightArtifactUrl?: string | null
   pairAssignmentId: string
   criterionId: string
   criterionName: string
@@ -315,9 +374,14 @@ export type EvaluationItem = {
   rightLabel: string
   completed: boolean
   choice: number | null
+  weightPct?: string | number
+  question?: string | null
 }
 
 export type MyEvaluations = {
+  opensAtUtc?: string | null
+  readOnly?: boolean
+  assignmentName?: string
   side: CriterionSide
   opened: boolean
   message: string | null
@@ -351,10 +415,11 @@ export type SavedComparison = {
 export function saveComparison(
   pairAssignmentId: string,
   choice: number,
+    timeOnTaskMs?: number,
 ): Promise<SavedComparison> {
   return apiFetch<SavedComparison>(
     `/api/comparisons/${encodeURIComponent(pairAssignmentId)}`,
-    { method: 'PUT', body: JSON.stringify({ choice }) },
+      { method: 'PUT', body: JSON.stringify({ choice, timeOnTaskMs }) },
   )
 }
 
@@ -512,6 +577,7 @@ async function downloadCsv(path: string, init: RequestInit, filenameFallback: st
     },
   })
   if (!res.ok) {
+    if (res.status === 401 && token === getToken()) clearToken()
     let message = `เกิดข้อผิดพลาด (HTTP ${res.status})`
     try {
       const body = (await res.json()) as Partial<ApiErrorBody>
@@ -554,6 +620,15 @@ export function exportComparisonsIdentified(assignmentId: string, reason: string
 }
 
 export type MyScore = {
+  groupOverridden?: boolean
+  individualOverridden?: boolean
+  assignmentName?: string | null
+  groupMaxScore?: string | number | null
+  individualMaxScore?: string | number | null
+  finalizedAt?: string | null
+  submittedCount?: number | null
+  assignedCount?: number | null
+  criterionScores?: { id: string; side: CriterionSide; name: string; weightPct: string | number; score: string | number; maxScore: string | number }[]
   finalized: boolean
   message: string | null
   groupComponent: string | null
@@ -572,3 +647,32 @@ export type MyScore = {
 export function getMyScore(assignmentId: string): Promise<MyScore> {
   return apiFetch<MyScore>(`/api/assignments/${encodeURIComponent(assignmentId)}/my-score`)
 }
+
+export type Appeal = {
+  id: string; assignmentId: string; assignmentName: string; studentName: string
+  message: string; status: 'OPEN' | 'RESOLVED' | 'REJECTED'; resolution: string | null
+  createdAt: string; resolvedAt: string | null
+}
+
+export type RosterPreview = RosterImportResult & { rows: { email: string; displayName: string | null; groupName: string }[] }
+export function previewRoster(classroomId: string, file: File): Promise<RosterPreview> {
+  const body = new FormData()
+  body.append('file', file)
+  return apiFetch<RosterPreview>(`/api/classrooms/${encodeURIComponent(classroomId)}/roster:preview`, { method: 'POST', body })
+}
+export const listAppeals = (classroomId: string) => apiFetch<{ items: Appeal[] }>(`/api/classrooms/${encodeURIComponent(classroomId)}/appeals`)
+export const createAppeal = (assignmentId: string, message: string) => apiFetch<Appeal>(`/api/assignments/${encodeURIComponent(assignmentId)}/appeals`, { method: 'POST', body: JSON.stringify({ message }) })
+export const resolveAppeal = (classroomId: string, appealId: string, status: 'RESOLVED' | 'REJECTED', resolution: string) => apiFetch<Appeal>(`/api/classrooms/${encodeURIComponent(classroomId)}/appeals/${encodeURIComponent(appealId)}:resolve`, { method: 'POST', body: JSON.stringify({ status, resolution }) })
+
+export type AuditRecord = { id: string; actorEmail: string; action: string; resourceType: string; resourceId: string | null; beforeState: Record<string, unknown> | null; afterState: Record<string, unknown> | null; reason: string | null; occurredAt: string }
+export const getAudit = (classroomId: string) => apiFetch<{ items: AuditRecord[] }>(`/api/classrooms/${encodeURIComponent(classroomId)}/audit`)
+export type Reviewer = { key: string; label: string; excluded: boolean; assignedCount: number; submittedCount: number; flags: string[]; unassessed: string[]; meanTimeMs: number | null; timedCount: number; checkedTriples: number; cycles: number; answers: { criterionName: string; side: CriterionSide; leftLabel: string; rightLabel: string; choice: number; timeOnTaskMs: number | null; status: string }[] }
+export type CoveragePair = { criterionId: string; criterionName: string; side: CriterionSide; itemAId: string; itemBId: string; itemALabel: string; itemBLabel: string; artifactAUrl: string | null; artifactBUrl: string | null; assignedCount: number; submittedCount: number; expectedCount: number; eligibleCount: number }
+export type PairSelection = { criterionId: string; itemAId: string; itemBId: string; reason: string }
+export const assignAdditional = (assignmentId: string, input: PairSelection & { count: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/additional-evaluations`, { method: 'POST', body: JSON.stringify(input) })
+export const submitInstructorComparison = (assignmentId: string, input: PairSelection & { choice: number; timeOnTaskMs?: number }) => apiFetch<{ pairsAdded: number }>(`/api/assignments/${encodeURIComponent(assignmentId)}/instructor-comparisons`, { method: 'POST', body: JSON.stringify(input) })
+export type QualityReport = { pairCoverage: CoveragePair[]; evaluators: Reviewer[]; coverage: { itemId: string; side: CriterionSide; criterionId: string; criterionName: string; itemLabel: string; assignedCount: number; submittedCount: number; minimum: number; flags: string[] }[]; limitations: string[] }
+export const getQuality = (assignmentId: string) => apiFetch<QualityReport>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality`)
+export const revealReviewer = (assignmentId: string, key: string, reason: string) => apiFetch<{ displayName: string | null; email: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:identity`, { method: 'POST', body: JSON.stringify({ reason }) })
+export const setReviewerExclusion = (assignmentId: string, key: string, excluded: boolean, reason: string) => apiFetch<{ excluded: boolean; computedAt: string }>(`/api/assignments/${encodeURIComponent(assignmentId)}/quality/${encodeURIComponent(key)}:exclusion`, { method: 'POST', body: JSON.stringify({ excluded, reason }) })
+export const changeMemberRole = (classroomId: string, memberId: string, role: InstructorRole, reason: string) => apiFetch(`/api/classrooms/${encodeURIComponent(classroomId)}/members/${encodeURIComponent(memberId)}`, { method: 'PATCH', body: JSON.stringify({ role, reason }) })

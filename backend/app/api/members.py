@@ -13,11 +13,15 @@ from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.email import normalize_email
-from app.domain.errors import NotFoundError
+from app.domain.errors import NotFoundError, ValidationError
 from app.domain.member_service import assert_removable, validate_new_member
 from app.domain.models import MemberRole
 from app.repositories.pg_audit_repo import PgAuditRepository
-from app.repositories.pg_classroom_repo import PgClassroomRepository
+from app.repositories.pg_classroom_repo import (
+    PgClassroomRepository,
+    require_editable_roster,
+    require_writable_classroom,
+)
 
 router = APIRouter(prefix="/api/classrooms", tags=["classrooms"])
 
@@ -31,6 +35,40 @@ class MemberOut(BaseModel):
     memberId: str
     email: str
     role: str
+
+
+class MemberRoleIn(BaseModel):
+    role: MemberRole
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+@router.patch("/{classroom_id}/members/{member_id}", response_model=MemberOut)
+def change_member_role(classroom_id: str, member_id: str, body: MemberRoleIn,
+                       user_email: CurrentUser, request: Request) -> MemberOut:
+    with transaction() as conn, conn.cursor() as cur:
+        repo = PgClassroomRepository(conn)
+        ClassroomAccess(repo).require(classroom_id, user_email, Capability.MANAGE_MEMBERS)
+        require_writable_classroom(conn, classroom_id)
+        # Ownership transfer and student reassignment have different academic rules.
+        cur.execute("SELECT m.role, u.email_normalized FROM classroom_member m "
+                    "JOIN app_user u ON u.id = m.user_id "
+                    "WHERE m.classroom_id = %s AND m.id::text = %s FOR UPDATE OF m", (classroom_id, member_id))
+        member = cur.fetchone()
+        if member is None:
+            raise NotFoundError('ไม่พบสมาชิกคนนี้ในห้องเรียนนี้')
+        allowed = {MemberRole.CO_TEACHER, MemberRole.TA}
+        if member['role'] not in allowed or body.role not in allowed:
+            raise ValidationError('เปลี่ยนได้เฉพาะผู้สอนร่วมและผู้ช่วยสอน', field='role')
+        reason = body.reason.strip()
+        if not reason:
+            raise ValidationError('กรุณาระบุเหตุผล', field='reason')
+        cur.execute('UPDATE classroom_member SET role = %s WHERE id::text = %s', (str(body.role), member_id))
+        PgAuditRepository(conn).record(AuditEvent(
+            actor_email=user_email, action=AuditAction.MEMBER_ROLE_CHANGED, resource_type='classroom_member',
+            resource_id=member_id, classroom_id=classroom_id, before_state={'role': member['role']},
+            after_state={'role': str(body.role)}, reason=reason, ip=request.client.host if request.client else None,
+        ))
+        return MemberOut(memberId=member_id, email=member['email_normalized'], role=str(body.role))
 
 
 class AuditList(BaseModel):
@@ -105,6 +143,8 @@ def remove_member(
         if found is None:
             raise NotFoundError("ไม่พบสมาชิกคนนี้ในห้องเรียนนี้")
         email, role = found
+        if role == MemberRole.STUDENT:
+            require_editable_roster(conn, classroom_id)
 
         # รวมกรณีถอดตัวเองด้วย — OWNER คนสุดท้ายถอดตัวเองแล้วห้องจะไม่มีเจ้าของ
         assert_removable(role_to_remove=role, owner_count=repo.count_owners(classroom_id))

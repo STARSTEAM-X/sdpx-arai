@@ -31,6 +31,8 @@ class Classroom:
     allowed_email_domains: list[str] = field(default_factory=list)
     status: ClassroomStatus = ClassroomStatus.ACTIVE
     created_at: datetime | None = None
+    course_code: str | None = None
+    semester: str | None = None
 
 
 @dataclass
@@ -58,6 +60,7 @@ class RosterMember:
     member_id: str = ""
     display_name: str | None = None
     group_name: str | None = None
+    enrollment_status: str = 'ACTIVE'
 
 
 @dataclass

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { Avatar, Card, CardHead, FOCUS, Pill, RolePill, StatusPill } from './Ui'
-import { IconDots, IconRoster, IconSearch, IconUserMinus, IconUserPlus } from './icons'
+import { IconRoster, IconSearch, IconUserPlus } from './icons'
 import type { RosterEntry } from '../lib/api'
+import { MemberRowActions } from './MemberRowActions'
 
 const PER_PAGE = 10
 
@@ -17,16 +18,17 @@ export function RosterTable({
   loaded,
   canManageMembers,
   onRemove,
+  onEnrollment,
 }: {
   items: RosterEntry[]
   loaded: boolean
   /** เฉพาะ OWNER — role อื่นเรียก endpoint นี้ได้ 403 อยู่แล้ว ซ่อนเมนูเพื่อไม่ให้กดแล้วพังเสมอ */
   canManageMembers: boolean
+  onEnrollment?: (entry: RosterEntry) => void
   onRemove: (entry: RosterEntry) => void
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -43,20 +45,6 @@ export function RosterTable({
   const students = items.filter((m) => m.role === 'STUDENT')
   const groupCount = new Set(students.map((s) => s.groupName)).size
 
-  // ปิดเมนูเมื่อคลิกที่อื่นหรือกด Escape — เมนูลอยที่ปิดไม่ลงคือเมนูที่บังปุ่มอื่น
-  useEffect(() => {
-    if (openMenu === null) return
-    const close = () => setOpenMenu(null)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenMenu(null)
-    }
-    document.addEventListener('click', close)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('click', close)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [openMenu])
 
   return (
     <Card aria-labelledby="h-roster">
@@ -126,7 +114,7 @@ export function RosterTable({
             </div>
 
             {/* ตารางกว้างกว่าจอมือถือเสมอ — ให้เลื่อนในกล่องตัวเอง ไม่ใช่ให้ทั้งหน้าเลื่อนตามขวาง */}
-            <div className="overflow-x-auto rounded-xl border border-edge">
+            <div className="relative overflow-x-auto rounded-xl border border-edge">
               <table data-testid="roster-list" className="w-full min-w-160 border-collapse">
                 <caption className="sr-only">ตารางรายชื่อสมาชิกในห้องเรียน</caption>
                 <thead>
@@ -170,46 +158,10 @@ export function RosterTable({
                         <RolePill role={m.role} />
                       </td>
                       <td className="border-b border-edge px-4 py-3 align-middle">
-                        <StatusPill status={m.status} />
+                        {m.enrollmentStatus === 'WITHDRAWN' ? <Pill tone="neutral">ถอนรายวิชา</Pill> : <StatusPill status={m.status} />}
                       </td>
                       <td className="border-b border-edge px-4 py-3 text-right align-middle">
-                        {canManageMembers && (
-                          <span className="relative inline-block">
-                            <button
-                              type="button"
-                              aria-haspopup="menu"
-                              aria-expanded={openMenu === m.memberId}
-                              aria-label={`จัดการ ${m.displayName ?? m.email}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setOpenMenu(openMenu === m.memberId ? null : m.memberId)
-                              }}
-                              className={`grid size-11 place-items-center rounded-lg border border-transparent text-muted transition-colors hover:border-edge hover:bg-sand hover:text-ink ${FOCUS}`}
-                            >
-                              <IconDots className="size-4.5" />
-                            </button>
-
-                            {openMenu === m.memberId && (
-                              <span
-                                role="menu"
-                                className="absolute top-12 right-0 z-30 block min-w-52 rounded-xl border border-edge bg-white p-1.5 text-left shadow-[0_10px_30px_-12px_rgba(23,32,51,0.28)]"
-                              >
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setOpenMenu(null)
-                                    onRemove(m)
-                                  }}
-                                  className={`flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm text-err hover:bg-err-soft ${FOCUS}`}
-                                >
-                                  <IconUserMinus className="size-4" />
-                                  นำออกจากห้องเรียน
-                                </button>
-                              </span>
-                            )}
-                          </span>
-                        )}
+                        <MemberRowActions member={m} canRemove={canManageMembers} onRemove={onRemove} onEnrollment={onEnrollment} />
                       </td>
                     </tr>
                   ))}

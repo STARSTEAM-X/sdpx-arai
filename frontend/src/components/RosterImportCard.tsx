@@ -7,6 +7,8 @@ import {
   type ApiRowError,
   type RosterImportResult,
   importRoster,
+  previewRoster,
+  type RosterPreview,
 } from '../lib/api'
 
 /** ใช้ไฟล์จริงจาก public เพื่อให้ผู้ใช้ดาวน์โหลดข้อมูลชุดเดียวกับตัวอย่างที่ตรวจแล้ว */
@@ -36,15 +38,18 @@ export function RosterImportCard({
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<RosterImportResult | null>(null)
   const [rowErrors, setRowErrors] = useState<ApiRowError[]>([])
+  const [preview, setPreview] = useState<RosterPreview | null>(null)
 
   const fileInput = useRef<HTMLInputElement>(null)
 
   /** เลือกไฟล์ใหม่ = เริ่มรอบใหม่ ผลของรอบก่อนต้องหายไปพร้อมกัน
    *  ไม่งั้นจะเห็น "นำเข้าสำเร็จ 4 คน" ค้างอยู่ข้าง ๆ ไฟล์ที่ยังไม่ได้กดนำเข้า */
   function pick(next: File | null) {
+    if (uploading) return
     setFile(next)
     setResult(null)
     setRowErrors([])
+    setPreview(null)
     onError(null)
   }
 
@@ -68,9 +73,14 @@ export function RosterImportCard({
     setResult(null)
 
     try {
-      setResult(await importRoster(classroomId, chosen))
-      await onImported()
-      clearFile()
+      if (!preview) {
+        setPreview(await previewRoster(classroomId, chosen))
+      } else {
+        setResult(await importRoster(classroomId, chosen))
+        setPreview(null)
+        await onImported()
+        clearFile()
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         onError(err.message)
@@ -131,6 +141,7 @@ export function RosterImportCard({
           <input
             ref={fileInput}
             type="file"
+            disabled={uploading}
             accept=".csv,text/csv"
             aria-label="ไฟล์รายชื่อ CSV"
             className="sr-only"
@@ -235,11 +246,19 @@ export function RosterImportCard({
           </Banner>
         )}
 
+        {preview && <div className="mt-5 rounded-2xl border border-edge p-4" data-testid="roster-preview">
+          <h3 className="font-display font-bold">ตรวจสอบรายชื่อก่อนนำเข้า</h3>
+          <p className="mt-2 text-sm text-muted">{preview.imported} คน · {preview.groupsCreated} กลุ่ม · ยังไม่มีการบันทึกข้อมูล</p>
+          <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-edge"><table className="w-full text-left text-sm"><caption className="sr-only">ตัวอย่างรายชื่อทั้งหมดจากไฟล์ CSV</caption><thead className="sticky top-0 bg-sand"><tr><th className="p-3">อีเมล</th><th className="p-3">ชื่อ</th><th className="p-3">กลุ่ม</th></tr></thead><tbody>{preview.rows.map((row) => <tr key={row.email} className="border-t border-edge"><td className="break-all p-3">{row.email}</td><td className="p-3">{row.displayName ?? '—'}</td><td className="p-3">{row.groupName}</td></tr>)}</tbody></table></div>
+          {preview.warnings.map((warning) => <p key={warning.message} className="mt-3 text-sm text-warn">{warning.message}</p>)}
+          <Banner tone="warn" className="mt-3">เมื่อยืนยัน รายชื่อนักศึกษาปัจจุบันจะถูกแทนที่ทั้งชุด กรุณาตรวจสอบก่อนดำเนินการ</Banner>
+        </div>}
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="submit" disabled={uploading} className={btn('primary', 'md', 'max-sm:w-full')}>
             {uploading && <Spinner />}
-            {uploading ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}
+            {uploading ? 'กำลังตรวจสอบ…' : preview ? 'ยืนยันนำเข้ารายชื่อ' : 'นำเข้ารายชื่อ'}
           </button>
+          {preview && <button type="button" disabled={uploading} onClick={() => setPreview(null)} className={btn('ghost')}>กลับไปเลือกไฟล์</button>}
         </div>
       </form>
     </Card>

@@ -20,6 +20,7 @@ import {
   type RosterEntry,
   addMember,
   removeMember,
+  changeMemberRole,
 } from '../lib/api'
 
 const ROLE_OPTIONS: { value: InstructorRole; label: string; hint: string }[] = [
@@ -209,6 +210,11 @@ export function MemberPanel({
 
                 <RolePill role={m.role} />
                 <StatusPill status={m.status} />
+                {m.role !== 'OWNER' && <button type="button" disabled={busy} className={btn('ghost', 'sm')} onClick={() => {
+                  const nextRole = m.role === 'TA' ? 'CO_TEACHER' : 'TA'
+                  const reason = window.prompt(`เปลี่ยนบทบาท ${m.email} เป็น ${nextRole === 'TA' ? 'ผู้ช่วยสอน' : 'ผู้สอนร่วม'} กรุณาระบุเหตุผล`)
+                  if (reason?.trim()) void run(() => changeMemberRole(classroomId, m.memberId, nextRole, reason.trim()), 'เปลี่ยนบทบาทแล้ว')
+                }}>เปลี่ยนบทบาท</button>}
 
                 <button
                   type="button"

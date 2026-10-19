@@ -1,8 +1,12 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
+import classroomIllustration from '../assets/enhanced/classroom.webp'
+import welcomeIllustration from '../assets/figma/welcome.png'
 import { AppNav } from '../components/AppNav'
 import { AssignmentPanel } from '../components/AssignmentPanel'
+import { AppealsPanel } from '../components/AppealsPanel'
+import { EnrollmentDialog } from '../components/EnrollmentDialog'
 import { AssignmentScoringCard } from '../components/AssignmentScoringCard'
 import { AssignmentsToEvaluateCard } from '../components/AssignmentsToEvaluateCard'
 import { MemberPanel } from '../components/MemberPanel'
@@ -10,9 +14,10 @@ import { RosterImportCard } from '../components/RosterImportCard'
 import { RosterTable } from '../components/RosterTable'
 import { SetupStepper, type StepState } from '../components/SetupStepper'
 import { SetupSummary } from '../components/SetupSummary'
-import { Banner, Card, Pill } from '../components/Ui'
+import { Banner, Card, FOCUS, Pill } from '../components/Ui'
 import {
   IconClipboardCheck,
+  IconBack,
   IconInstructor,
   IconLock,
   IconRoster,
@@ -23,13 +28,15 @@ import {
 import {
   ApiError,
   type RosterEntry,
+  type Classroom,
   getMe,
   getRoster,
   listClassrooms,
+  listClassroomAssignments,
   removeMember,
 } from '../lib/api'
 import { DEFAULT_DRAFT, type AssignmentDraft } from '../lib/assignment'
-import { clearToken, isSignedIn } from '../lib/session'
+import { isSignedIn } from '../lib/session'
 
 // ต้องตรงกับ role matrix ฝั่ง server ใน backend/app/domain/access.py
 // หน้าจอที่ซ่อนปุ่มไม่ใช่การกันสิทธิ์ — server กันอยู่แล้ว — แต่ถ้าสองฝั่งไม่ตรงกัน
@@ -88,17 +95,17 @@ function SummaryTile({
   hint: string
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-edge bg-white p-4">
+    <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-edge bg-white px-4 py-5 text-center">
       <span
         aria-hidden="true"
-        className="grid size-10 shrink-0 place-items-center rounded-xl bg-sand text-ink-2"
+        className="hidden"
       >
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-muted">{label}</p>
-        <p className="mt-0.5 font-display text-lg font-bold leading-tight">{value}</p>
-        <p className="mt-1 text-xs text-muted">{hint}</p>
+        <p className="text-xs font-semibold text-ink-2">{label}</p>
+        <p className="mt-2 font-display text-[30px] font-bold leading-tight">{value}</p>
+        <p className="mt-2 text-xs leading-5 text-muted">{hint}</p>
       </div>
     </div>
   )
@@ -106,9 +113,9 @@ function SummaryTile({
 
 function StudentWelcome({ classroomName }: { classroomName: string }) {
   return (
-    <Card className="overflow-hidden" data-testid="student-dashboard">
-      <div className="relative overflow-hidden bg-[linear-gradient(135deg,#fff7f1_0%,#ffffff_48%,#eef9f3_100%)] px-6 py-7 max-sm:px-4">
-        <div aria-hidden="true" className="absolute -right-8 -top-12 size-40 rounded-full bg-accent-soft/70" />
+    <Card className="overflow-hidden">
+      <div className="relative overflow-hidden bg-sand px-7 py-8 max-sm:px-5">
+        <div aria-hidden="true" className="absolute -right-8 -top-12 size-48 rounded-full bg-accent-soft/70" />
         <div className="relative max-w-2xl">
           <Pill tone="brand" icon={<IconStudent className="size-3.5" />}>
             พื้นที่นักศึกษา
@@ -141,14 +148,29 @@ function StudentWelcome({ classroomName }: { classroomName: string }) {
 
 export default function ClassroomDetailPage() {
   const { classroomId = '' } = useParams()
+  const [searchParams] = useSearchParams()
 
   const [items, setItems] = useState<RosterEntry[]>([])
   const [myRole, setMyRole] = useState<ClassroomRole | null>(null)
   const [classroomName, setClassroomName] = useState('ห้องเรียนนี้')
   const [classroomTimezone, setClassroomTimezone] = useState('Asia/Bangkok')
+  const [roomContext, setRoomContext] = useState<Classroom | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [selectedEnrollment, setSelectedEnrollment] = useState<RosterEntry | null>(null)
+  const [enrollmentNotice, setEnrollmentNotice] = useState<string | null>(null)
+  const [myEnrollment, setMyEnrollment] = useState('ACTIVE')
   const [draft, setDraft] = useState<AssignmentDraft>(DEFAULT_DRAFT)
+  const [assignmentVersion, setAssignmentVersion] = useState(0)
+  const [assignmentCount, setAssignmentCount] = useState(0)
+  const [rosterLocked, setRosterLocked] = useState(false)
+  useEffect(() => {
+    let active = true
+    void listClassroomAssignments(classroomId).then((res) => {
+      if (active) { setAssignmentCount(res.items.length); setRosterLocked(res.items.some((item) => !['DRAFT', 'ARCHIVED'].includes(item.status))) }
+    }).catch(() => {})
+    return () => { active = false }
+  }, [classroomId, assignmentVersion])
   const [activeSection, setActiveSection] = useState<ClassroomSection>(() => {
     const hash = window.location.hash.slice(1)
     return ['overview', 'members', 'assignments', 'scores'].includes(hash)
@@ -174,16 +196,15 @@ export default function ClassroomDetailPage() {
 
       setMyRole(membership.role)
       setClassroomName(membership.classroomName)
+      setRoomContext(classrooms.items.find((classroom) => classroom.id === classroomId) ?? null)
       setClassroomTimezone(
         classrooms.items.find((classroom) => classroom.id === classroomId)?.timezone ?? 'Asia/Bangkok',
       )
       const roster = await getRoster(classroomId)
       setItems(roster.items)
+      setMyEnrollment(roster.items.find((member) => member.email === profile.email)?.enrollmentStatus ?? 'ACTIVE')
       setError(null)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        clearToken()
-      }
       // 404 ที่นี่กินความสองอย่างพร้อมกันโดยตั้งใจ (US-11): ห้องไม่มีอยู่จริง
       // หรือมีอยู่แต่เราไม่ใช่สมาชิก — หน้าจอต้องไม่แยกสองกรณีนี้ให้ผู้ใช้เห็น
       setError(err instanceof ApiError ? err.message : 'โหลดรายชื่อไม่สำเร็จ')
@@ -198,7 +219,7 @@ export default function ClassroomDetailPage() {
     void refresh()
   }, [refresh])
 
-  const students = items.filter((m) => m.role === 'STUDENT')
+  const students = items.filter((m) => m.role === 'STUDENT' && m.enrollmentStatus !== 'WITHDRAWN')
   const instructors = items.filter((m) => INSTRUCTOR_ROLES.includes(m.role))
   const groupCount = new Set(students.map((s) => s.groupName)).size
 
@@ -210,6 +231,7 @@ export default function ClassroomDetailPage() {
   const canFinalizeScores = myRole === 'OWNER'
   const isInstructor = myRole !== null && INSTRUCTOR_ROLES.includes(myRole)
   const roleCopy = myRole ? ROLE_COPY[myRole] : null
+  const isArchived = roomContext?.status === 'ARCHIVED'
 
   useEffect(() => {
     if (!myRole) return
@@ -226,37 +248,17 @@ export default function ClassroomDetailPage() {
       setActiveSection(hash)
       return true
     }
-    const updateFromScroll = () => {
-      const reachedBottom =
-        window.scrollY > 0 &&
-        window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
-      if (reachedBottom) {
-        setActiveSection(available[available.length - 1])
-        return
-      }
-      // 140px เผื่อ AppNav + section nav ที่ sticky อยู่ด้านบน
-      const passed = available.filter((section) => {
-        const element = document.getElementById(section)
-        return element !== null && element.getBoundingClientRect().top <= 140
-      })
-      if (passed.length > 0) setActiveSection(passed[passed.length - 1])
-    }
-
     if (!available.includes(activeSection)) setActiveSection(available[0])
-    if (!updateFromHash()) updateFromScroll()
+    updateFromHash()
     window.addEventListener('hashchange', updateFromHash)
-    window.addEventListener('scroll', updateFromScroll, { passive: true })
-    return () => {
-      window.removeEventListener('hashchange', updateFromHash)
-      window.removeEventListener('scroll', updateFromScroll)
-    }
-  }, [myRole, isInstructor, canImport, canFinalizeScores])
+    return () => window.removeEventListener('hashchange', updateFromHash)
+  }, [myRole, isInstructor, canImport, canFinalizeScores, activeSection])
 
   const sectionLinkClass = (section: ClassroomSection) =>
-    `min-h-11 shrink-0 border-b-2 px-4 py-3 text-sm transition-colors ${
+    `inline-flex min-h-11 shrink-0 items-center rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${FOCUS} ${
       activeSection === section
-        ? 'border-brand-600 font-semibold text-accent-ink'
-        : 'border-transparent text-ink-2 hover:border-edge-strong hover:text-ink'
+        ? 'border-cta bg-cta text-white'
+        : 'border-edge-strong bg-white text-ink-2 hover:border-brand-600 hover:text-accent-ink'
     }`
 
   /** ขั้นตอนคำนวณจากข้อมูลจริงเสมอ ไม่ได้เก็บเป็น flag — ดูเหตุผลใน SetupStepper */
@@ -268,7 +270,7 @@ export default function ClassroomDetailPage() {
   const steps = [
     { title: 'เพิ่มสมาชิก', state: stepState(hasStudents, true) },
     { title: 'กำหนดผู้ร่วมสอน', state: stepState(hasCoTeacher, hasStudents) },
-    { title: 'สร้างงานประเมิน', state: stepState(false, hasStudents) },
+    { title: 'สร้างงานประเมิน', state: stepState(assignmentCount > 0, hasStudents) },
   ]
 
   /** ถอดสมาชิกออกจากเมนูในตาราง — ถามยืนยันก่อนเพราะย้อนกลับไม่ได้
@@ -293,32 +295,33 @@ export default function ClassroomDetailPage() {
       <AppNav context={classroomName} classroomId={classroomId} />
 
       <main
-        className={`mx-auto max-w-300 px-6 pt-8 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-16'}`}
+        className={`mx-auto max-w-304 px-7 pt-7 max-sm:px-4 ${canManageAssignment ? 'pb-36' : 'pb-20'}`}
       >
-        <div className="mb-7 flex flex-wrap items-start gap-x-6 gap-y-4">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted">
-              <span>{classroomName}</span>
-              {roleCopy && (
-                <Pill tone={myRole === 'STUDENT' ? 'brand' : 'neutral'} icon={roleCopy.icon}>
-                  {roleCopy.label}
-                </Pill>
-              )}
-            </div>
-            <h1 className="font-display text-3xl font-bold tracking-tight max-sm:text-2xl">
-              {roleCopy?.title ?? 'ห้องเรียน'}
-            </h1>
-            <p className="mt-1.5 max-w-[62ch] text-muted">
-              {roleCopy?.description ?? 'กำลังโหลดข้อมูลห้องเรียน'}
+        <div className={`mb-6 flex min-w-0 items-center gap-2 text-[13px] text-muted ${myRole === 'STUDENT' ? 'hidden' : ''}`}>
+          <Link to="/classrooms" className={`shrink-0 rounded-md py-1 transition-colors hover:text-accent-ink ${FOCUS}`}>
+            ห้องเรียนของฉัน
+          </Link>
+          <span aria-hidden="true">›</span>
+          <span className="truncate">{classroomName}</span>
+        </div>
+
+        {myRole === 'STUDENT' && <div className="mb-3 flex items-center gap-2"><Link to="/classrooms" aria-label="กลับห้องเรียนของฉัน" className={`grid size-11 place-items-center rounded text-brand-600 ${FOCUS}`}><IconBack className="size-10" /></Link><h1 className="font-display text-2xl font-bold">ห้องเรียน</h1></div>}
+        <div className={`relative isolate rounded-3xl bg-[linear-gradient(110deg,#ff7d3d_0%,#ffb558_100%)] px-10 py-7 max-sm:px-4 ${myRole === 'STUDENT' ? 'mb-3 min-h-31 max-sm:py-4' : 'mb-6 min-h-37'}`}>
+          <div className="relative z-10 max-w-[calc(100%-14rem)] max-md:max-w-full">
+            {myRole === 'STUDENT' ? <h2 className="max-w-[70%] font-display text-[28px] leading-tight font-bold text-white max-sm:text-xl">{classroomName}</h2> : <h1 className="font-display text-[32px] leading-tight font-bold tracking-tight text-white max-sm:text-2xl">
+              {classroomName}
+            </h1>}
+            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-ink-2 max-sm:max-w-[70%]">
+              {myRole === 'STUDENT' ? [roomContext?.groupName ? `กลุ่ม ${roomContext.groupName}` : null, roomContext?.instructorName].filter(Boolean).join(' · ') : [roomContext?.courseCode, `${students.length} คน`, `${groupCount} กลุ่ม`, `ทีมผู้สอน ${instructors.length} คน`, classroomTimezone, roleCopy ? `คุณเป็น${roleCopy.label}` : null].filter(Boolean).join(' · ')}
             </p>
           </div>
-
-          {isInstructor && (
-            <span className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-edge bg-white px-4 font-display text-sm font-semibold shadow-[0_1px_2px_rgba(23,32,51,0.05)]">
-              <span aria-hidden="true" className="size-2 rounded-full bg-brand-600" />
-              สมาชิก <span className="font-mono tabular">{items.length}</span> คน
-            </span>
-          )}
+          <img
+            src={myRole === 'STUDENT' ? welcomeIllustration : classroomIllustration}
+            alt=""
+            width={640}
+            height={480}
+            className={`pointer-events-none absolute -top-5 right-0 -z-10 h-56 w-72 object-contain ${myRole === 'STUDENT' ? 'max-md:top-auto max-md:bottom-3 max-md:right-2 max-md:h-24 max-md:w-28' : 'max-md:hidden'}`}
+          />
         </div>
 
         {error && (
@@ -326,11 +329,14 @@ export default function ClassroomDetailPage() {
             {error}
           </Banner>
         )}
+        {isArchived && <Banner tone="info" className="mb-6">ห้องเรียนนี้เก็บเข้าคลังแล้ว — อ่านข้อมูล ดูคะแนน และส่งออกได้ กรุณาคืนห้องเรียนก่อนแก้ไข</Banner>}
+        {myEnrollment === 'WITHDRAWN' && <Banner tone="info" className="mb-6">คุณถอนจากรายวิชานี้แล้ว จึงไม่มีงานประเมินหรือคะแนนในห้องนี้ บัญชีและห้องเรียนอื่นยังใช้งานได้</Banner>}
+        {enrollmentNotice && <Banner tone="info" role="status" className="mb-6">{enrollmentNotice}</Banner>}
 
-        {myRole && (
+        {isInstructor && (
           <nav
             aria-label="ส่วนต่าง ๆ ในห้องเรียน"
-            className="sticky top-16 z-30 mb-6 flex gap-1 overflow-x-auto border-b border-edge bg-ground/95 pt-1 backdrop-blur"
+            className="sticky top-16 z-30 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-ground/95 px-1 py-3 backdrop-blur"
           >
             {isInstructor && (
               <a
@@ -372,25 +378,31 @@ export default function ClassroomDetailPage() {
                 คะแนน
               </a>
             )}
+            <Link to={`/classrooms/${classroomId}/audit`} className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-edge-strong bg-white px-5 py-2.5 text-sm font-semibold">บันทึกการตรวจสอบ</Link>
           </nav>
         )}
 
-        {myRole === 'OWNER' && <SetupStepper steps={steps} />}
+        {myRole === 'OWNER' && activeSection === 'overview' && !hasStudents && <SetupStepper steps={steps} />}
+
+          {isInstructor && activeSection === 'overview' && canManageAssignment && !isArchived && <Banner tone="info" className="mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3"><span>{assignmentCount ? 'ติดตามงานและการประเมินของห้องเรียน' : 'พร้อมสร้างงานประเมินแรก'}</span><a href="#assignments" className="rounded-full border border-edge-strong bg-white px-5 py-3 text-sm font-semibold text-ink">สร้างงานประเมิน</a></div>
+          </Banner>}
 
         {isInstructor && (
-          <section id="overview" aria-label="ภาพรวมห้องเรียน" className="mb-6 grid scroll-mt-32 gap-3 sm:grid-cols-3">
+          <section id="overview" aria-label="ภาพรวมห้องเรียน" hidden={activeSection !== 'overview'} className="mb-7 grid scroll-mt-40 gap-4 sm:grid-cols-4 [hidden]:hidden">
             <SummaryTile
               icon={<IconStudent className="size-5" />}
               label="นักศึกษา"
-              value={<span className="font-mono tabular">{students.length} คน</span>}
+              value={<span className="font-mono tabular">{students.length}</span>}
               hint={students.length > 0 ? 'พร้อมจัดกลุ่มและมอบหมายงาน' : 'รอนำเข้ารายชื่อ'}
             />
             <SummaryTile
               icon={<IconRoster className="size-5" />}
               label="กลุ่ม"
-              value={<span className="font-mono tabular">{groupCount} กลุ่ม</span>}
+              value={<span className="font-mono tabular">{groupCount}</span>}
               hint="คำนวณจากรายชื่อล่าสุด"
             />
+            <SummaryTile icon={<IconClipboardCheck className="size-5" />} label="งานประเมิน" value={assignmentCount} hint={assignmentCount ? 'งานทั้งหมดในห้อง' : 'ยังไม่มีงาน'} />
             <SummaryTile
               icon={<IconInstructor className="size-5" />}
               label="ทีมผู้สอน"
@@ -412,33 +424,39 @@ export default function ClassroomDetailPage() {
           </Banner>
         )}
 
-        {myRole === 'STUDENT' && (
-          <div className="mb-6">
-            <StudentWelcome classroomName={classroomName} />
+        {myRole === 'STUDENT' && myEnrollment !== 'WITHDRAWN' && (
+          <div className="mb-6" data-testid="student-dashboard">
+            <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} student timezone={classroomTimezone} />
           </div>
         )}
+        {isInstructor && activeSection === 'overview' && <div className="mb-6">
+
+          <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} />
+        </div>}
 
         <div className="grid items-start gap-6 lg:grid-cols-12">
           <div
-            className={`flex min-w-0 flex-col gap-6 ${canManageAssignment ? 'lg:col-span-8' : 'lg:col-span-12'}`}
+            className={`flex min-w-0 flex-col gap-6 ${canManageAssignment && activeSection === 'assignments' ? 'lg:col-span-8' : 'lg:col-span-12'}`}
           >
             {canImport && (
-              <section id="members" className="flex scroll-mt-32 flex-col gap-6">
-                <RosterImportCard
+              <section id="members" hidden={activeSection !== 'members'} className="flex scroll-mt-40 flex-col gap-6 [hidden]:hidden">
+                {rosterLocked && !isArchived && <Banner tone="info">มีงานเผยแพร่แล้ว กรุณายกเลิกเผยแพร่งานก่อนแก้รายชื่อ เพื่อเก็บคำตอบเดิมไว้และจัดคู่ใหม่อย่างถูกต้อง</Banner>}
+                {!isArchived && !rosterLocked && <RosterImportCard
                   classroomId={classroomId}
                   onImported={refresh}
                   onError={setError}
-                />
+                />}
 
                 <RosterTable
                   items={items}
                   loaded={loaded}
-                  canManageMembers={canManageMembers}
+                  onEnrollment={!isArchived ? setSelectedEnrollment : undefined}
+                  canManageMembers={canManageMembers && !isArchived}
                   onRemove={handleRemove}
                 />
 
                 {/* เฉพาะเจ้าของห้อง — ผู้สอนร่วมและ TA เพิ่มคนไม่ได้ตาม role matrix */}
-                {canManageMembers && (
+                {canManageMembers && !isArchived && (
                   <MemberPanel
                     classroomId={classroomId}
                     instructors={instructors}
@@ -449,44 +467,49 @@ export default function ClassroomDetailPage() {
             )}
 
             {/* TA ดูแล roster เท่านั้น ส่วน role ที่มีหน้าที่ประเมินจะเห็นจุดเข้างานของตน */}
-            {myRole !== null && myRole !== 'TA' && (
-              <section id="assignments" className="flex scroll-mt-32 flex-col gap-6">
-                <AssignmentsToEvaluateCard classroomId={classroomId} />
+            {isInstructor && myRole !== 'TA' && (
+              <section id="assignments" hidden={activeSection !== 'assignments'} className="flex scroll-mt-40 flex-col gap-6 [hidden]:hidden">
+                <AssignmentsToEvaluateCard classroomId={classroomId} version={assignmentVersion} timezone={classroomTimezone} onChanged={() => setAssignmentVersion((v) => v + 1)} readOnly={isArchived} />
+
+                {canManageAssignment && <AppealsPanel classroomId={classroomId} readOnly={isArchived} />}
 
                 {/* งานประเมินสร้างได้เฉพาะผู้สอน และต้องมีรายชื่อก่อนถึงจะจัดคู่ได้ */}
-                {canManageAssignment && (
+                {canManageAssignment && !isArchived && (
                   <AssignmentPanel
+                    editingId={searchParams.get('draft') ?? undefined}
                     classroomId={classroomId}
                     draft={draft}
                     onDraftChange={setDraft}
                     studentCount={students.length}
                     timezone={classroomTimezone}
+                    onChanged={() => setAssignmentVersion((v) => v + 1)}
+                    groupNames={[...new Set(students.map((student) => student.groupName).filter((name): name is string => Boolean(name)))]}
                   />
                 )}
               </section>
             )}
 
             {myRole === 'STUDENT' && (
-              <section aria-label="รายชื่อสมาชิกในห้อง" className="scroll-mt-32">
+              <details aria-label="รายชื่อสมาชิกในห้อง" className="scroll-mt-40"><summary className="mb-4 cursor-pointer font-semibold">ข้อมูลห้องและสมาชิก</summary><StudentWelcome classroomName={classroomName} />
                 <RosterTable
                   items={items}
                   loaded={loaded}
                   canManageMembers={false}
                   onRemove={handleRemove}
                 />
-              </section>
+              </details>
             )}
 
             {/* ตัดสินและประกาศคะแนน — เฉพาะเจ้าของห้อง (US-13) */}
             {canFinalizeScores && (
-              <section id="scores" className="scroll-mt-32">
-                <AssignmentScoringCard classroomId={classroomId} />
+              <section id="scores" hidden={activeSection !== 'scores'} className="scroll-mt-40 [hidden]:hidden">
+                <AssignmentScoringCard classroomId={classroomId} version={assignmentVersion} readOnly={isArchived} />
               </section>
             )}
           </div>
 
-          {canManageAssignment && (
-            <aside aria-label="สรุปการตั้งค่า" className="lg:sticky lg:top-22 lg:col-span-4">
+          {canManageAssignment && !isArchived && activeSection === 'assignments' && (
+            <aside aria-label="สรุปการตั้งค่า" className="lg:sticky lg:top-36 lg:col-span-4">
               <SetupSummary
                 draft={draft}
                 memberCount={items.length}
@@ -504,6 +527,7 @@ export default function ClassroomDetailPage() {
           </p>
         )}
       </main>
+      {selectedEnrollment && <EnrollmentDialog member={selectedEnrollment} classroomId={classroomId} onClose={() => setSelectedEnrollment(null)} onChanged={async (notice) => { await refresh(); setAssignmentVersion((value) => value + 1); setEnrollmentNotice(notice) }} />}
     </div>
   )
 }

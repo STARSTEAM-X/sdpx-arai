@@ -39,6 +39,8 @@ class ClassroomService:
         timezone: str,
         created_by: str,
         allowed_email_domains: list[str] | None = None,
+        course_code: str | None = None,
+        semester: str | None = None,
     ) -> tuple[Classroom, ClassroomMember]:
         """สร้างห้องเรียนใหม่ แล้วคืนทั้ง classroom และ membership ของผู้สร้าง
 
@@ -83,6 +85,8 @@ class ClassroomService:
                 d.strip().lower() for d in (allowed_email_domains or []) if d.strip()
             ],
             created_at=datetime.now(UTC),
+            course_code=course_code.strip() if course_code else None,
+            semester=semester.strip() if semester else None,
         )
 
         saved = self._repo.save(classroom)

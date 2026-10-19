@@ -29,7 +29,7 @@ class RosterService:
             if domain.strip()
         }
 
-    def import_csv(
+    def preview_csv(
         self, *, classroom_id: str, actor_email: str, raw: bytes
     ) -> RosterImportResult:
         """นำเข้ารายชื่อจากไฟล์ CSV — ทั้งไฟล์ผ่านหรือไม่บันทึกเลย
@@ -63,6 +63,10 @@ class RosterService:
                     rows=domain_errors,
                 )
 
+        return result
+
+    def import_csv(self, *, classroom_id: str, actor_email: str, raw: bytes) -> RosterImportResult:
+        result = self.preview_csv(classroom_id=classroom_id, actor_email=actor_email, raw=raw)
         self._repo.replace_roster(classroom_id, result.rows)
         return result
 
