@@ -6,10 +6,20 @@ FR-API-01 ซึ่งบังคับที่ระดับ SQL ด้ว�
 
 from datetime import datetime
 
-from app.domain.errors import DeadlinePassedError, NotYourPairError, ValidationError
+from app.domain.errors import (
+    ConflictError,
+    DeadlinePassedError,
+    NotYourPairError,
+    ValidationError,
+)
 
 MIN_CHOICE = 1
 MAX_CHOICE = 6
+
+
+def assert_accepting_answers(status: str) -> None:
+    if status not in {'PUBLISHED', 'OPEN', 'CLOSED'}:
+        raise ConflictError('งานนี้ไม่เปิดรับคำตอบแล้ว', field='status')
 
 
 def validate_choice(choice: int) -> None:

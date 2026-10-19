@@ -12,6 +12,7 @@ from datetime import datetime
 
 from psycopg import Connection
 
+from app.domain.errors import ConflictError
 from app.domain.pairing import Side
 
 
@@ -50,7 +51,7 @@ class PgComparisonRepository:
                 SELECT p.id, p.assignment_id, p.side, u.email_normalized AS evaluator_email
                 FROM pair_assignment p
                 JOIN app_user u ON u.id = p.evaluator_user_id
-                WHERE p.id = %s
+                WHERE p.id = %s AND p.retired_at IS NULL
                 """,
                 (pair_assignment_id,),
             )
@@ -90,7 +91,7 @@ class PgComparisonRepository:
                      status, saved_at)
                 SELECT %s, p.id, p.evaluator_user_id, %s, %s, 'DRAFT', %s
                 FROM pair_assignment p
-                WHERE p.id = %s
+                WHERE p.id = %s AND p.retired_at IS NULL
                 ON CONFLICT (pair_assignment_id) DO UPDATE SET
                     choice = EXCLUDED.choice,
                     time_on_task_ms = EXCLUDED.time_on_task_ms,
@@ -102,6 +103,8 @@ class PgComparisonRepository:
             )
             row = cur.fetchone()
 
+        if row is None:
+            raise ConflictError('คู่ประเมินนี้ถูกยกเลิกแล้ว กรุณาโหลดรายการใหม่')
         return Comparison(
             id=str(row["id"]),
             pair_assignment_id=str(row["pair_assignment_id"]),
@@ -130,7 +133,7 @@ class PgComparisonRepository:
                 FROM comparison c
                 JOIN pair_assignment p ON p.id = c.pair_assignment_id
                 JOIN app_user e ON e.id = c.evaluator_user_id
-                WHERE p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
+                WHERE p.retired_at IS NULL AND p.assignment_id = %s AND p.side = %s AND e.email_normalized = %s
                 """,
                 (assignment_id, str(side), evaluator_email),
             )

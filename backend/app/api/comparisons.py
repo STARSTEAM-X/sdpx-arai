@@ -14,15 +14,19 @@ from app.auth import CurrentUser
 from app.db import transaction
 from app.domain.access import ClassroomAccess
 from app.domain.comparison_service import (
+    assert_accepting_answers,
     assert_before_deadline,
     assert_is_evaluator,
     validate_choice,
 )
-from app.domain.errors import NotFoundError
+from app.domain.errors import ConflictError, NotFoundError
 from app.domain.pairing import Side
 from app.observability import log_event, user_ref
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
-from app.repositories.pg_classroom_repo import PgClassroomRepository
+from app.repositories.pg_classroom_repo import (
+    PgClassroomRepository,
+    require_writable_classroom,
+)
 from app.repositories.pg_comparison_repo import PgComparisonRepository
 
 log = logging.getLogger("paireval.comparisons")
@@ -68,6 +72,11 @@ def save_comparison(
 
         # เป็นสมาชิกห้องแล้ว แต่ pair นี้ไม่ได้มอบหมายให้เขา — 403 คนละเรื่องกับไม่ใช่สมาชิก
         assert_is_evaluator(pair_evaluator_email=pair.evaluator_email, caller_email=user_email)
+        require_writable_classroom(conn, assignment.classroom_id)
+        assignment = PgAssignmentRepository(conn).lock(assignment.id, exclusive=False)
+        assert_accepting_answers(str(assignment.status))
+        if assignment.opens_at_utc and datetime.now(UTC) < assignment.opens_at_utc:
+            raise ConflictError('ยังไม่ถึงเวลาเปิดรับประเมิน', field='opensAtUtc')
 
         deadline = (
             assignment.group_deadline_utc

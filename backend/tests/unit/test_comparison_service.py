@@ -8,11 +8,23 @@ from datetime import UTC, datetime
 import pytest
 
 from app.domain.comparison_service import (
+    assert_accepting_answers,
     assert_before_deadline,
     assert_is_evaluator,
     validate_choice,
 )
-from app.domain.errors import DeadlinePassedError, NotYourPairError, ValidationError
+from app.domain.errors import (
+    ConflictError,
+    DeadlinePassedError,
+    NotYourPairError,
+    ValidationError,
+)
+
+
+@pytest.mark.parametrize('status', ['DRAFT', 'FINALIZED', 'ARCHIVED'])
+def test_final_or_unpublished_work_rejects_new_answers(status):
+    with pytest.raises(ConflictError):
+        assert_accepting_answers(status)
 
 
 class TestValidateChoice:
