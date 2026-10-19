@@ -33,7 +33,7 @@ function RolePicker({
         return (
           <label
             key={choice.value}
-            className={`flex cursor-pointer gap-3 rounded-xl border px-4 py-3 ${checked ? 'border-info-ink bg-info-soft' : 'border-edge bg-white'}`}
+            className={`flex cursor-pointer gap-3 rounded-xl border px-4 py-3.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand-600 ${checked ? 'border-info-ink bg-info-soft' : 'border-edge bg-white'}`}
           >
             <input
               type="radio"
@@ -41,7 +41,7 @@ function RolePicker({
               value={choice.value}
               checked={checked}
               onChange={() => onChange(choice.value)}
-              className="mt-1 size-4.5 accent-info-ink"
+              className="mt-0.5 size-4.5 shrink-0 appearance-none rounded-full border-2 border-muted bg-white checked:border-info-ink checked:bg-info-ink focus:outline-none"
             />
             <span>
               <span className={`block font-display text-[15px] font-semibold ${checked ? 'text-info-ink' : ''}`}>
@@ -291,25 +291,25 @@ export function RemoveMemberDialog({
       aria-labelledby="remove-member-title"
       data-testid="remove-member-dialog"
       onClose={onClose}
-      className="fixed inset-0 m-auto w-[calc(100vw-2rem)] max-w-96 rounded-3xl bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40"
+      className="fixed inset-0 m-auto w-[calc(100vw-2rem)] max-w-135 rounded-3xl bg-white p-7 text-ink shadow-xl backdrop:bg-ink/40"
     >
-      <h2 id="remove-member-title" className="font-display text-[19px] font-bold">
+      <h2 id="remove-member-title" className="font-display text-[22px] font-bold">
         ถอด {name} ออกจากห้อง?
       </h2>
-      <p className="mt-1 text-[12.5px] text-muted">
+      <p className="mt-1 break-all text-[14px] text-muted">
         {member.email} · {role}
       </p>
-      <div className="mt-4 rounded-2xl bg-info-soft px-4 py-3 text-[12.5px] text-info-ink">
+      <div className="mt-4 rounded-2xl bg-info-soft px-4 py-3 text-[13.5px] leading-5.5 text-info-ink">
         <p className="font-semibold">{name} จะเข้าห้องนี้ไม่ได้อีก</p>
-        <p className="mt-0.5">คำตอบที่เคยประเมินเองยังอยู่ในการคำนวณ · บันทึก audit</p>
+        <p className="mt-1">คำตอบที่เคยประเมินเองยังอยู่ในการคำนวณ · บันทึก audit</p>
       </div>
-      <p className="mt-3 text-[11.5px] text-muted">เจ้าของห้องคนสุดท้ายถอดไม่ได้ · แถวของเจ้าของห้องจึงไม่มีเมนู ···</p>
+      <p className="mt-4 text-[12.5px] text-muted">เจ้าของห้องคนสุดท้ายถอดไม่ได้ · แถวของเจ้าของห้องจึงไม่มีเมนู ···</p>
       {error && (
         <p role="alert" className="mt-3 text-[13px] text-err">
           ✕ {error}
         </p>
       )}
-      <div className="mt-5 flex justify-end gap-2.5">
+      <div className="mt-4 flex justify-end gap-2.5">
         <button type="button" onClick={() => ref.current?.close()} className={btn('ghost', 'md', 'px-6')}>
           ยกเลิก
         </button>

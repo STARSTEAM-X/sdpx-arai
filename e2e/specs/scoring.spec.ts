@@ -497,7 +497,8 @@ test.describe('แก้คะแนนด้วยมือบนหน้า�
     await page.goto(`/classrooms/${classroomId}#scores`)
     const card = page.getByTestId('assignment-scoring-card')
     await card.getByRole('button', { name: 'ดูรายงานคะแนน' }).click()
-    await card.getByRole('button', { name: /^ปรับคะแนน / }).first().click()
+    // Figma J25 — ปุ่มเดียวใต้ตาราง แล้วเลือกกลุ่มใน dialog (J25c)
+    await card.getByRole('button', { name: 'แก้คะแนนด้วยมือ', exact: true }).click()
 
     const dialog = page.getByTestId('override-dialog')
     await expect(dialog).toBeVisible()

@@ -415,6 +415,27 @@ class PgScoringRepository:
             )
             return list(cur.fetchall())
 
+    def criterion_breakdown(self, assignment_id: str, *, is_final: bool) -> list[dict]:
+        """คะแนนรายเกณฑ์ของทุก item (Figma J25 แถวกางรายละเอียด) — q, จำนวนผลประเมิน และคะแนนส่วนนี้
+        ใช้ชุดเดียวกับ `list_computed_scores` (final = snapshot ล่าสุด) และคิด override รายเกณฑ์แล้ว"""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT cs.item_id, cs.side, cr.id AS criterion_id, cr.name, cr.weight_pct,
+                       cs.quality_index, cs.comparison_count, cs.flags,
+                       COALESCE((SELECT so.override_value FROM score_override so
+                         WHERE so.retired_at IS NULL AND so.assignment_id = cs.assignment_id AND so.side = cs.side
+                           AND so.item_id = cs.item_id AND so.criterion_id = cs.criterion_id
+                         ORDER BY so.created_at DESC LIMIT 1), cs.weighted_score) AS score
+                FROM computed_score cs JOIN criterion cr ON cr.id = cs.criterion_id
+                WHERE cs.assignment_id = %s AND cs.is_final = %s AND (NOT %s OR cs.computed_at = (
+                    SELECT MAX(computed_at) FROM computed_score WHERE assignment_id = %s AND is_final = true))
+                ORDER BY cr.display_order, cr.name
+                """,
+                (assignment_id, is_final, is_final, assignment_id),
+            )
+            return list(cur.fetchall())
+
     def list_computed_scores(self, assignment_id: str, *, is_final: bool) -> list["ComputedScoreRow"]:
         """สรุปคะแนนต่อ item (รวมทุกเกณฑ์แล้ว) — ให้อาจารย์เห็นก่อนตัดสินใจ finalize (US-13)
 

@@ -560,12 +560,25 @@ export function reopenAssignment(assignmentId: string, reason: string): Promise<
   )
 }
 
+export type CriterionScore = {
+  criterionId: string
+  name: string
+  weightPct: string
+  q: string | null
+  comparisonCount: number
+  score: string
+  maxScore: string
+  flags: string[]
+}
+
 export type ComputedScoreItem = {
   itemId: string
   side: CriterionSide
   itemLabel: string
   component: string
   flags: string[]
+  /** Figma J25 — คะแนนรายเกณฑ์ของ item นี้ */
+  criteria?: CriterionScore[]
 }
 
 export type Scores = {

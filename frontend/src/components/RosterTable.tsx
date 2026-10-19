@@ -83,22 +83,23 @@ export function RosterTable({
 
   return (
     <section aria-labelledby="h-roster" className="overflow-hidden rounded-3xl border border-edge bg-white">
-      <div className="border-b border-edge bg-surface-cream px-5 py-5">
-        <h2 id="h-roster" className="font-display text-[17px] font-semibold">
+      <div className="border-b border-edge bg-surface-cream px-5 py-4.5">
+        <h2 id="h-roster" className="font-display text-[17px] leading-6.5 font-semibold">
           สมาชิกในห้องเรียน
         </h2>
-        <p className="mt-1 text-[14px] text-ink-2">
+        <p className="mt-1 text-[14px] leading-5 text-ink-2">
           {students.length > 0 ? (
             <span data-testid="student-count">
               {items.length} คน · นักศึกษา {students.length} · ทีมผู้สอน {staff.length} · {tabLabel}
             </span>
           ) : (
-            'ยังไม่มีนักศึกษาในห้อง — นำเข้าไฟล์ CSV เพื่อเริ่มต้น'
+            // Figma J06 — ห้องที่ยังไม่มีนักศึกษายังแสดงทีมผู้สอนพร้อมตัวกรองตามปกติ
+            `${items.length} คน · ยังไม่มีนักศึกษา — นำเข้า CSV ด้านบน`
           )}
         </p>
       </div>
 
-      {loaded && students.length === 0 && staff.length <= 1 ? (
+      {loaded && items.length === 0 ? (
         <div data-testid="roster-empty" className="px-6 py-10 text-center text-[15px] text-muted">
           <p className="font-display font-semibold text-ink">ยังไม่มีรายชื่อในห้องเรียนนี้</p>
           <p className="mt-2">นำเข้าไฟล์ CSV ที่มีคอลัมน์ email และ group_name เพื่อเพิ่มนักศึกษาทั้งห้องพร้อมกัน</p>

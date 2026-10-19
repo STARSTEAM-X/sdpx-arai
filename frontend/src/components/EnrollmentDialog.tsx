@@ -31,7 +31,7 @@ export function EnrollmentDialog({ member, classroomId, onClose, onChanged }: { 
       <form onSubmit={(event) => { event.preventDefault(); void submit() }}>
         <h2 className="font-display text-[20px] font-bold">{restoring ? `คืนสถานะ ${name} เป็นนักศึกษา?` : `ทำเครื่องหมาย ${name} ว่าถอนรายวิชา?`}</h2>
         <p className="mt-2 break-all text-[13px] text-muted">{member.email} · นักศึกษา{member.groupName ? ` · กลุ่ม ${member.groupName}` : ''}</p>
-        <div className="mt-5 rounded-xl bg-info-soft px-3.5 py-3 text-[13px] leading-6 text-info-ink">
+        <div className="mt-5 space-y-1.5 rounded-xl bg-info-soft px-3.5 py-2.5 text-[13px] leading-[21px] text-info-ink">
           {restoring ? (
             <>
               <p className="font-semibold">กลับมารับคู่ประเมินในห้องนี้อีกครั้ง</p>
@@ -49,7 +49,7 @@ export function EnrollmentDialog({ member, classroomId, onClose, onChanged }: { 
         </div>
         <p className="mt-4 text-[11.5px] leading-5 text-muted">บันทึก audit · ยกเลิกเครื่องหมายได้ก่อนประกาศผล: คำตอบของ{name}กลับมานับ<br />ส่วนคู่ที่แจกให้คนอื่นแล้วยังคงอยู่ · หลังประกาศผลต้องเปิดผลใหม่ก่อน</p>
         {error && <Banner tone="err" role="alert" className="mt-4">{error}</Banner>}
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-5 flex justify-end gap-3">
           <button type="button" disabled={busy} onClick={close} className={btn('ghost', 'md', 'px-6')}>ยกเลิก</button>
           <button type="submit" disabled={busy} className={btn('primary', 'md', 'px-6')}>{busy ? 'กำลังบันทึก…' : restoring ? 'คืนสถานะนักศึกษา' : 'ทำเครื่องหมายถอนรายวิชา'}</button>
         </div>

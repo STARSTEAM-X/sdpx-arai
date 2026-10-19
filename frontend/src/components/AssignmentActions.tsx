@@ -6,7 +6,7 @@ import { DeadlinePicker } from './DeadlinePicker'
 import { Banner, CTRL, btn } from './Ui'
 import { UnpublishButton } from './UnpublishButton'
 
-export function AssignmentActions({ item, classroomId, timezone, onChanged, inline = false, showCopy = true }: { item: AssignmentSummary; classroomId: string; timezone: string; onChanged: () => void; inline?: boolean; showCopy?: boolean }) {
+export function AssignmentActions({ item, classroomId, timezone, onChanged, inline = false, showCopy = true, showUnpublish = true }: { item: AssignmentSummary; classroomId: string; timezone: string; onChanged: () => void; inline?: boolean; showCopy?: boolean; showUnpublish?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement | null>(null)
   const [mode, setMode] = useState<'copy' | 'extend'>('copy')
@@ -47,7 +47,7 @@ export function AssignmentActions({ item, classroomId, timezone, onChanged, inli
       {item.status === 'DRAFT' && <Link to={`/classrooms/${classroomId}?draft=${item.id}#assignments`} className={btn('ghost', size, inline ? 'px-6' : '')}>แก้ไขร่าง</Link>}
       {['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <button type="button" onClick={(event) => open('extend', event.currentTarget)} className={btn('ghost', size, inline ? 'px-6' : '')}>ขยายกำหนดส่ง</button>}
       {showCopy && <button type="button" onClick={(event) => open('copy', event.currentTarget)} className={btn('ghost', size, inline ? 'px-6' : '')}>คัดลอกงาน</button>}
-      {['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <UnpublishButton id={item.id} name={item.name} onChanged={onChanged} size={size} />}
+      {showUnpublish && ['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <UnpublishButton id={item.id} name={item.name} onChanged={onChanged} size={size} />}
     </div>
     {success && <p role="status" className="mt-3 text-sm text-ok-700">{success}</p>}
     <dialog ref={dialog} aria-label={mode === "copy" ? "คัดลอกจากงานเดิม" : "ขยายกำหนดส่ง"} onCancel={(event) => { if (busy) event.preventDefault(); else { event.preventDefault(); close() } }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-3xl border border-edge bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40">

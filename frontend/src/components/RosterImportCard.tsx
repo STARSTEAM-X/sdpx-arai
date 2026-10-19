@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 
-import { Banner, Card, CardHead, FOCUS, Pill, Spinner, btn } from './Ui'
-import { IconClose, IconDownload, IconFile, IconUploadCloud } from './icons'
+import { Banner, Card, FOCUS, Pill, Spinner, btn } from './Ui'
+import { IconClose, IconFile } from './icons'
 import {
   ApiError,
   type ApiRowError,
@@ -94,15 +94,18 @@ export function RosterImportCard({
   }
 
   return (
-    <Card aria-labelledby="h-csv">
-      <CardHead
-        id="h-csv"
-        icon={<IconUploadCloud className="size-5" />}
-        title="เพิ่มสมาชิกจาก CSV"
-        hint="ไฟล์ใหม่จะแทนที่รายชื่อนักศึกษาทั้งชุด ผู้สอนและผู้ช่วยสอนไม่ถูกแตะ"
-      />
+    <Card aria-labelledby="h-csv" className="overflow-hidden">
+      {/* Figma J06 — หัวการ์ดสีครีมบอกคอลัมน์ที่ต้องมี · ไฟล์ใหม่แทนที่รายชื่อนักศึกษาทั้งชุด (ยืนยันอีกครั้งในขั้นตรวจสอบ) */}
+      <div className="border-b border-edge bg-surface-cream px-6 py-4.5 max-sm:px-4">
+        <h2 id="h-csv" className="font-display text-[17px] leading-6.5 font-semibold">
+          นำเข้ารายชื่อจาก CSV
+        </h2>
+        <p className="mt-1 text-[14px] leading-5 text-ink-2">
+          คอลัมน์ที่ต้องมี: email, group_name · เพิ่มได้: student_id, display_name
+        </p>
+      </div>
 
-      <form onSubmit={handleUpload} data-testid="roster-import" className="p-6 max-sm:p-4">
+      <form onSubmit={handleUpload} data-testid="roster-import" className="px-6 pt-5 pb-5.5 max-sm:px-4">
         {/* กล่องลากวาง: เป็น label ครอบ input จริง จึงคลิกและกด Enter ได้เองโดยไม่ต้องเขียน handler */}
         <label
           onDragOver={(e) => {
@@ -117,24 +120,18 @@ export function RosterImportCard({
             if (dropped) pick(dropped)
           }}
           className={
-            'flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed ' +
-            'px-6 py-8 text-center transition-colors ' +
+            'flex min-h-39.5 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed ' +
+            'px-6 py-6 text-center transition-colors ' +
             'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600 ' +
             (dragOver
               ? 'border-solid border-brand-600 bg-accent-soft'
-              : 'border-edge-strong bg-ground hover:border-brand-600 hover:bg-accent-soft')
+              : 'border-brand-200 bg-table-head hover:border-brand-600 hover:bg-accent-soft')
           }
         >
-          <span
-            aria-hidden="true"
-            className="grid size-12 place-items-center rounded-2xl border border-edge bg-white text-accent-ink shadow-[0_1px_2px_rgba(23,32,51,0.05)]"
-          >
-            <IconUploadCloud className="size-6" />
+          <span className="text-[14px] text-ink">ลากไฟล์ CSV มาวาง หรือเลือกไฟล์จากเครื่อง</span>
+          <span aria-hidden="true" className={btn('ghost', 'sm', 'border-brand-600 bg-white px-4 text-accent-ink')}>
+            เลือกไฟล์
           </span>
-          <span className="font-display text-[15.5px] font-semibold">
-            ลากไฟล์ CSV มาวาง หรือเลือกไฟล์จากเครื่อง
-          </span>
-          <span className="text-[12.5px] text-muted">รองรับไฟล์ .csv ที่เข้ารหัส UTF-8</span>
 
           {/* aria-label เป็นชื่อจริงของช่องนี้ ไม่ใช่ข้อความในกล่องลากวางข้างบน
               ถ้าปล่อยให้ชื่อมาจากเนื้อความใน label ทั้งก้อน screen reader จะอ่านสามประโยครวด */}
@@ -148,23 +145,6 @@ export function RosterImportCard({
             onChange={(e) => pick(e.target.files?.[0] ?? null)}
           />
         </label>
-
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
-          <span>
-            ต้องมีคอลัมน์ <code className="rounded border border-edge bg-sand px-1.5 py-0.5 font-mono text-ink">email</code>{' '}
-            และ{' '}
-            <code className="rounded border border-edge bg-sand px-1.5 py-0.5 font-mono text-ink">group_name</code>{' '}
-            (ไม่สนตัวพิมพ์เล็กใหญ่)
-          </span>
-          <a
-            href={SAMPLE_HREF}
-            download="roster-ตัวอย่าง.csv"
-            className={`inline-flex min-h-11 items-center gap-1.5 font-semibold text-accent-ink underline decoration-1 underline-offset-4 hover:text-cta-hover ${FOCUS}`}
-          >
-            <IconDownload className="size-4" />
-            ดาวน์โหลดไฟล์ตัวอย่าง
-          </a>
-        </div>
 
         {file && (
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-edge bg-white px-4 py-3">
@@ -253,12 +233,32 @@ export function RosterImportCard({
           {preview.warnings.map((warning) => <p key={warning.message} className="mt-3 text-sm text-warn">{warning.message}</p>)}
           <Banner tone="warn" className="mt-3">เมื่อยืนยัน รายชื่อนักศึกษาปัจจุบันจะถูกแทนที่ทั้งชุด กรุณาตรวจสอบก่อนดำเนินการ</Banner>
         </div>}
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button type="submit" disabled={uploading} className={btn('primary', 'md', 'max-sm:w-full')}>
+        <div className="mt-3 flex flex-wrap justify-end gap-3">
+          {preview ? (
+            <button type="button" disabled={uploading} onClick={() => setPreview(null)} className={btn('ghost', 'md', 'max-sm:w-full')}>
+              กลับไปเลือกไฟล์
+            </button>
+          ) : (
+            <a
+              href={SAMPLE_HREF}
+              download="roster-ตัวอย่าง.csv"
+              className={btn('ghost', 'md', 'border-brand-600 px-5 text-accent-ink max-sm:w-full')}
+            >
+              ดาวน์โหลดไฟล์ตัวอย่าง
+            </a>
+          )}
+          <button type="submit" disabled={uploading} className={btn('primary', 'md', 'px-6 max-sm:w-full')}>
             {uploading && <Spinner />}
-            {uploading ? 'กำลังตรวจสอบ…' : preview ? 'ยืนยันนำเข้ารายชื่อ' : 'นำเข้ารายชื่อ'}
+            {uploading ? (
+              'กำลังตรวจสอบ…'
+            ) : preview ? (
+              'ยืนยันนำเข้ารายชื่อ'
+            ) : (
+              <>
+                <span aria-hidden="true" className="-mr-1">+</span>นำเข้ารายชื่อ
+              </>
+            )}
           </button>
-          {preview && <button type="button" disabled={uploading} onClick={() => setPreview(null)} className={btn('ghost')}>กลับไปเลือกไฟล์</button>}
         </div>
       </form>
     </Card>

@@ -35,6 +35,21 @@ const STATUS_LABEL: Record<string, string> = {
   ARCHIVED: 'เก็บเข้าคลัง',
 }
 
+/** ช่องตัวเลขพร้อมหน่วยท้ายช่อง (Figma J13a: "60%", "3 คน", "3 ครั้ง") */
+function Unit({ unit, className = '', children }: { unit: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`relative w-full ${className}`}>
+      {children}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[14px] text-muted">
+        {unit}
+      </span>
+    </div>
+  )
+}
+
+/** สัดส่วน 0–1 → เปอร์เซ็นต์ที่แสดงในช่อง (ปัดทศนิยมลอยของ JS เช่น 0.29 × 100) */
+const percent = (ratio: number) => Math.round(ratio * 10000) / 100
+
 function Field({
   id,
   label,
@@ -410,31 +425,36 @@ export function AssignmentPanel({
               'ค่าตั้งต้นของระบบ · ตั้งค่าได้ต่องาน · นักศึกษาเห็นแบบเดียวกันตั้งแต่เปิดงาน',
             )}
             <div className="flex flex-col gap-3 px-5 py-5">
+              {/* Figma J13a — สัดส่วนแสดงเป็นเปอร์เซ็นต์ จำนวนแสดงหน่วย · เก็บเป็นสัดส่วน 0–1 ตาม API */}
               <Field id="score-floor" label="ช่วงคะแนน (floor – ceiling)">
                 <div className="flex max-w-95 items-center gap-2">
-                  <input
-                    id="score-floor"
-                    aria-label="คะแนนขั้นต่ำ (สัดส่วน 0–1)"
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={draft.scoreFloor ?? 0.6}
-                    onChange={(event) => set('scoreFloor', Number(event.target.value))}
-                    className={`${CTRL} min-h-10 text-[14px]`}
-                  />
+                  <Unit unit="%">
+                    <input
+                      id="score-floor"
+                      aria-label="คะแนนขั้นต่ำ (เปอร์เซ็นต์)"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={percent(draft.scoreFloor ?? 0.6)}
+                      onChange={(event) => set('scoreFloor', Number(event.target.value) / 100)}
+                      className={`${CTRL} min-h-10 pr-9 text-[14px]`}
+                    />
+                  </Unit>
                   <span aria-hidden="true">–</span>
-                  <input
-                    id="score-ceiling"
-                    aria-label="คะแนนขั้นสูง (สัดส่วน 0–1)"
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={draft.scoreCeiling ?? 1}
-                    onChange={(event) => set('scoreCeiling', Number(event.target.value))}
-                    className={`${CTRL} min-h-10 text-[14px]`}
-                  />
+                  <Unit unit="%">
+                    <input
+                      id="score-ceiling"
+                      aria-label="คะแนนขั้นสูง (เปอร์เซ็นต์)"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={percent(draft.scoreCeiling ?? 1)}
+                      onChange={(event) => set('scoreCeiling', Number(event.target.value) / 100)}
+                      className={`${CTRL} min-h-10 pr-9 text-[14px]`}
+                    />
+                  </Unit>
                 </div>
               </Field>
               <Field id="instructor-weight" label="น้ำหนักคำตอบของอาจารย์ (instructor_weight)">
@@ -450,47 +470,50 @@ export function AssignmentPanel({
                 />
               </Field>
               <Field id="completion-threshold" label="เกณฑ์การมีส่วนร่วม (completion threshold)">
-                <input
-                  id="completion-threshold"
-                  type="number"
-                  min={0.01}
-                  max={1}
-                  step={0.01}
-                  value={draft.completionThreshold ?? 0.9}
-                  onChange={(event) => set('completionThreshold', Number(event.target.value))}
-                  className={input}
-                />
+                <Unit unit="%" className="max-w-95">
+                  <input
+                    id="completion-threshold"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={percent(draft.completionThreshold ?? 0.9)}
+                    onChange={(event) => set('completionThreshold', Number(event.target.value) / 100)}
+                    className={`${input} pr-9`}
+                  />
+                </Unit>
               </Field>
-              <Field
-                id="min-comparisons"
-                label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)"
-                help="ใช้เป็นจำนวนผลประเมินขั้นต่ำก่อนถือว่าข้อมูลพอด้วย"
-              >
-                <input
-                  id="min-comparisons"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={draft.minComparisons ?? 3}
-                  onChange={(event) => set('minComparisons', Number(event.target.value))}
-                  className={input}
-                />
+              <Field id="min-comparisons" label="ผู้ประเมินขั้นต่ำก่อนแสดงคะแนนรายบุคคล (k_min)">
+                <Unit unit="คน" className="max-w-95">
+                  <input
+                    id="min-comparisons"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={draft.minComparisons ?? 3}
+                    onChange={(event) => set('minComparisons', Number(event.target.value))}
+                    className={`${input} pr-11`}
+                  />
+                </Unit>
               </Field>
+              {/* targetCoverage = จำนวนผลประเมินที่แต่ละคู่ควรได้ · คู่ที่ได้น้อยกว่านี้ขึ้น "ข้อมูลไม่พอ" ในรายงาน coverage */}
               <Field
                 id="assignment-coverage"
-                label="จำนวนคู่ที่ผู้ประเมินแต่ละคนต้องประเมิน (coverage)"
-                help="ยิ่งมาก ผลอันดับยิ่งนิ่ง แต่ภาระของนักศึกษาก็มากขึ้นตาม"
+                label="จำนวนผลประเมินขั้นต่ำก่อนถือว่าข้อมูลพอ"
+                help="จำนวนผลที่แต่ละคู่ควรได้ · ยิ่งมาก ผลอันดับยิ่งนิ่ง แต่ภาระของนักศึกษาก็มากขึ้นตาม"
               >
-                <input
-                  id="assignment-coverage"
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={draft.targetCoverage}
-                  aria-describedby="assignment-coverage-help"
-                  onChange={(e) => set('targetCoverage', Number(e.target.value))}
-                  className={input}
-                />
+                <Unit unit="ครั้ง" className="max-w-95">
+                  <input
+                    id="assignment-coverage"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={draft.targetCoverage}
+                    aria-describedby="assignment-coverage-help"
+                    onChange={(e) => set('targetCoverage', Number(e.target.value))}
+                    className={`${input} pr-13`}
+                  />
+                </Unit>
               </Field>
             </div>
           </section>

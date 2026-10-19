@@ -75,14 +75,15 @@ function isClassroomRole(value: string | undefined): value is ClassroomRole {
 
 function SummaryTile({ icon, label, value, hint }: { icon: ReactNode; label: string; value: ReactNode; hint: string }) {
   return (
-    <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-edge bg-white px-4 py-5 text-center">
+    <div className="flex min-w-0 flex-col items-center rounded-2xl border border-edge bg-white px-4 pt-4 pb-5 text-center">
       <span aria-hidden="true" className="hidden">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-ink-2">{label}</p>
-        <p className="mt-2 font-display text-[30px] font-bold leading-tight">{value}</p>
-        <p className="mt-2 text-xs leading-5 text-muted">{hint}</p>
+        {/* Figma J12 — ป้าย 15px · ตัวเลข 32px · คำอธิบาย 14.5px */}
+        <p className="font-display text-[15px] leading-5.5 font-semibold text-ink">{label}</p>
+        <p className="mt-1.5 font-display text-[32px] leading-9.5 font-bold tabular">{value}</p>
+        <p className="mt-1.5 text-[14.5px] leading-5.5 text-ink-2">{hint}</p>
       </div>
     </div>
   )
@@ -326,6 +327,18 @@ export default function ClassroomDetailPage() {
     window.scrollTo({ top: 0 })
   }
   const actionClass = `inline-flex min-h-12.5 items-center rounded-full border border-reference-border bg-white px-6 font-display text-[16px] font-semibold text-ink hover:border-muted ${FOCUS}`
+  const scoresLink = (
+    <a
+      href="#scores"
+      onClick={(event) => {
+        event.preventDefault()
+        go('scores')
+      }}
+      className={actionClass}
+    >
+      ดูคะแนนของงาน
+    </a>
+  )
   const sectionHead: Record<Exclude<ClassroomSection, 'overview'>, { title: string; subtitle: string; art: string }> = {
     members: {
       title: 'สมาชิกในห้องเรียน',
@@ -442,18 +455,8 @@ export default function ClassroomDetailPage() {
                   {myRole === 'TA' ? 'จัดการรายชื่อ' : 'จัดการสมาชิก'}
                 </a>
               )}
-              {canFinalizeScores && (
-                <a
-                  href="#scores"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    go('scores')
-                  }}
-                  className={actionClass}
-                >
-                  ดูคะแนนของงาน
-                </a>
-              )}
+              {/* Figma J12 (ยังไม่มีงาน): สร้างงานมาก่อนดูคะแนน · J16 (มีงานแล้ว): ดูคะแนนมาก่อนสร้างงานเพิ่ม */}
+              {canFinalizeScores && assignmentCount > 0 && scoresLink}
               {canManageAssignment && !isArchived && (
                 <a
                   href="#assignments"
@@ -466,6 +469,7 @@ export default function ClassroomDetailPage() {
                   {assignmentCount ? '+ สร้างงานประเมิน' : 'สร้างงานประเมิน'}
                 </a>
               )}
+              {canFinalizeScores && !assignmentCount && scoresLink}
             </div>
 
             {myRole === 'OWNER' && !hasStudents && (
@@ -532,7 +536,7 @@ export default function ClassroomDetailPage() {
               <SummaryTile
                 icon={null}
                 label="นักศึกษา"
-                value={<span className="font-mono tabular">{students.length}</span>}
+                value={students.length}
                 hint={
                   students.length === 0
                     ? 'รอนำเข้ารายชื่อ'
@@ -544,7 +548,7 @@ export default function ClassroomDetailPage() {
               <SummaryTile
                 icon={null}
                 label="กลุ่ม"
-                value={<span className="font-mono tabular">{groupCount}</span>}
+                value={groupCount}
                 hint={groupCount ? `กลุ่มละ ${sizeRange} คน` : '—'}
               />
               {myRole !== 'TA' && (

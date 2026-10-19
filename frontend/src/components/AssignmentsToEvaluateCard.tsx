@@ -54,7 +54,6 @@ export function AssignmentsToEvaluateCard({
     }
   }, [classroomId, version])
 
-  if (loaded && items.length === 0 && !error && !student) return null
   if (student)
     return <StudentAssignments classroomId={classroomId} items={items} loaded={loaded} error={error} now={now} />
 
@@ -63,11 +62,11 @@ export function AssignmentsToEvaluateCard({
   // Figma J12 / J16 — รายการงานของผู้สอนบนหน้าภาพรวมห้อง
   return (
     <section aria-labelledby="h-evaluations" className="overflow-hidden rounded-3xl border border-edge bg-white">
-      <div className="border-b border-edge bg-surface-cream px-5 py-5">
-        <h2 id="h-evaluations" className="font-display text-[17px] font-semibold">
+      <div className="border-b border-edge bg-surface-cream px-5 py-4.5">
+        <h2 id="h-evaluations" className="font-display text-[17px] leading-6.5 font-semibold">
           งานประเมิน
         </h2>
-        <p className="mt-1 text-[14px] text-ink-2">สถานะล่าสุดของแต่ละงาน</p>
+        <p className="mt-1 text-[14px] leading-5 text-ink-2">สถานะล่าสุดของแต่ละงาน</p>
       </div>
       {error && (
         <p role="alert" className="px-5 pt-4 text-sm text-err">
@@ -75,7 +74,7 @@ export function AssignmentsToEvaluateCard({
         </p>
       )}
       {loaded && items.length === 0 ? (
-        <div className="px-5 py-6 text-[15px]">
+        <div className="px-6 py-7 text-[15px] leading-6">
           <p>ยังไม่มีงานประเมิน</p>
           <p>กด "สร้างงานประเมิน" ด้านบนเพื่อเริ่ม</p>
         </div>

@@ -234,3 +234,12 @@ def test_review_state_instructor_pairs_and_report_exports_are_recorded(db, monke
     with db.cursor() as cur:
         cur.execute("SELECT count(*) AS n FROM audit_log WHERE resource_id = %s AND action = 'IDENTIFIED_EXPORT'", (assignment.id,))
         assert cur.fetchone()['n'] == 1
+
+    # Figma J25 — /scores มีคะแนนรายเกณฑ์ (q, จำนวนผลประเมิน, คะแนนส่วนนี้) รวมกันเท่ากับคะแนนรวมของ item
+    from app.api import scoring
+    monkeypatch.setattr(scoring, 'transaction', lambda: nullcontext(db))
+    scored = [item for item in scoring.list_scores(assignment.id, owner).items if item.criteria]
+    assert scored
+    for item in scored:
+        assert sum(c.score for c in item.criteria) == item.component
+        assert all(c.maxScore == Decimal('15.00') and c.comparisonCount >= 0 for c in item.criteria)

@@ -13,6 +13,7 @@ import {
   type Appeal,
   type AssignmentSummary,
   type Classroom,
+  getQuality,
   listAppeals,
   listClassroomAssignments,
   listClassrooms,
@@ -22,10 +23,10 @@ import { formatDeadline, thaiDate } from '../lib/datetime'
 
 function Tile({ label, value, hint }: { label: string; value: ReactNode; hint: string }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-edge bg-white px-4 py-5 text-center">
-      <p className="font-display text-[14.5px] font-semibold">{label}</p>
-      <p className="mt-1.5 font-display text-[30px] leading-tight font-bold">{value}</p>
-      <p className="mt-1.5 text-[14px] text-ink-2">{hint}</p>
+    <div className="flex flex-col items-center rounded-2xl border border-edge bg-white px-4 pt-4 pb-5 text-center">
+      <p className="font-display text-[15px] leading-5.5 font-semibold">{label}</p>
+      <p className="mt-1.5 font-display text-[32px] leading-9.5 font-bold tabular">{value}</p>
+      <p className="mt-1.5 text-[14.5px] leading-5.5 text-ink-2">{hint}</p>
     </div>
   )
 }
@@ -38,6 +39,7 @@ export default function AssignmentOverviewPage() {
   const [appeals, setAppeals] = useState<Appeal[]>([])
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [signals, setSignals] = useState<number | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -50,6 +52,15 @@ export default function AssignmentOverviewPage() {
       setRoom(rooms.items.find((entry) => entry.id === classroomId) ?? null)
       setAppeals(requests.items.filter((entry) => entry.assignmentId === assignmentId))
       setError(null)
+      // Figma J24 — "ต้องตรวจ" นับสัญญาณคุณภาพที่ยังไม่ได้ดู (กฎเดียวกับตัวกรอง "ต้องตรวจ" ใน J28)
+      void getQuality(assignmentId)
+        .then((report) =>
+          setSignals(
+            report.evaluators.filter((e) => e.flags.length && !e.excluded && !e.reviewedAt).length +
+              report.pairCoverage.filter((p) => p.submittedCount < p.expectedCount && !p.pendingCount).length,
+          ),
+        )
+        .catch(() => setSignals(null))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'โหลดงานประเมินไม่สำเร็จ')
     }
@@ -215,8 +226,8 @@ export default function AssignmentOverviewPage() {
               )}
               <Tile
                 label="ต้องตรวจ"
-                value={finalized ? openAppeals : closed ? '—' : '–'}
-                hint={finalized ? 'คำร้องอุทธรณ์รอตอบ' : closed ? 'ดูในรายงานคุณภาพ' : 'ดูได้หลังปิดรับ'}
+                value={finalized ? openAppeals : closed ? (signals ?? '—') : '–'}
+                hint={finalized ? 'คำร้องอุทธรณ์รอตอบ' : closed ? (signals === null ? 'ดูในรายงานคุณภาพ' : 'สัญญาณคุณภาพ') : 'ดูได้หลังปิดรับ'}
               />
             </div>
 
@@ -265,6 +276,7 @@ export default function AssignmentOverviewPage() {
                     onChanged={() => void refresh()}
                     inline
                     showCopy={draft}
+                    showUnpublish={!closed}
                   />
                 )}
                 {!finalized && !closed && !draft && (

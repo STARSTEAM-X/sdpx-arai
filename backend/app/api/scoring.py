@@ -382,12 +382,25 @@ def create_score_override(
     return ScoreOverrideOut(id=override_id, originalValue=original, overrideValue=body.overrideValue)
 
 
+class CriterionScoreOut(BaseModel):
+    criterionId: str
+    name: str
+    weightPct: Decimal
+    q: Decimal | None
+    comparisonCount: int
+    score: Decimal
+    maxScore: Decimal
+    flags: list[str]
+
+
 class ComputedScoreOut(BaseModel):
     itemId: str
     side: Side
     itemLabel: str
     component: Decimal
     flags: list[str]
+    # Figma J25 — คอลัมน์รายเกณฑ์และแถวกางรายละเอียด
+    criteria: list[CriterionScoreOut] = []
 
 
 class ScoresOut(BaseModel):
@@ -410,14 +423,27 @@ def list_scores(assignment_id: str, user_email: CurrentUser) -> ScoresOut:
     with transaction() as conn:
         assignment = _load_for_instructor(conn, assignment_id, user_email)
         is_final = assignment.status == AssignmentStatus.FINALIZED
-        rows = PgScoringRepository(conn).list_computed_scores(assignment_id, is_final=is_final)
+        repo = PgScoringRepository(conn)
+        rows = repo.list_computed_scores(assignment_id, is_final=is_final)
+        breakdown = repo.criterion_breakdown(assignment_id, is_final=is_final)
 
+    max_by_side = {Side.GROUP: assignment.group_max_score, Side.INDIVIDUAL: assignment.individual_max_score}
+    criteria: dict[tuple[str, str], list[CriterionScoreOut]] = {}
+    for c in breakdown:
+        side = Side(c["side"])
+        criteria.setdefault((str(c["item_id"]), str(side)), []).append(CriterionScoreOut(
+            criterionId=str(c["criterion_id"]), name=c["name"], weightPct=c["weight_pct"], q=c["quality_index"],
+            comparisonCount=c["comparison_count"], score=c["score"],
+            maxScore=(Decimal(c["weight_pct"]) / 100 * max_by_side[side]).quantize(Decimal("0.01")),
+            flags=list(c["flags"] or ()),
+        ))
     return ScoresOut(
         isFinal=is_final,
         items=[
             ComputedScoreOut(
                 itemId=r.item_id, side=r.side, itemLabel=r.item_label,
                 component=r.component, flags=list(r.flags),
+                criteria=criteria.get((r.item_id, str(r.side)), []),
             )
             for r in rows
         ],
