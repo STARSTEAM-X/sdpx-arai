@@ -431,3 +431,23 @@ class TestIndividualWorkloadCap:
         assert solve_individual_feasibility(make_groups(5, 6)).group_size_note is None
         note = solve_individual_feasibility(make_groups(3, 5, 8)).group_size_note
         assert note and "กลุ่ม 1 3 คน" in note and "กลุ่ม 3 8 คน" in note
+
+
+def test_GAP13_รูปทรงที่_property_test_เจอ_feasibility_ต้องลด_coverage_จนจัดคู่ได้จริง():
+    """กลุ่ม 4,2,3,2 คน ขอ R=7 — เดิม feasibility บอก coverage 4 · k=3 แต่ generate raise ว่าไม่สมดุล
+
+    k=3 × 11 คน = 33 ครั้ง กระจายลง 6 คู่ = 5.5 ต่อคู่ แต่คู่ (กลุ่ม 4 คน, กลุ่ม 3 คน) มีผู้มีสิทธิ์แค่ 4 คน
+    """
+    groups = make_groups(4, 2, 3, 2)
+    f = solve_group_feasibility(groups, target_coverage=7)
+
+    assert f.feasible
+    pairs = generate_group_pairs(
+        groups, criterion_id="c1", coverage=f.achievable_coverage, workload=f.workload_per_evaluator, seed=919,
+    )
+    counts: dict[frozenset[str], int] = {}
+    for p in pairs:
+        key = frozenset((p.item_a_id, p.item_b_id))
+        counts[key] = counts.get(key, 0) + 1
+    assert len(counts) == 6
+    assert max(counts.values()) - min(counts.values()) <= 1

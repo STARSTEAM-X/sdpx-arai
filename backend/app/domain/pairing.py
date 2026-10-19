@@ -180,6 +180,12 @@ def solve_group_feasibility(
         # (3) ต้องมีคนพอจะประเมินคู่ที่บีบที่สุด
         if coverage > eligible_min:
             continue
+        # (5) ทุกคนได้ workload คู่เท่ากัน ยอดรวมจึงเป็น workload × students ไม่ใช่ coverage × pair_count
+        # คู่ที่บีบที่สุดรับได้อย่างมาก eligible_min ครั้ง ถ้าค่าเฉลี่ยต่อคู่ (ปัดลง) ยังเกินนั้น
+        # คู่อื่นต้องรับส่วนเกินจนส่วนต่าง coverage > 1 (INV-3)
+        # เจอจาก property test: กลุ่ม 4,2,3,2 คน R=7 → k=3 รวม 33 ครั้ง / 6 คู่ = 5.5 แต่คู่ที่บีบรับได้ 4 (GAP-13)
+        if (workload * students) // pair_count > eligible_min:
+            continue
 
         reason = None
         if coverage < target_coverage:
