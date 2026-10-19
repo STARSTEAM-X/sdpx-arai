@@ -97,10 +97,12 @@ type Props = {
   theme?: 'outline' | 'filled_blue' | 'filled_black'
   shape?: 'rectangular' | 'pill'
   text?: 'signin_with' | 'signin'
-  appearance?: 'google' | 'brand'
 }
 
-export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline', shape = 'rectangular', text = 'signin_with', appearance = 'google' }: Props) {
+/* ห้ามซ่อนปุ่มของ Google (opacity-0, ทับด้วยปุ่มของเรา, ฯลฯ)
+ * GIS ตรวจว่าปุ่มมองเห็นจริงก่อนเปิด popup เพื่อกัน clickjacking
+ * ถ้ามองไม่เห็น คลิกจะถูกเมินเงียบ ๆ — เคยทำให้ login กดได้บ้างไม่ได้บ้างบน production */
+export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline', shape = 'rectangular', text = 'signin_with' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -195,16 +197,9 @@ export function GoogleSignInButton({ onSignedIn, width = 280, theme = 'outline',
   }, [handleCredential, theme, width, shape, text])
 
   return (
-    <div data-testid="google-signin" className={appearance === 'brand' ? 'relative' : undefined}>
-      <div className={appearance === 'brand' ? 'relative min-h-10 rounded-full bg-cta text-white transition-colors hover:bg-cta-hover focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600' : undefined} style={appearance === 'brand' ? { width } : undefined}>
-        {appearance === 'brand' && (
-          <span aria-hidden="true" className="pointer-events-none flex min-h-10 items-center justify-center whitespace-nowrap px-4 font-display text-sm font-semibold">{ready || error ? 'เข้าสู่ระบบด้วย Google' : 'กำลังเตรียม Google…'}</span>
-        )}
-        {/* ใช้ความสูง 40px เท่าปุ่ม large ของ GIS เพื่อให้พื้นที่สีส้มทั้งหมดกดได้
-            คลิกจริงตกที่ปุ่มของ SDK เพื่อเปิด popup ด้วย user gesture
-            ไม่สั่ง click() หรืออ่าน DOM ภายใน iframe ของ Google */}
-        <div ref={containerRef} className={appearance === 'brand' ? 'absolute inset-0 z-10 overflow-hidden rounded-full opacity-0' : undefined} />
-      </div>
+    <div data-testid="google-signin">
+      {/* จองความสูง 40px เท่าปุ่ม large ของ GIS ไว้ก่อน ไม่ให้แถบเมนูกระตุกตอนปุ่มโหลดเสร็จ */}
+      <div ref={containerRef} className="min-h-10" style={{ minWidth: width }} aria-busy={!ready && !error} />
       {error && (
         <p role="alert" data-testid="signin-error" className="mt-2 text-sm text-red-700">
           {error}

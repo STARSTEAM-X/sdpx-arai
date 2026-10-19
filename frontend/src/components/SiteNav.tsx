@@ -51,7 +51,7 @@ export function SiteNav() {
             </div>
           ) : (
             <div id="signin" className="relative flex min-h-11 w-49 shrink-0 items-center [&_[role=alert]]:absolute [&_[role=alert]]:top-full [&_[role=alert]]:right-0 [&_[role=alert]]:w-72 [&_[role=alert]]:rounded-2xl [&_[role=alert]]:bg-white [&_[role=alert]]:p-4 [&_[role=alert]]:shadow-lg">
-              <GoogleSignInButton onSignedIn={handleSignedIn} width={196} shape="pill" text="signin" appearance="brand" />
+              <GoogleSignInButton onSignedIn={handleSignedIn} width={196} shape="pill" text="signin" />
             </div>
           )}
         </div>

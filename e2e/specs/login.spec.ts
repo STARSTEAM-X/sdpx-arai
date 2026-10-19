@@ -216,7 +216,16 @@ test.describe('การเข้าสู่ระบบและการป�
     const profile = await me.json()
     await mockApiResponse(page, '/api/auth/session', 200, { accessToken: instructorToken, user: profile })
     await page.goto('/')
-    await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })).toBeVisible()
+    const googleButton = page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เข้าสู่ระบบด้วย Google', exact: true })
+    await expect(googleButton).toBeVisible()
+    // toBeVisible นับ opacity 0 ว่ามองเห็น แต่ GIS จริงจะเมินคลิกบนปุ่มที่ถูกซ่อน
+    // จึงตรวจเองว่าไม่มี ancestor ใดทำให้ปุ่มโปร่งใส
+    expect(await googleButton.evaluate((el) => {
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        if (Number(getComputedStyle(node).opacity) < 1) return false
+      }
+      return true
+    })).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('login-home.png') })
 
     const popupPromise = page.waitForEvent('popup')
