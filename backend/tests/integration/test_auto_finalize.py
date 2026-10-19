@@ -10,6 +10,7 @@ from app import auto_finalize
 from app.domain.assignment_service import Assignment, Criterion
 from app.domain.models import Classroom, ClassroomMember, MemberRole
 from app.domain.pairing import Side
+from app.repositories import pg_notification_repo
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_classroom_repo import PgClassroomRepository
 from app.repositories.pg_notification_repo import PgNotificationRepository
@@ -107,10 +108,18 @@ def test_not_before_fourteen_days_nor_after_reopen(db, savepoints, monkeypatch):
     assert _status(db, reopened)["status"] == "CLOSED"
 
 
-def test_owner_is_warned_three_days_before(db):
+def test_owner_is_warned_three_days_before(db, monkeypatch):
+    monkeypatch.setattr(pg_notification_repo, "AUTO_FINALIZE_ENABLED", True)
     warned, owner = _assignment(db, closed_days_ago=12)
     quiet, quiet_owner = _assignment(db, closed_days_ago=10)
     kinds = [(e["assignment_id"], e["kind"]) for e in PgNotificationRepository(db).list_for_user(owner)]
     assert (uuid.UUID(warned), "auto_finalize") in [(uuid.UUID(str(a)), k) for a, k in kinds]
     assert not [e for e in PgNotificationRepository(db).list_for_user(quiet_owner) if e["kind"] == "auto_finalize"]
     assert quiet
+
+
+def test_no_warning_while_auto_finalize_is_disabled(db, monkeypatch):
+    # ADR-002: ปิดฟีเจอร์ไว้ (ค่าเริ่มต้น) ต้องไม่มีการเตือนว่าระบบจะประกาศเอง
+    monkeypatch.setattr(pg_notification_repo, "AUTO_FINALIZE_ENABLED", False)
+    _, owner = _assignment(db, closed_days_ago=12)
+    assert not [e for e in PgNotificationRepository(db).list_for_user(owner) if e["kind"] == "auto_finalize"]

@@ -70,6 +70,9 @@ services:
         value: production
       - key: DEPLOYMENT_TIER
         value: staging
+      - key: AUTO_FINALIZE_ENABLED
+        # ประกาศผลอัตโนมัติ (Figma J24) ขัดกับ PRD G3 — ปิดไว้จนกว่าทีมจะตัดสิน (docs/adr/ADR-002-auto-finalize.md)
+        value: "false"
 
       # ใช้เซ็น session token — ต้องยาวอย่างน้อย 32 bytes (RFC 7518 §3.2)
       # generateValue ให้ Render สุ่มให้เอง จะได้ไม่มีใครเห็นค่าจริงเลยแม้แต่คนตั้ง

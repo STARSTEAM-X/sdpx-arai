@@ -43,6 +43,9 @@ services:
         value: production
       - key: DEPLOYMENT_TIER
         value: production
+      - key: AUTO_FINALIZE_ENABLED
+        # ประกาศผลอัตโนมัติ (Figma J24) ขัดกับ PRD G3 — ปิดไว้จนกว่าทีมจะตัดสิน (docs/adr/ADR-002-auto-finalize.md)
+        value: "false"
       - key: SESSION_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID

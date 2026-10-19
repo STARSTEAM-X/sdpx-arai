@@ -83,8 +83,8 @@ if len(SESSION_SECRET.encode()) < MIN_SESSION_SECRET_BYTES:
 SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "12"))  # FR-AUTH-04
 
 # Figma J24 ประกาศผลอัตโนมัติ 14 วันหลังปิดรับ — ขัดกับ PRD G3/§7.3 ที่ให้อาจารย์เป็นผู้ประกาศ
-# จึงปิดได้ทั้งระบบ (แถบสถานะและการแจ้งเตือนหายไปด้วย) ดู docs/adr/ADR-002-auto-finalize.md
-AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
+# ปิดเป็นค่าเริ่มต้นจนกว่าทีมจะตัดสินนโยบาย (แถบสถานะและการแจ้งเตือนหายไปด้วย) ดู docs/adr/ADR-002-auto-finalize.md
+AUTO_FINALIZE_ENABLED: bool = os.getenv("AUTO_FINALIZE_ENABLED", "false").strip().lower() not in {"0", "false", "no", "off"}
 
 # OAuth Client ID ของ Google — เป็นค่าสาธารณะ ไม่ใช่ secret
 # มันฝังอยู่ในทุกหน้าที่ใช้ Google Sign-In อยู่แล้ว

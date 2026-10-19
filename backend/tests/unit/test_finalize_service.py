@@ -100,3 +100,8 @@ def test_auto_finalize_never_after_reopen():
 def test_auto_finalize_skips_draft_finalized_and_archived():
     for status in ("DRAFT", "FINALIZED", "ARCHIVED"):
         assert auto_finalize_at(deadline=_DEADLINE, status=status, finalized_at=None) is None
+
+
+def test_auto_finalize_disabled_hides_date():
+    # ADR-002: ปิดฟีเจอร์แล้วต้องไม่มีวันที่ประกาศอัตโนมัติ — แถบสถานะ J24 จึงกลับเป็นข้อความเดิม
+    assert auto_finalize_at(deadline=_DEADLINE, status="CLOSED", finalized_at=None, enabled=False) is None
