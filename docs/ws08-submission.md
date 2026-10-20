@@ -2,9 +2,20 @@
 
 วันที่: 2026-10-18 · baseline develop `c69554c` · branch `codex/ws08-quality-security`.
 
-**สถานะ: ผ่านส่วน implementation และ local verification; ยังไม่ประกาศผ่านครบ WS-08.**
-CodeQL ตั้งค่าแล้ว แต่ main มีเพียง `.gitattributes` จึงยังไม่มี analysis.
-การ present/ส่ง LMS และความพร้อมอธิบายของทุกคนต้องยืนยันโดยทีมจริง.
+**สถานะ (อัปเดต 2026-10-20): ผ่านเกณฑ์ของ lab ทุกข้อที่ตรวจจาก repo/CI ได้.**
+CodeQL scan `main` แล้ว (Python, JS/TS, Actions — open 3 warning คัดกรองเป็น false positive);
+security fix เพิ่มเป็น 3 ข้อ (SEC-03 ไม่เผยเหตุผลภายในตอน token ตรวจไม่ผ่าน);
+CI ของ `main` (merge PR #24) และ `develop` เขียวครบทุก job.
+**เหลือเฉพาะสิ่งที่ทีมต้องทำเอง:** present, ส่ง LMS และยืนยันว่าทุกคนอธิบาย refactoring decisions ได้.
+
+| เกณฑ์ผ่านของ lab | สถานะ | หลักฐาน |
+|---|---|---|
+| Test เขียวทั้งหมดหลัง refactor และ CI เขียว | ✅ | backend 727, frontend 48, integration 57, E2E 149 · CI `main` f343fde และ `develop` f9f0d64 เขียว |
+| ไม่มีไฟล์ test ถูกแก้ระหว่าง refactor | ✅ | `git diff --stat eff6ed1 ec0b7a6 -- backend/tests frontend/src e2e` ว่าง (ด้านล่าง) |
+| Refactoring plan ระบุเห็นด้วย/ไม่เห็นด้วยกับ AI | ✅ | [refactoring-plan.md](refactoring-plan.md) |
+| แก้ security ≥2 ข้อพร้อม test | ✅ 3 ข้อ | SEC-01..03 ใน [security-pre-check.md](security-pre-check.md) |
+| ADR ครบทุก section | ✅ | [ADR-001](adr/ADR-001-pure-scoring-engine.md) |
+| ทุกคนในกลุ่มอธิบายได้ | ⏳ ทีมยืนยันเอง | agent ยืนยันแทนไม่ได้ |
 ผล CI ตรวจจาก [Actions ของ branch](https://github.com/STARSTEAM-X/sdpx-arai/actions?query=branch%3Acodex%2Fws08-quality-security)
 และ required checks ของ PR; ห้ามใช้ local results แทน CI.
 
@@ -90,11 +101,11 @@ security tests ไม่อ่าน developer dotenv.
 
 ## สิ่งที่ยังเหลือและข้อจำกัด
 
-1. CodeQL first scan รอ supported app source บน default branch ตาม release ที่ทีมอนุมัติ
-   หรือทบทวน advanced setup บน develop แยกต่างหาก; ไม่เปลี่ยน default branch/merge production เพื่อให้ checklist เขียว.
-2. CI checks ต้องผ่านบน PR head; human review, present และ LMS ยังต้องยืนยันจริง.
+1. ~~CodeQL first scan~~ — scan แล้วหลัง release PR #24 merge เข้า `main` ตามเส้นทางปกติ (2026-10-20).
+2. ~~CI checks บน PR head~~ — PR #24 required checks ผ่าน; human review, present และ LMS ยังต้องยืนยันจริง.
 3. Autosave/submit coordination, concurrent publish และ seed bigint validation เป็น follow-ups ใน refactoring plan.
-4. ไม่เปลี่ยน thresholds และไม่อ้าง performance optimization/NFR 200 users จากรอบนี้.
+4. ไม่อ้าง performance optimization จาก WS-08; ผล NFR 200 users (ไม่ผ่านบน free plan) และการย้ายเกณฑ์
+   รายเส้นทางไปวัดที่ server อยู่ใน [performance-report.md](performance-report.md) (WS-07, 2026-10-20).
 
 ## ข้อสังเกตจาก loops ตลอดโครงการ
 

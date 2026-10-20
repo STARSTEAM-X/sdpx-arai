@@ -29,6 +29,13 @@ def is_ready(api: dict, web: dict, sha: str, tier: str) -> bool:
     )
 
 
+def describe(api: dict, web: dict) -> str:
+    """Public, non-secret poll status so a stuck deploy shows which side is behind."""
+    def short(value: object) -> str:
+        return str(value)[:7] if value else "-"
+    return f"api={short(api.get('version'))} web={short(web.get('version'))} tier={api.get('deploymentTier', '-')}"
+
+
 def read_json(url: str) -> dict:
     with urlopen(Request(url, headers={"Cache-Control": "no-cache"}), timeout=15) as response:
         return json.load(response)
@@ -52,9 +59,11 @@ def deploy(*, sha: str, tier: str, api_url: str, web_url: str,
             web = read_json(web_url.rstrip("/") + "/build-info.json?" + urlencode({"commit": sha, "t": time.time_ns()}))
             if is_ready(api, web, sha, tier):
                 return round(time.monotonic() - started, 1)
-        except Exception:
-            # Response/exception text can contain sensitive data; never echo it.
-            pass
+            status = describe(api, web)
+        except Exception as exc:
+            # Response/exception text can contain sensitive data; only the type is printed.
+            status = f"poll failed ({type(exc).__name__})"
+        print(f"Waiting for {sha[:7]} after {round(time.monotonic() - started)}s: {status}")
         time.sleep(min(10, max(0, deadline - time.monotonic())))
     raise TimeoutError("API and frontend did not confirm the target commit and tier")
 
@@ -63,6 +72,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args()
+    # CI stdout is a pipe, so Python would hold progress lines until exit.
+    sys.stdout.reconfigure(line_buffering=True)
     sha = os.getenv("GITHUB_SHA", "")
     try:
         seconds = deploy(

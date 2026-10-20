@@ -1,7 +1,8 @@
 # Security Pre-Check — WS-08
 
 ตรวจเมื่อ 2026-10-18 · PairEval · branch `codex/ws08-quality-security` จาก `develop`.
-สถานะ: แก้ช่องโหว่ code 2 ข้อและ dependency 2 รายการแล้ว; **CodeQL ยังไม่มีผล scan**.
+สถานะ: แก้ช่องโหว่ code 3 ข้อ (SEC-01..03) และ dependency 2 รายการแล้ว;
+**CodeQL scan `main` แล้ว 2026-10-20** — ดู [ผล CodeQL บน default branch](#ผล-codeql-บน-default-branch--2026-10-20).
 ไม่ทดสอบโจมตี staging ไม่อ่าน `.env`/`performance/.secrets` และไม่บันทึก secret values.
 
 ## GitHub Security Features
@@ -13,7 +14,7 @@
 | Dependabot security updates | เปิด; API `enabled:true, paused:false` | เปิดอัตโนมัติ PR สำหรับ alert ที่มี patch; ไม่ได้เปิด version updates เพิ่ม |
 | Secret scanning | เปิด | GET alerts 0 records; ไม่ใช่ข้อพิสูจน์ว่าไม่มี secret ทุกประเภท |
 | Push protection | เปิด | API และ Settings ยืนยัน |
-| Code scanning (CodeQL Default setup) | ตั้งค่าแล้ว `state:configured`, `languages:[]` | **ยังไม่ scan**; API analyses 404 “no analysis found”; UI บอกไม่มี supported language บน default branch |
+| Code scanning (CodeQL Default setup) | ตั้งค่าแล้ว; 2026-10-18 `languages:[]` | 2026-10-18 ยังไม่ scan (API 404 “no analysis found”) · **2026-10-20 scan `main` แล้ว 3 ภาษา, open 3 warning ที่คัดกรองเป็น false positive** |
 
 ก่อนทำ WS-08 พบ Dependabot alerts/security updates ปิด และ CodeQL ยัง not-configured;
 เปิดแล้วตรวจ GET/UI ซ้ำ. Secret scanning และ push protection เปิดอยู่ก่อนแล้ว.
@@ -30,6 +31,28 @@ CodeQL Default setup จะเริ่มเมื่อมี supported applic
 - [Dependency graph และ Dependabot On](screenshots/ws08-dependency-security-settings-20261018.png)
 - [Dependabot Open 0](screenshots/ws08-dependabot-alerts-20261018.png)
 - [CodeQL ยังไม่มีภาษาบน default branch](screenshots/ws08-codeql-no-default-branch-languages-20261018.png)
+
+## ผล CodeQL บน default branch — 2026-10-20
+
+ข้อจำกัดเดิม (main มีแค่ `.gitattributes`) หมดไปเมื่อ release PR #22 และ
+[PR #24](https://github.com/STARSTEAM-X/sdpx-arai/pull/24) merge app source เข้า `main` ตามเส้นทางที่ทีมอนุมัติ.
+CodeQL Default setup จึง scan ได้จริง — ตรวจด้วย
+`gh api "repos/STARSTEAM-X/sdpx-arai/code-scanning/analyses?ref=refs/heads/main"`:
+
+| ภาษา | commit | rules | results |
+|---|---|---:|---:|
+| Python | `f343fde` (merge PR #24) | 43 | 2 |
+| JavaScript/TypeScript | `f343fde` | 87 | 1 |
+| GitHub Actions | `f343fde` | 17 | 0 |
+
+Alert ที่เปิดอยู่ 3 ข้อ (severity warning ทั้งหมด) คัดกรองแล้วเป็น false positive —
+บันทึกเหตุผลไว้ที่นี่ ส่วนการกด dismiss บน GitHub ให้ทีมตัดสินเอง:
+
+| Rule | ตำแหน่ง | เหตุผลที่ไม่ใช่ช่องโหว่ |
+|---|---|---|
+| `py/overly-large-range` | `backend/app/domain/xlsx.py:13` | regex กรองอักขระควบคุมที่ XML 1.0 ไม่อนุญาต (`\x00-\x08`, `\x0b`, `\x0c`, `\x0e-\x1f`) ช่วงกว้างตามตั้งใจ ไม่ได้ใช้ตรวจสิทธิ์ |
+| `py/incomplete-url-substring-sanitization` | `backend/tests/unit/test_member_service.py:52` | test ตรวจว่าข้อความ error มีชื่อ domain ไม่ใช่การตัดสินความปลอดภัยของ URL |
+| `js/incomplete-url-substring-sanitization` | `audit-reports/scripts/runtime.spec.ts:86` | สคริปต์ audit แยกประเภท response ของฟอนต์เพื่อทำรายงาน ไม่ได้ขึ้น production |
 
 ## Alerts / findings ที่พบ
 
@@ -109,13 +132,14 @@ credential ที่ไม่มี pattern หรือข้อมูลนอ
 | SEC-02 | production fail startup เมื่อใช้ known development key | `test_session_config_security.py`: 5 cases; deployment safety ตรวจทั้ง staging/production guard; auth/session tests ผ่าน |
 | DEP-01 | lockfile source-map-js 1.2.2 | installed version ยืนยัน, npm ci และ npm audit; frontend 21 tests, build/typecheck ผ่าน |
 | DEP-02 | PyJWT ~=2.15.0 (ติดตั้ง 2.15.1) | OIDC/session tests ใน backend 428 tests, full E2E 118 tests และ OSV affected-version check |
+| SEC-03 (2026-10-20) | `backend/app/api/auth.py`: token ที่ตรวจไม่ผ่านตอบ 401 ด้วยข้อความกลาง เดิมส่ง `str(exc)` เช่น `Unable to find a signing key that matches` ของ PyJWT กลับไปหา client (information exposure) เหตุผลจริงยังอยู่ใน log event `auth_rejected` | `test_auth_session_errors.py`: 3 แดงก่อนแก้ → 4 เขียว; backend unit 727 ผ่าน |
 
 Code regression ก่อนแก้ **10 failed/7 passed**, หลังแก้ **17 passed**.
 ดู [หลักฐานและเหตุผลที่ปรับ production test fixture](ws08-security-findings.md).
 
 ## งานที่ยังไม่ยืนยัน
 
-- CodeQL first analysis: default branch ยังไม่มี app source; ไม่แก้ default branch/merge production อัตโนมัติ.
+- ~~CodeQL first analysis~~ — scan แล้วบน `main` 2026-10-20 (ดูหัวข้อผล CodeQL ด้านบน).
 - Concurrent publish และ seed bigint overflow ยังเป็นรายการต้องพิสูจน์แยกจาก behavior-preserving refactor.
 - Autosave/submit coordination ที่ review พบยังเป็น follow-up; [refactoring plan](refactoring-plan.md).
 - ไม่อ้าง NFR 200 users, ผล performance optimization หรือการส่ง LMS จากงานรอบนี้.

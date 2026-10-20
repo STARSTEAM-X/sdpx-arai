@@ -19,6 +19,12 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertFalse(ready({**api, "deploymentTier": "production"}, {"version": sha}, sha, "staging"))
         self.assertFalse(ready({**api, "environment": "development"}, {"version": sha}, sha, "staging"))
 
+    def test_poll_status_names_lagging_side(self):
+        api = {"status": "ok", "version": "f343fde", "deploymentTier": "production"}
+        status = deployment["describe"](api, {"version": "bd126e4b9b0fb4965c790d19bb351ff14ba7e790"})
+        self.assertEqual(status, "api=f343fde web=bd126e4 tier=production")
+        self.assertEqual(deployment["describe"]({}, {}), "api=- web=- tier=-")
+
     def test_deploy_hook_keeps_key_and_pins_exact_commit(self):
         for url in ("https://render.example/deploy?key=test-only", "https://render.example/deploy?key=test-only&ref=old"):
             result = deployment["commit_hook"](url, "abcdef1234567890")
