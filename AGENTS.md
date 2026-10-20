@@ -10,6 +10,7 @@
 แก้ปัญหา absolute scoring bias และ free-rider ในการให้คะแนนงานกลุ่ม
 
 - **PRD ฉบับเต็ม:** `Sources/SDPX-AI-main/project-ideas/pairwise_evaluation_prd.md`
+- **Figma (design system และหน้าจอ):** [PairEval — Design System](https://www.figma.com/design/vr38E4BOnEqgAXdwTXe80W/PairEval-%E2%80%94-Design-System?node-id=101-1170&p=f)
 - **สถานะปัจจุบัน:** walking skeleton/Docker และ WS-06 CI staging deployment ครบ.
   WS-07 วัด staging baseline สองรอบ: autosave p95 317.95ms ไม่ผ่านรอบแรก,
   270.40ms ผ่านรอบยืนยัน edba11d; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ.
