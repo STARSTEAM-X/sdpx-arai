@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Assignment } from './api'
 import {
   DEFAULT_DRAFT,
   type AssignmentDraft,
+  assignmentToDraft,
   draftBlocker,
   groupEnabled,
   individualEnabled,
+  sameDeadline,
   toCreateInput,
   weightChecks,
+  withSameDeadline,
 } from './assignment'
 
 const draft = (over: Partial<AssignmentDraft> = {}): AssignmentDraft => ({
@@ -103,6 +107,38 @@ describe('แปลงเป็น body ของ API', () => {
 
   it('ตัดช่องว่างหัวท้ายของชื่องานก่อนส่ง', () => {
     expect(toCreateInput(draft({ name: '  งานที่ 2  ' }), 'room-1').name).toBe('งานที่ 2')
+  })
+})
+
+/* checkbox "ใช้กำหนดส่งเดียวกัน" เคยอ่านโหมดจากค่าวันที่ — เอาติ๊กออกตอนฝั่งกลุ่มยังว่าง
+   ค่าที่ได้ก็ยังว่าง จึงเด้งกลับเป็นติ๊กและตั้งกำหนดส่งรายบุคคลแยกไม่ได้ */
+describe('กำหนดส่งรายบุคคล', () => {
+  it('เอาติ๊กออกได้แม้ยังไม่เลือกกำหนดส่งฝั่งกลุ่ม', () => {
+    const separate = withSameDeadline(draft({ deadline: '' }), false)
+
+    expect(sameDeadline(separate)).toBe(false)
+  })
+
+  it('เอาติ๊กออกแล้วเริ่มจากวันเดียวกับฝั่งกลุ่ม และติ๊กกลับแล้วล้างค่าแยก', () => {
+    const separate = withSameDeadline(draft(), false)
+
+    expect(separate.individualDeadline).toBe('2027-01-31T23:59')
+    expect(sameDeadline(withSameDeadline(separate, true))).toBe(true)
+  })
+
+  it('ตั้งแยกแต่ยังไม่เลือกวัน ต้องบอกว่าขาดอะไร', () => {
+    expect(draftBlocker(withSameDeadline(draft({ deadline: '' }), false), 12)).toBe('ยังไม่ได้ระบุกำหนดส่ง')
+    expect(draftBlocker(draft({ individualDeadline: '' }), 12)).toBe('ยังไม่ได้ระบุกำหนดส่งรายบุคคล')
+  })
+
+  it('ฉบับร่างที่บันทึกด้วยวันเดียวกันต้องเปิดกลับมาเป็นโหมดเดียวกัน', () => {
+    const saved = {
+      name: 'งาน', groupDeadlineUtc: '2027-01-31T16:59:00Z', individualDeadlineUtc: '2027-01-31T16:59:00Z',
+      opensAtUtc: null, criteria: [], groupMaxScore: 15, individualMaxScore: 5,
+    } as unknown as Assignment
+
+    expect(sameDeadline(assignmentToDraft(saved, 'Asia/Bangkok'))).toBe(true)
+    expect(sameDeadline(assignmentToDraft({ ...saved, individualDeadlineUtc: '2027-02-07T16:59:00Z' }, 'Asia/Bangkok'))).toBe(false)
   })
 })
 
