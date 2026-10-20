@@ -20,6 +20,8 @@ export type AssignmentDraft = {
   groupMaxScore?: number
   groupCriteria?: CriterionDraft[]
   individualCriteria?: CriterionDraft[]
+  /** undefined = ใช้กำหนดส่งเดียวกับฝั่งกลุ่ม · string (แม้ว่าง) = ตั้งแยก
+   *  โหมดต้องดูจาก undefined ไม่ใช่ค่าว่าง — ไม่งั้นเอาติ๊กออกตอนฝั่งกลุ่มยังว่างแล้วจะเด้งกลับ */
   individualDeadline?: string
   instructorWeight?: number
   minComparisons?: number
@@ -55,6 +57,15 @@ export function groupEnabled(draft: AssignmentDraft): boolean {
 /** คะแนนเต็มรายบุคคลเป็น 0 = ปิดการประเมินฝั่งบุคคลทั้งฝั่ง ไม่ใช่แค่ให้คะแนนเต็ม 0 */
 export function individualEnabled(draft: AssignmentDraft): boolean {
   return draft.individualMaxScore > 0
+}
+
+export function sameDeadline(draft: AssignmentDraft): boolean {
+  return draft.individualDeadline === undefined
+}
+
+/** สลับโหมดกำหนดส่งรายบุคคล — ตั้งแยกครั้งแรกเริ่มจากวันเดียวกับฝั่งกลุ่มให้แก้ต่อได้เลย */
+export function withSameDeadline(draft: AssignmentDraft, same: boolean): AssignmentDraft {
+  return { ...draft, individualDeadline: same ? undefined : (draft.individualDeadline ?? draft.deadline) }
 }
 
 export type WeightCheck = {
@@ -111,6 +122,7 @@ export function draftBlocker(draft: AssignmentDraft, studentCount: number): stri
   if (studentCount === 0) return 'ยังไม่มีนักศึกษาในห้อง'
   if (!draft.name.trim()) return 'ยังไม่ได้ตั้งชื่องาน'
   if (!draft.deadline) return 'ยังไม่ได้ระบุกำหนดส่ง'
+  if (individualEnabled(draft) && draft.individualDeadline === '') return 'ยังไม่ได้ระบุกำหนดส่งรายบุคคล'
   if (draft.opensAt !== undefined && !draft.opensAt) return 'ยังไม่ได้ระบุวันและเวลาเปิดรับ'
   if ((draft.scoreFloor ?? 0.6) >= (draft.scoreCeiling ?? 1)) return 'คะแนนขั้นต่ำต้องน้อยกว่าคะแนนขั้นสูง'
   if (!groupEnabled(draft) && !individualEnabled(draft)) return 'ต้องเปิดการประเมินอย่างน้อย 1 ฝั่ง (คะแนนเต็มมากกว่า 0)'
@@ -163,7 +175,11 @@ export function assignmentToDraft(value: Assignment, timezone: string): Assignme
   return {
     name: value.name,
     deadline: classroomUtcToLocal(value.groupDeadlineUtc, timezone),
-    individualDeadline: value.individualDeadlineUtc ? classroomUtcToLocal(value.individualDeadlineUtc, timezone) : '',
+    // API เก็บวันเดียวกันซ้ำไว้ทั้งสองช่อง — ถ้าเท่ากันคือโหมด "ใช้เดียวกัน" ไม่ใช่ตั้งแยก
+    individualDeadline:
+      value.individualDeadlineUtc && value.individualDeadlineUtc !== value.groupDeadlineUtc
+        ? classroomUtcToLocal(value.individualDeadlineUtc, timezone)
+        : undefined,
     opensAt: value.opensAtUtc ? classroomUtcToLocal(value.opensAtUtc, timezone) : undefined,
     description: value.description ?? '', artifactUrl: value.artifactUrl ?? '', groupArtifactUrls: value.groupArtifactUrls,
     groupMaxScore: Number(value.groupMaxScore), individualMaxScore: Number(value.individualMaxScore),

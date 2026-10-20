@@ -22,8 +22,10 @@ import {
   draftCriteria,
   groupEnabled,
   individualEnabled,
+  sameDeadline,
   toCreateInput,
   weightChecks,
+  withSameDeadline,
   assignmentToDraft,
 } from '../lib/assignment'
 
@@ -624,14 +626,16 @@ export function AssignmentPanel({
                 <label className="flex items-start gap-3 text-[14px]">
                   <input
                     type="checkbox"
-                    checked={!draft.individualDeadline}
-                    onChange={(event) => set('individualDeadline', event.target.checked ? '' : draft.deadline)}
+                    checked={sameDeadline(draft)}
+                    onChange={(event) => onDraftChange(withSameDeadline(draft, event.target.checked))}
                     className="mt-1"
                   />
                   <span>
                     <span className="font-semibold">ใช้กำหนดส่งเดียวกันทั้งฝั่งกลุ่มและรายบุคคล</span>
                     <span className="block text-[12px] text-muted">
-                      ตั้งกำหนดส่งแยกกันอยู่ · ติ๊กเพื่อใช้วันเวลาเดียวกัน
+                      {sameDeadline(draft)
+                        ? 'รายบุคคลใช้วันเวลาเดียวกับฝั่งกลุ่ม · เอาติ๊กออกเพื่อตั้งแยก'
+                        : 'ตั้งกำหนดส่งแยกกันอยู่ · ติ๊กเพื่อใช้วันเวลาเดียวกัน'}
                     </span>
                   </span>
                 </label>
@@ -650,7 +654,7 @@ export function AssignmentPanel({
                     onChange={(value) => set('deadline', value)}
                   />
                 </Field>
-                {individual && draft.individualDeadline !== '' && draft.individualDeadline !== undefined && (
+                {individual && !sameDeadline(draft) && (
                   <Field id="individual-deadline" label="รายบุคคล">
                     <DeadlinePicker
                       id="individual-deadline"

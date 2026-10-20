@@ -1,9 +1,0 @@
-{
-  "checkedAt": "2026-10-18T23:36:16.926Z",
-  "baselineBranch": "codex/figma-frontend",
-  "baselineHead": "c50702a39a0be9dd52ad39f9f56db592925384fa",
-  "fileCount": 123,
-  "changedSinceBaseline": [],
-  "result": "PASS",
-  "scope": "Only123 baseline paths under application sources, assets, existing E2E and package/config files. This asserts unchanged since audit start, not a clean Git tree; pre-existing redesign changes were preserved."
-}

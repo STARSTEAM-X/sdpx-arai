@@ -17,10 +17,14 @@
 
 ## Success Criteria
 
-- [ ] อาจารย์ปิดวงจร `สร้างห้องเรียน → import รายชื่อ → สร้างงาน → publish → เห็นคะแนน` ได้ครบโดยไม่ต้องมีคนช่วย
-- [ ] นักศึกษาประเมินครบทุกคู่ที่ได้รับได้จากมือถือ โดยไม่เสียคำตอบแม้เน็ตหลุด
-- [ ] คำนวณคะแนนซ้ำด้วยข้อมูลชุดเดิมแล้วได้ผลเหมือนเดิมทุกครั้ง
-- [ ] หน้าประเมิน p95 ≤ 2.0 วินาที ที่ 200 concurrent users (NFR-PERF-01)
+สถานะตรวจจาก repo เมื่อ 2026-10-20 — ✅ มีหลักฐาน · ⚠️ ทำแล้วแต่ยังไม่ครบเกณฑ์ · ⬜ ยังไม่มีหลักฐาน
+
+| เกณฑ์ | สถานะ | หลักฐาน / สิ่งที่ขาด |
+|---|:---:|---|
+| อาจารย์ปิดวงจร `สร้างห้องเรียน → import รายชื่อ → สร้างงาน → publish → เห็นคะแนน` ได้ครบโดยไม่ต้องมีคนช่วย | ⚠️ | flow ครบและมี E2E ครอบ (`e2e/specs`) · ยังไม่มีหลักฐานว่าคนนอกทีมใช้จนจบเอง (DoD ของ M1 ใน PRD §19) |
+| นักศึกษาประเมินครบทุกคู่จากมือถือ โดยไม่เสียคำตอบแม้เน็ตหลุด | ✅ | autosave + queue ฝั่ง client `frontend/src/lib/useComparisonQueue.ts` (FR-EVAL-04/13) พร้อม unit test |
+| คำนวณคะแนนซ้ำด้วยข้อมูลชุดเดิมแล้วได้ผลเหมือนเดิมทุกครั้ง | ✅ | pure scoring engine ([ADR-001](../docs/adr/ADR-001-pure-scoring-engine.md)) · golden test §9.5 ใน `backend/tests/unit/test_scoring_service.py` |
+| หน้าประเมิน p95 ≤ 2.0 วินาที ที่ 200 concurrent users (NFR-PERF-01) | ⚠️ | round-trip p95 ผ่านเกณฑ์ แต่ load test สูงสุด 10 student VUs — ยังไม่ได้วัดที่ 200 users ([performance-report.md](../docs/performance-report.md)) |
 
 ## Decisions Already Made
 
@@ -36,38 +40,62 @@
 | AR-01 | Scoring Engine เป็น **pure function** ของข้อมูลใน DB ไม่มี state ภายใน | เก็บ state ระหว่างคำนวณ |
 | — | Stack: **FastAPI + Vite React + Tailwind + PostgreSQL** deploy บน Render ผ่าน `render.yaml` | Next.js fullstack |
 | — | โครงสร้าง repo: `frontend/` + `backend/` แยกที่ระดับบน | monorepo `apps/*` |
-| — | **ยังไม่สร้าง database จนถึง WS-03** เพราะ Render free Postgres หมดอายุใน 30 วัน | สร้างพร้อมทุกอย่างตั้งแต่ WS-01 |
+| — | Render Auto-Deploy = Off — deploy ทั้งหมดสั่งจาก CI ที่ SHA เดียวกัน (`docs/cicd.md`) | auto-deploy จาก push |
+| — | login เปิดทุกโดเมน + แยกประเภทบัญชีจากรูปแบบอีเมล **เฉพาะช่วงพัฒนาและสาธิต** ([ADR-007](../docs/adr/ADR-007-open-login-and-account-type.md)) | จำกัด hosted domain ตาม FR-AUTH-02 — ต้องกลับไปใช้ก่อนใช้งานจริง |
 
-## Out of Scope
+ADR อื่นที่ตัดสินแล้ว: auto-finalize (ADR-002), session token storage (ADR-003), privacy retention (ADR-004),
+availability & alerting (ADR-005), synchronous export (ADR-006) — อยู่ใน `docs/adr/`
 
-**นอก scope ของ v1.0 ตาม PRD §2.2**
+## Scope
 
-- คอมเมนต์ประกอบการประเมินรายคู่
-- การประเมินข้ามรายวิชาหรือข้ามสถาบัน
-- ระบบ plagiarism detection
-- การให้คะแนนโดย AI
+**ขอบเขตจริงของโค้ดตอนนี้กว้างกว่าแผนเดิม** — แผนเดิมตั้งไว้ที่ M1–M2 แต่ระหว่าง WS-03 ถึง WS-08
+ทีมทำ feature ของ M3 และ M4 ไปด้วย ได้แก่ anonymity controls, quality signals QS-01–07, audit log,
+override, appeals, notifications (ในเว็บ + อีเมล), XLSX export 4 sheet และ a11y ของหน้าประเมิน
 
-**นอก scope ของวิชานี้** — เราหยุดที่ M1–M2 ตาม PRD §19 ไม่ทำถึง M4
+| Milestone (PRD §19) | สถานะในโค้ด | ที่ยังไม่ครบ |
+|---|---|---|
+| M1 Walking Skeleton | ✅ | หลักฐานคนนอกทีมใช้จบ flow เอง |
+| M2 Core Complete | ✅ | ยังไม่ได้ทดลองกับห้องเรียนจริง ≤ 30 คน |
+| M3 Trustworthy | ✅ (feature) | security review ผ่านตาม WS-08 · privacy review ยังไม่มีผู้ตรวจตาม PRD |
+| M4 Production Ready | ⚠️ | load test ที่ 200 users · screen reader test (FR-A11Y-07) · FR-AUTH-02 |
 
-- Notifications ทางอีเมล
-- XLSX export (ทำแค่ CSV)
-- Appeals workflow
-- Accessibility ระดับ AA เต็มรูปแบบ (ทำเท่าที่ semantic HTML ให้ได้)
+**นอก scope ของ v1.0 ตาม PRD §1.3 / §2.2**
+
+- LMS integration (LTI 1.3) · mobile native app · multi-language UI
+- Bradley–Terry / Elo model · rubric attachment ต่อ criteria · rubric-based absolute scoring
+- การตัดเกรด (letter grade) · การประเมินข้าม classroom
+
+**นอก scope ที่ทีมตัดสินเอง** (ไม่ได้มาจาก PRD) — คอมเมนต์ประกอบการประเมินรายคู่ ([backlog.md](../docs/backlog.md) ส่วน "ไม่รับ"),
+ระบบ plagiarism detection, การให้คะแนนโดย AI
 
 ## Status
 
-**In Progress — WS-02 เสร็จแล้ว**
+**WS-01 ถึง WS-08 ทำครบในส่วนที่ตรวจจาก repo/CI ได้** — เหลือเฉพาะงานที่ทีมต้องทำเอง (present, ส่ง LMS,
+ยืนยันว่าทุกคนอธิบายได้)
 
-| Milestone | ขอบเขต | สถานะ |
-|---|---|---|
-| WS-01 | Deploy loop ปิดครบ + landing page | ✅ |
-| WS-02 | Backlog, diagrams, API contract, memory-bank | ✅ |
-| M1 Walking Skeleton | login → classroom → CSV → assignment → pairs → ประเมิน → คะแนน | ⬜ เริ่ม WS-03 |
+| Workshop | ขอบเขต | สถานะ | หลักฐาน |
+|---|---|:---:|---|
+| WS-01 | Deploy loop + landing page | ✅ | `README.md` (URL ที่ deploy) |
+| WS-02 | Backlog, diagrams, API contract, memory-bank | ✅ | `docs/backlog.md`, `docs/openapi.yaml`, `docs/erd.md` |
+| WS-03 | Unit test | ✅ | `backend/tests/unit`, `frontend/src/**/*.test.ts*` |
+| WS-04 | E2E (Playwright) | ✅ | `e2e/`, [e2e-report.md](../docs/e2e-report.md) |
+| WS-05 | Docker | ✅ | `compose.yaml`, `compose.test.yaml` |
+| WS-06 | CI/CD | ✅ (LMS ยังไม่ยืนยัน) | [cicd.md](../docs/cicd.md), [ws06-07-submission.md](../docs/ws06-07-submission.md) |
+| WS-07 | Performance & observability | ✅ (LMS ยังไม่ยืนยัน) | [performance-report.md](../docs/performance-report.md) |
+| WS-08 | Code quality & security | ✅ (present/LMS ทีมทำเอง) | [ws08-submission.md](../docs/ws08-submission.md) |
+
+## ข้อที่ยังไม่ตรง PRD
+
+1. **FR-AUTH-02 (MUST)** ไม่ผ่านตามตัวอักษร — ดู ADR-007 · ห้ามใช้ deployment นี้กับข้อมูลนักศึกษาจริงที่ไม่ได้ยินยอม
+2. **NFR-PERF-01 / NFR-SCALE-01/02** ยังไม่ได้วัดที่ 200 concurrent users
+3. **QS-07** ใช้ Kendall's u แทน Kendall's W (เหตุผลอยู่ใน `backend/app/domain/quality.py`)
+4. **FR-PRIV-03** ทำเป็นดาวน์โหลดสำเนาเองทันที (`GET /api/me/data-copy`) แทนคำขอที่ตอบภายใน 30 วัน
+5. **API path** บางตัวต่างจาก PRD §12 (เช่น `/scores` แทน `/reports/*`, `additional-evaluations` แทน `pairs:add-evaluators`,
+   `/classrooms/{id}/audit` แทน `/assignments/{id}/audit`) — ความสามารถครบ ชื่อต่าง · สัญญาจริงอยู่ที่ `docs/openapi.yaml`
 
 ## คำถามที่ยังไม่มีคำตอบ
 
-ต้องได้คำตอบก่อนลงมือ story ที่เกี่ยวข้อง — รายละเอียดอยู่ท้าย `docs/backlog.md`
+สามข้อที่เคยค้างในไฟล์นี้ (re-submit, `k_min`, โทษการไม่ประเมิน) PRD ตอบไว้แล้ว — ดูท้าย `docs/backlog.md`
 
-1. หลัง submit แล้วนักศึกษาแก้คำตอบได้ไหม ถึงเมื่อไร
-2. k-anonymity threshold ใช้เลขเท่าไร
-3. ถ้าไม่ประเมินเลย คะแนนที่ได้รับควรถูกหักเท่าไร
+สถานะ Open Questions OQ-1 ถึง OQ-8 ของ PRD §17 และข้อขัดแย้งภายใน PRD ที่รออาจารย์ชี้ขาด
+อยู่ที่ [open-questions.md](../docs/open-questions.md) ที่เดียว — **OQ-8 ยังเปิดอยู่** ข้ออื่นใช้ default และรอผู้ตัดสินยืนยัน
