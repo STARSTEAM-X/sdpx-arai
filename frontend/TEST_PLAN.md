@@ -8,9 +8,6 @@ Frontend29 tests ใน 5 ไฟล์: assignment12, datetime3, scale6, compari
 |---|---|
 | Unit | น้ำหนัก/config/request, timezone, forced-choice6 ระดับ, writer race/flush/retry/session/retired drafts และการคง orientation ต่อคู่ |
 | Existing E2E |130 กรณี ครอบคลุม classroom/roster/role/assignment/pairing/submissions/scoring/export/anonymity รวม design5 และ login7 |
-| Implementation regression |24 กรณี: functional16, reference state1, responsive matrix7 ขนาด; script/results/evidence อยู่ใน implementation-reports |
-| Responsive / axe |375×812,430×932,768×1024,1366×768,1440×900,1920×1080 และ 390×844;105 route/view states และ 7visible-score states รวม 112axeJSON reports |
-| Visual |HomePixelmatch แบบไม่ resize และ 11unscaled comparison boards ของข้อมูลจริง ไม่ใช่เปอร์เซ็นต์ compliance |
 
 ทดสอบ autosave ก่อน submit,สลับ side/reload/SPA ระหว่างบันทึก,offline/reconnect,deadline จริง,keyboard/focus,CSVpreview ก่อนเขียน,role/audit,enrollmentrepair,copy/edit/schedule/extend/unpublish,notificationread/due/recipient,appealexpiry/response/privacy,qualityidentity/exclusion/participation และ additional/instructor comparison
 
@@ -18,7 +15,6 @@ Frontend29 tests ใน 5 ไฟล์: assignment12, datetime3, scale6, compari
 
 Google popup/auth exchange ใช้ GIS/test doubles;กรณีอื่นใช้ test sessions และ/api/me จริง ไม่อ้างว่าทดสอบ GoogleOAuth จริงครบแล้ว useApiHealth ยังไม่มี isolatedhookunit test และ axe ไม่แทน manualaccessibilityreview
 
-ผลตรวจสุดท้ายพร้อมเวลารันและข้อจำกัดอยู่ใน [REGRESSION_TEST_REPORT.md](../implementation-reports/REGRESSION_TEST_REPORT.md) ไม่ใช้ผล WS-03 ย้อนหลังเป็นผลปัจจุบัน
 
 คำสั่งจาก root:
 
@@ -30,10 +26,8 @@ npm --prefix frontend run build
 npm run lint:api
 docker compose -p paireval-figma-implementation -f compose.test.yaml --profile e2e up -d --build api-test web-test
 docker compose -p paireval-figma-implementation -f compose.test.yaml --profile e2e run --rm --no-deps --build e2e
-docker compose -p paireval-figma-implementation -f compose.test.yaml -f implementation-reports/scripts/compose.audit.yaml --profile e2e run --rm --no-deps e2e
 ```
 
-axe-core อยู่เฉพาะ.local/audit-tools ตามที่ผู้ใช้อนุญาต compose.audit.yaml mount แบบ read-only และระบุ AXE_PATH ชุดใหม่ปฏิเสธ APIhost ที่ไม่ใช่ api-test ก่อน seed ห้ามชี้ tests เหล่านี้ไป preview หรือ production
 
 ---
 
