@@ -1,122 +1,86 @@
-ดำเนินงาน Workshop ตั้งแต่ WS-01 ถึง WS-08 ตามลำดับ โดยลงมือทำจริงในโปรเจกต์ ไม่ใช่เพียงอ่านหรือสรุปเอกสาร
+# CLAUDE.md
 
-## เอกสารภาพรวม
+คำสั่งสำหรับ Claude Code ใน repository นี้: ดำเนินงาน Workshop **WS-01 ถึง WS-08 ตามลำดับ**
+โดยลงมือทำจริงในโปรเจกต์ ไม่ใช่เพียงอ่านหรือสรุปเอกสาร
 
-ก่อนเริ่มงาน ให้อ่านไฟล์ต่อไปนี้ให้ครบ:
+---
 
-* `summary.md`
-* `AGENTS.md` และเอกสารคำแนะนำอื่นภายใน repository (ถ้ามี)
+## 1. เอกสารที่ต้องอ่านก่อนเริ่มงาน
 
-ใช้ `summary.md` เพื่อทำความเข้าใจ:
+| เอกสาร | ใช้ทำอะไร |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | โครงสร้าง repo, คำสั่ง build/test, conventions และกฎสำหรับ agent |
+| [`README.md`](README.md) | ภาพรวมระบบและ URL ที่ deploy แล้ว |
+| [`docs/`](docs/) | หลักฐานและรายงานของแต่ละ Workshop (เช่น `loop-metrics.md`, `cicd.md`, `ws08-submission.md`) |
+| `Sources/SDPX-AI-main/README.md` | ภาพรวมของวิชาและทั้ง 8 Workshop |
 
-* ภาพรวมและเป้าหมายของทั้ง 8 Workshops
-* แนวคิด Loop Engineering
-* ลำดับ `homework → lab → present`
-* ความสัมพันธ์และผลลัพธ์สะสมระหว่าง Workshop
-* การแบ่งโครงสร้าง Frontend, Backend และไฟล์ระดับ root
-* Artifact เกณฑ์ผ่าน และตัวเลขที่ต้องวัดตลอดโครงการ
+**แหล่งข้อกำหนดหลัก** คือ `homework.md`, `lab.md` และ `present.md` ของแต่ละ Workshop
+หากเอกสารอื่นขัดแย้งกับไฟล์เหล่านี้ ให้ยึดเอกสาร Workshop ต้นฉบับ แจ้งความขัดแย้งที่พบ และห้ามคาดเดาข้อกำหนดเอง
 
-`summary.md` เป็นเอกสารภาพรวม ส่วนไฟล์ `homework.md`, `lab.md` และ `present.md` ของแต่ละ Workshop เป็นข้อกำหนดรายละเอียดหลัก หากข้อมูลขัดแย้งกัน ให้ยึดเอกสาร Workshop ต้นฉบับ แจ้งความขัดแย้งที่พบ และห้ามคาดเดาข้อกำหนดเอง
+## 2. ข้อกำหนดของแต่ละ Workshop
 
-## เอกสารของแต่ละ Workshop
+ไฟล์ทั้งหมดอยู่ใต้ `Sources/SDPX-AI-main/` (อ่านอย่างเดียว)
 
-### WS-01 — First Deploy
+| WS | หัวข้อ | Homework | Lab / Present |
+|---|---|---|---|
+| 01 | First Deploy | `WS-01--before/homework.md` | `WS-01-RUN-first-deploy/{lab,present}.md` |
+| 02 | Requirements & API Design | `WS-02--before/homework.md` | `WS-02-RUN-req-design/{lab,present}.md` |
+| 03 | Unit Testing | `WS-03--before/homework.md` | `WS-03-RUN-unit-test/{lab,present}.md` |
+| 04 | End-to-End Testing | `WS-04--before/homework.md` | `WS-04-RUN-e2e/{lab,present}.md` |
+| 05 | Docker | `WS-05--before/homework.md` | `WS-05-RUN-docker/{lab,present}.md` |
+| 06 | CI/CD | `WS-06--before/homework.md` | `WS-06-RUN-cicd/{lab,present}.md` |
+| 07 | Performance & Observability | `WS-07--before/homework.md` | `WS-07-RUN-perf/{lab,present}.md` |
+| 08 | Code Quality & Security | `WS-08--before/homework.md` | `WS-08-RUN-code-quality/{lab,present}.md` |
 
-* `Sources/SDPX-AI-main/WS-01--before/homework.md`
-* `Sources/SDPX-AI-main/WS-01-RUN-first-deploy/lab.md`
-* `Sources/SDPX-AI-main/WS-01-RUN-first-deploy/present.md`
+## 3. ขั้นตอนการทำงาน
 
-### WS-02 — Requirements & API Design
+ทำทีละ Workshop ตามลำดับ **ห้ามสลับหรือข้าม** เพราะ Artifact ของ Workshop ก่อนหน้าถูกใช้ต่อใน Workshop ถัดไป
 
-* `Sources/SDPX-AI-main/WS-02--before/homework.md`
-* `Sources/SDPX-AI-main/WS-02-RUN-req-design/lab.md`
-* `Sources/SDPX-AI-main/WS-02-RUN-req-design/present.md`
+1. **อ่าน** `homework.md`, `lab.md` และ `present.md` ให้ครบก่อนแก้ไขโปรเจกต์
+2. **เปรียบเทียบ** ข้อกำหนดกับสถานะปัจจุบันของโปรเจกต์และหลักฐานใน `docs/`
+3. **สรุปก่อนลงมือ:** เป้าหมาย, Artifact ที่ต้องสร้างหรือแก้ไข, เกณฑ์ผ่าน, ตัวเลขที่ต้องวัด และ failure case ที่ต้องพิสูจน์
+4. **ตรวจโครงสร้างจริง** ตาม `AGENTS.md` — ห้ามสมมติ path ของ frontend หรือ backend
+5. **ลงมือ** สร้างหรือแก้ไขโค้ด เอกสาร configuration และ tests ตามข้อกำหนด
+6. **ตรวจสอบ** ด้วย build, lint, typecheck, unit test, E2E test, Docker หรือคำสั่งอื่นที่เกี่ยวข้อง
+7. **แก้ไขข้อผิดพลาด** — หาสาเหตุ แก้ แล้วทดสอบซ้ำ
+8. **ไล่ checklist** และเกณฑ์ผ่านของ Workshop ทีละข้อ
+9. **ตรวจ regression** — Artifact จาก Workshop ก่อนหน้าต้องยังทำงานได้
+10. **ไป Workshop ถัดไป** เมื่อผ่านครบ หรือเมื่อติด blocker ที่ต้องใช้ข้อมูลหรือสิทธิ์จากผู้ใช้
 
-### WS-03 — Unit Testing
+## 4. กติกา
 
-* `Sources/SDPX-AI-main/WS-03--before/homework.md`
-* `Sources/SDPX-AI-main/WS-03-RUN-unit-test/lab.md`
-* `Sources/SDPX-AI-main/WS-03-RUN-unit-test/present.md`
+**ความถูกต้องของผลลัพธ์**
+- ห้ามสร้างผลทดสอบ, URL, screenshot, deployment หรือตัวเลขปลอม
+- ห้ามแก้ test เพียงเพื่อให้ผ่าน
+- ต้องทดสอบ failure case ตามที่เอกสารกำหนด ไม่ใช่ตรวจเฉพาะกรณีที่ทำงานได้
+- Verify ผลจริงก่อนสรุปว่างานสำเร็จ
 
-### WS-04 — End-to-End Testing
+**ความปลอดภัย**
+- ห้าม commit secret, token, password หรือไฟล์ `.env`
+- ห้ามเปิดเผยหรือส่ง secret เข้าเครื่องมือ AI
 
-* `Sources/SDPX-AI-main/WS-04--before/homework.md`
-* `Sources/SDPX-AI-main/WS-04-RUN-e2e/lab.md`
-* `Sources/SDPX-AI-main/WS-04-RUN-e2e/present.md`
+**การแก้ไขโค้ด**
+- รักษาการแก้ไขเดิมที่ไม่เกี่ยวข้องกับงาน และหลีกเลี่ยงการลบหรือเขียนทับข้อมูลโดยไม่จำเป็น
+- ทุก Artifact ที่สร้างด้วย AI ต้องอธิบายเหตุผลและการทำงานได้
+- ห้ามหยุดแค่การสรุปหรือเสนอแนวทาง ถ้าลงมือทำในโปรเจกต์ได้
 
-### WS-05 — Docker
+**Blocker**
+- ถ้าต้องใช้ credentials, account ภายนอก, public deployment, branch protection หรือการอนุมัติจากผู้ใช้
+  ให้ทำส่วนที่ทำได้ก่อน แล้วรายงานขั้นตอนที่ติดอย่างชัดเจน
 
-* `Sources/SDPX-AI-main/WS-05--before/homework.md`
-* `Sources/SDPX-AI-main/WS-05-RUN-docker/lab.md`
-* `Sources/SDPX-AI-main/WS-05-RUN-docker/present.md`
+## 5. รูปแบบการรายงาน
 
-### WS-06 — CI/CD
+เมื่อจบแต่ละ Workshop ให้รายงานหัวข้อต่อไปนี้:
 
-* `Sources/SDPX-AI-main/WS-06--before/homework.md`
-* `Sources/SDPX-AI-main/WS-06-RUN-cicd/lab.md`
-* `Sources/SDPX-AI-main/WS-06-RUN-cicd/present.md`
+| หัวข้อ | รายละเอียด |
+|---|---|
+| สถานะ | `ผ่าน` · `ผ่านบางส่วน` · `ติด blocker` |
+| งานที่เสร็จ | สิ่งที่ดำเนินการแล้ว พร้อม Artifact และไฟล์ที่สร้างหรือแก้ไข |
+| การตรวจสอบ | คำสั่งที่ใช้ และผลของ build, lint, test, deployment และการวัดผล |
+| Failure case | กรณีที่ทดลองและผลลัพธ์ |
+| ปัญหา | ปัญหาที่พบและวิธีแก้ไข |
+| งานค้าง | สิ่งที่ยังไม่เสร็จพร้อมเหตุผล และงานที่ผู้ใช้ต้องทำเอง |
+| ความพร้อม | พร้อมสำหรับ Workshop ถัดไปหรือไม่ |
 
-### WS-07 — Performance & Observability
-
-* `Sources/SDPX-AI-main/WS-07--before/homework.md`
-* `Sources/SDPX-AI-main/WS-07-RUN-perf/lab.md`
-* `Sources/SDPX-AI-main/WS-07-RUN-perf/present.md`
-
-### WS-08 — Code Quality & Security
-
-* `Sources/SDPX-AI-main/WS-08--before/homework.md`
-* `Sources/SDPX-AI-main/WS-08-RUN-code-quality/lab.md`
-* `Sources/SDPX-AI-main/WS-08-RUN-code-quality/present.md`
-
-## วิธีดำเนินงาน
-
-ทำ Workshop ทีละชุดตามลำดับ ห้ามสลับหรือข้าม Workshop เนื่องจาก Artifact ของ Workshop ก่อนหน้าจะถูกใช้ใน Workshop ถัดไป
-
-สำหรับแต่ละ Workshop:
-
-1. อ่าน `homework.md`, `lab.md` และ `present.md` ให้ครบก่อนแก้ไขโปรเจกต์
-2. เปรียบเทียบข้อกำหนดกับ `summary.md` และสถานะปัจจุบันของโปรเจกต์
-3. สรุปก่อนลงมือว่า:
-
-   * เป้าหมายของ Workshop คืออะไร
-   * ต้องสร้างหรือแก้ไข Artifact ใด
-   * เกณฑ์ผ่านคืออะไร
-   * ต้องวัดผลหรือต้องพิสูจน์ failure case ใด
-4. ตรวจสอบโครงสร้างและเทคโนโลยีจริงของโปรเจกต์ ห้ามสมมติ path ของ Frontend หรือ Backend
-5. ลงมือสร้างหรือแก้ไขโค้ด เอกสาร configuration และ tests ตามข้อกำหนด
-6. รันคำสั่งติดตั้ง build, lint, typecheck, unit test, E2E test, Docker หรือคำสั่งตรวจสอบอื่นที่เกี่ยวข้อง
-7. หากพบข้อผิดพลาด ให้ตรวจหาสาเหตุ แก้ไข และทดสอบซ้ำ
-8. ตรวจสอบ Checklist และเกณฑ์ผ่านของ Workshop ทีละข้อ
-9. ตรวจสอบด้วยว่า Artifact จาก Workshop ก่อนหน้ายังคงทำงาน และไม่มี regression
-10. ทำ Workshop ถัดไปเมื่อ Workshop ปัจจุบันผ่านครบ หรือพบ blocker ที่ต้องอาศัยข้อมูลหรือสิทธิ์จากผู้ใช้
-
-## กติกาการทำงาน
-
-* ห้ามหยุดเพียงการสรุปหรือเสนอแนวทาง หากสามารถลงมือทำในโปรเจกต์ได้
-* ห้ามสร้างผลการทดสอบ URL, screenshot, deployment หรือค่าตัวเลขปลอม
-* ห้ามแก้ test เพียงเพื่อทำให้ผลผ่าน
-* ห้าม commit secret, token, password หรือไฟล์ `.env`
-* ห้ามเปิดเผยหรือส่ง secret เข้าเครื่องมือ AI
-* รักษาการแก้ไขเดิมที่ไม่เกี่ยวข้องกับงาน
-* หลีกเลี่ยงการลบหรือเขียนทับข้อมูลโดยไม่จำเป็น
-* ทุก Artifact ที่สร้างด้วย AI ต้องสามารถอธิบายเหตุผลและการทำงานได้
-* Verify ผลลัพธ์จริงก่อนสรุปว่างานสำเร็จ
-* ต้องทดสอบ failure case ตามที่เอกสารกำหนด ไม่ใช่ตรวจเฉพาะกรณีที่ทำงานผ่าน
-* หากต้องใช้ credentials, account ภายนอก, public deployment, branch protection หรือการอนุมัติจากผู้ใช้ ให้ทำส่วนที่ทำได้ก่อน แล้วรายงานขั้นตอนที่ติด blocker อย่างชัดเจน
-
-## การรายงานผล
-
-เมื่อจบ Workshop แต่ละชุด ให้รายงาน:
-
-* สถานะ: `ผ่าน`, `ผ่านบางส่วน` หรือ `ติด blocker`
-* สิ่งที่ดำเนินการเสร็จแล้ว
-* Artifact และไฟล์ที่สร้างหรือแก้ไข
-* คำสั่งที่ใช้ตรวจสอบ
-* ผลของ build, lint, test, deployment และการวัดผล
-* Failure case ที่ทดลองและผลลัพธ์
-* ปัญหาที่พบและวิธีแก้ไข
-* สิ่งที่ยังไม่เสร็จและเหตุผล
-* งานที่ผู้ใช้ต้องดำเนินการเอง (ถ้ามี)
-* ความพร้อมสำหรับ Workshop ถัดไป
-
-เมื่อทำครบ WS-01 ถึง WS-08 ให้สรุปภาพรวมของทั้งโปรเจกต์ ตรวจสอบ Artifact สะสมตาม `summary.md` และรันชุดตรวจสอบสุดท้ายทั้งหมดอีกครั้ง
+เมื่อครบ WS-01 ถึง WS-08 ให้สรุปภาพรวมทั้งโปรเจกต์ ตรวจ Artifact สะสมของทุก Workshop
+และรันชุดตรวจสอบสุดท้ายทั้งหมดอีกครั้ง
