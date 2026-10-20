@@ -19,6 +19,9 @@ const httpServerLatency = new Trend('http_server_latency', true)
 // พอย้ายมายิง staging หลัง deploy round-trip มี network ~250ms ปนอยู่ (run 39339438868: med 268ms, server p95 47ms)
 // จึงตัดสิน 400ms ที่ server; ส่วน round-trip ใช้เกณฑ์ที่ผู้ใช้รู้สึกตาม PRD NFR-PERF-01 (ดู thresholds)
 const myEvaluationsServerLatency = new Trend('my_evaluations_server_latency', true)
+// หน้าคะแนนของอาจารย์ — เหตุผลเดียวกัน: run 39343725512 round-trip p95 590.96ms ตก ทั้งที่ min 216ms
+// = network floor และอาจารย์มีแค่ 1 VU ทำให้ p95 คือ request ช้าสุด 1–2 ตัว; ตัดสิน 500ms เดิมที่ server
+const scoresServerLatency = new Trend('scores_server_latency', true)
 // ไม่มี header = วัดไม่ได้ ต้องแดง ไม่ใช่ผ่านเงียบ ๆ (Trend ว่างทำให้ threshold p95 ผ่าน)
 const missingServerTiming = new Rate('http_missing_server_timing')
 const PEAK_VUS = Number(__ENV.PEAK_VUS || 10)
@@ -75,7 +78,8 @@ export const options = {
     // NFR-PERF-01: หน้า Evaluation p95 ≤ 2.0 วิ, p99 ≤ 4.0 วิ ตามที่ผู้ใช้เห็นจริง (รวม network)
     'http_req_duration{name:my_evaluations}': ['p(95)<=2000', 'p(99)<=4000'],
     'http_req_duration{name:submit}': ['p(95)<=800'],
-    'http_req_duration{name:scores}': ['p(95)<500'],
+    // round-trip ของ scores ยังอยู่ใน summary ไว้ดูเท่านั้น — PRD ไม่มีเกณฑ์ที่ผู้ใช้รู้สึกของหน้านี้
+    scores_server_latency: ['p(95)<500'],
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 }
@@ -185,6 +189,8 @@ export function student(data) {
 export function instructor(data) {
   group('อาจารย์ติดตามความคืบหน้า', () => {
     const scores = timed(http.get(`${BASE_URL}/api/assignments/${data.assignmentId}/scores`, auth(fixture.teacherToken, 'scores')))
+    const scoresServerMs = serverTiming(scores)
+    if (scoresServerMs !== null) scoresServerLatency.add(scoresServerMs)
     const roster = timed(http.get(`${BASE_URL}/api/classrooms/${data.classroomId}/roster`, auth(fixture.teacherToken, 'roster')))
     journeyErrors.add(!(check(scores, { 'scores 200': (r) => r.status === 200 }) && check(roster, { 'roster 200': (r) => r.status === 200 })))
     sleep(5)
