@@ -45,8 +45,10 @@ production deploy จาก `main` ตาม [`render.production.yaml`](render.p
 | WS-04 E2E Testing | ✅ | Journey ของอาจารย์ใช้งานได้ครบเส้นบน Postgres + API + หน้าเว็บ · **E2E 118 tests · `--repeat-each=3` ได้ 354 passed ใน 4.5 นาที ไม่ flaky** |
 | WS-05 Docker | ✅ | Dockerfile multi-stage ทั้งสองฝั่ง (non-root + healthcheck · web 459→94MB) · **setup 15 ขั้นตอน → `docker compose up` คำสั่งเดียว (36 วิครั้งแรก / 11 วิครั้งถัดไป)** · test db เป็น ephemeral · พิสูจน์แล้วว่า test แดง → exit code ≠ 0 · CI smoke job เขียวบน GitHub Actions |
 | WS-06 CI/CD | ✅ | Docker CI ผ่าน 7 checks, PR ทดลองบล็อก merge จริง, API/เว็บ staging SHA เดียวกัน edba11d; pipeline รอบยืนยันผ่านรวม performance. Commit-to-live รอบแรก 359.7s; production มี human reviewer gate และ template แยก ([`docs/cicd.md`](docs/cicd.md), [`docs/loop-metrics.md`](docs/loop-metrics.md)) |
-| WS-07 Performance | 🟡 | Baseline/AI analysis ครบ; รอบ edba11d ผ่าน CI: 319 requests/0 errors, autosave p95 **270.40ms**, submit **351.71ms**. เก็บรอบแรกที่ autosave 317.95ms ไม่ผ่านไว้ด้วย. รอบล่าสุด (d7d7b76, 2026-10-20) ตกเกณฑ์เดียวคือ `my_evaluations` p95 **450.4ms** (เกณฑ์ 400ms วัดไป-กลับจาก runner ถึง Render) ขณะที่ฝั่ง server p95 47.05ms และ autosave ฝั่ง server 37.84ms; ยังไม่ยืนยัน NFR 200 users หรือความเสถียรหลายรอบ ([`docs/performance-report.md`](docs/performance-report.md)) |
-| WS-08 Code Quality & Security | 🟡 | Refactor publish 93→61 บรรทัดโดยคง behavior; แก้ CSV injection/production signing fallback และอัปเดต dependencies. Review/ADR/security evidence ครบ; CodeQL scan ภาษา Python และ JavaScript/TypeScript ผ่านบน PR #24 ที่ merge เข้า `main` แล้ว; ยังไม่ยืนยัน human present/LMS ([`docs/ws08-submission.md`](docs/ws08-submission.md)) |
+| WS-07 Performance | ✅ | เกณฑ์ lab ครบ 5 ข้อ. Job `performance` บน staging **ผ่าน 3 รอบติดกัน** (2026-10-20, 311–327 requests, errors 0%): autosave server p95 36–86ms, submit 278–432ms, หน้า Evaluation round-trip p95 288–519ms. แก้เกณฑ์รายเส้นทางที่รวม network CI→สิงคโปร์ ~250ms ให้วัดที่ server (Server-Timing) โดยคงตัวเลขเดิม และเก็บรอบที่แดงไว้เป็นหลักฐาน. **NFR 200 users วัดแล้ว: staging บน Render free ไม่ผ่าน** (หน้า Evaluation p95 9.17s, publish 15.90s; recompute 2.98s ผ่าน) — request รอคิวใน app, วิเคราะห์สาเหตุและวิธีวัดยืนยันไว้ใน [`docs/performance-report.md`](docs/performance-report.md) |
+| WS-08 Code Quality & Security | ✅ | Refactor publish 93→61 บรรทัดโดยคง behavior และไม่แตะ test; ADR-001 ครบทุก section; แก้ security **3 ข้อ** พร้อม test (CSV injection, production signing fallback, ไม่เผยเหตุผลภายในตอน token ตรวจไม่ผ่าน) + อัปเดต dependencies. **CodeQL scan `main` แล้ว** (Python/JS-TS/Actions; 3 warning คัดกรองเป็น false positive). CI `main`/`develop` เขียว ([`docs/ws08-submission.md`](docs/ws08-submission.md)) |
+
+> **ทีมต้องทำเอง:** present WS-07/WS-08, ส่ง LMS และยืนยันว่าทุกคนอธิบาย decisions ได้ — agent ทำแทนไม่ได้.
 
 ### หลัง WS-08 (merge เข้า `main` ใน [PR #24](https://github.com/STARSTEAM-X/sdpx-arai/pull/24))
 
@@ -204,9 +206,9 @@ integration test ถูกตัดออกจาก `pytest` เปล่า �
 ทุก PR และ push เข้า develop/main รัน [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 Lint, unit, integration และ E2E เป็น gate ก่อน deploy; test containers ใช้
 compose.test.yaml พร้อม compose.ci.yaml สำหรับ cache/JUnit/coverage.
-ผลตรวจบนเครื่องล่าสุด 2026-10-20 (d7d7b76): backend unit 723 (8.82s), frontend 48, integration 57
+ผลตรวจบนเครื่องล่าสุด 2026-10-20: backend unit 727 (9.75s), frontend 48, integration 57
 และ E2E 149 ผ่าน — backend ตัวเดียวเข้าใกล้เพดาน 10 วิของ unit loop แล้ว.
-CI ของ d7d7b76 ผ่านทุก gate จนถึง deploy-staging; job `performance` ไม่ใช่ required check ของ `main`.
+CI ของ `develop` (f9f0d64) เขียวครบทุก job รวม `performance`; job นี้ไม่ใช่ required check ของ `main`.
 ผล Docker CI รอบก่อน ๆ อ้าง run จริงใน docs/loop-metrics.md.
 
 ## Deploy

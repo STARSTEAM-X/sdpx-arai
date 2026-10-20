@@ -1,6 +1,51 @@
 # Performance Report — WS-07
 
-## ผลอ้างอิงล่าสุดที่บันทึก — edba11d (2026-10-05)
+## ผลอ้างอิงล่าสุด — 2026-10-20 (ยืนยันหลายรอบ)
+
+Profile เดิมทุกอย่าง (student 0→5→10→0 + instructor 1 VU, dataset 60 คน, runner GitHub ubuntu-latest → staging สิงคโปร์).
+
+### ทำไม job `performance` แดงทุก push ก่อนหน้านี้
+
+| run | commit | ผล | เกณฑ์ที่ตก | หลักฐานว่าไม่ใช่ server ช้า |
+|---|---|---|---|---|
+| [39339438868](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39339438868) | d7d7b76 | ❌ | `my_evaluations` round-trip p95 450.4ms (<400) | med 267.88ms ≈ network floor; server p95 รวม 47.05ms |
+| [39343725512](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39343725512) | 0e30334 | ❌ | `scores` round-trip p95 590.96ms (<500) | min 216ms = network floor; อาจารย์ 1 VU → p95 คือ request ช้าสุด 1–2 ตัว; server p95 รวม 102.22ms |
+
+**Hypothesis ที่ผิด:** เดาว่าเกณฑ์ round-trip รายเส้นทางยังใช้ได้หลังย้าย job มายิง staging.
+ผิดเพราะเกณฑ์ 400/500ms ถูกตั้งตอน job ยังวัดใน runner ก่อน deploy (4ecfec8) ไม่มี network ~200–270ms ปน.
+บทเรียน: เกณฑ์ต้องผูกกับ "สิ่งที่วัด" — server latency ตัดสินด้วย Server-Timing, ส่วนที่ผู้ใช้รู้สึกใช้เกณฑ์ PRD.
+
+**สิ่งที่เปลี่ยน (e366230, f9f0d64):** ย้ายเกณฑ์เดิมไปวัดที่ server โดยไม่ลดตัวเลข —
+`my_evaluations_server_latency` p95<400ms, `scores_server_latency` p95<500ms;
+round-trip ของหน้า Evaluation ใช้ NFR-PERF-01 (p95 ≤ 2.0s, p99 ≤ 4.0s); round-trip ของ scores เก็บไว้ดูเท่านั้น.
+ไม่มี Server-Timing = แดง (`http_missing_server_timing`).
+
+### ผลหลังแก้ — ผ่าน 3 รอบติดกัน
+
+| ตัวชี้วัด (p95) | [e366230](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39342404422) | [f9f0d64](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39345042737) | f9f0d64 รันซ้ำ (attempt 2) | เกณฑ์ |
+|---|---:|---:|---:|---|
+| my_evaluations server | 168.39ms | 37.61ms | 30.35ms | <400ms |
+| my_evaluations round-trip p95 / p99 | 518.9 / 732.67ms | 288.23 / 334.61ms | 446.3 / 649.35ms | ≤2000 / ≤4000ms (NFR-PERF-01) |
+| scores server | — (ยังไม่มี metric) | 221.78ms | 71.31ms | <500ms |
+| autosave server | 86.44ms | 69.89ms | 36.47ms | ≤300ms (NFR-PERF-02) |
+| submit round-trip | 432.1ms | 318.57ms | 278.26ms | ≤800ms (NFR-PERF-03) |
+| HTTP server รวม | 74.33ms | 57.87ms | 39.78ms | <500ms |
+| HTTP errors / journey errors | 0% / 0% | 0% / 0% | 0% / 0% | <1% / <5% |
+| requests | 311 | 327 | 327 | — |
+
+หลักฐาน: [e366230](../performance/runs/staging-baseline-e366230.json) ·
+[0e30334 ที่แดง](../performance/runs/staging-baseline-0e30334-scores-red.json) ·
+[f9f0d64](../performance/runs/staging-baseline-f9f0d64.json) ·
+[f9f0d64 attempt 2](../performance/runs/staging-baseline-f9f0d64-attempt2.json) (metrics เท่านั้น ไม่มี session).
+
+**Bottleneck ที่ยังเห็น:** `/scores` ฝั่ง server มีหาง — f9f0d64 median 30.8ms แต่ p95 221.78ms, max 258ms
+(ห้อง 60 คนดึงคะแนนเป็นชุดแล้วตาม perf/scores-batch) ยังผ่านเกณฑ์ แต่เป็นจุดแรกที่ควรดูถ้าห้องใหญ่ขึ้น.
+วิธียืนยัน: เทียบ `scores_server_latency` ที่ dataset 60 กับ 200 คน (workflow PRD scale ด้านล่าง).
+
+**Gate ยังแดงได้จริง:** run 39339438868 และ 39343725512 ด้านบนคือ threshold ตกจริง k6 exit 99 → job แดง
+(นอกเหนือจาก failure proof เดิมใน run 37244411279).
+
+## ผลอ้างอิงก่อนหน้า — edba11d (2026-10-05)
 
 [CI run 37250469594](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/37250469594)
 ผ่านทั้ง pipeline; journey สูงสุด 10 student VUs + 1 instructor, 319 requests,
@@ -251,6 +296,34 @@ workflow ใหม่ [`.github/workflows/perf-nfr.yml`](../.github/workflows/pe
 ใช้ secret ชุดเดียวกับ job `performance` · สร้าง fixture 204 คนแบบ `--prd-scale` → จับเวลา publish (NFR-PERF-04) →
 journey ที่ `PEAK_VUS=200` (NFR-PERF-01 ผ่าน `my_evaluations`) → recompute หลังมีผลประเมินจริง (NFR-PERF-05)
 
-| วันที่ | run | publish | journey 200 VUs | recompute |
+| วันที่ | run | publish (NFR-PERF-04 ≤10s) | journey 200 VUs | recompute (NFR-PERF-05 ≤30s) |
 |---|---|---|---|---|
-| _รอรันครั้งแรก_ | | | | |
+| 2026-10-20 | [39346616515](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39346616515) (f9f0d64) | **15.90s ❌** | **❌ ดูตารางล่าง** · errors 0% | **2.98s ✅** (4.20 / 2.98 / 2.76) |
+
+หลักฐาน: [staging-prd-scale-200vus-f9f0d64.json](../performance/runs/staging-prd-scale-200vus-f9f0d64.json) (metrics เท่านั้น).
+
+| ตัวชี้วัด | 10 VUs (CI, f9f0d64) | **200 VUs** | เกณฑ์ |
+|---|---:|---:|---|
+| หน้า Evaluation round-trip p95 / p99 (NFR-PERF-01) | 288.23 / 334.61ms | **9.17 / 9.78s ❌** | ≤2.0 / ≤4.0s |
+| autosave server p95 (NFR-PERF-02) | 69.89ms | **9.29s ❌** | ≤300ms |
+| submit round-trip p95 (NFR-PERF-03) | 318.57ms | **10.10s ❌** | ≤800ms |
+| HTTP server median / p95 | — / 57.87ms | **6.11s / 9.11s** | p95 <500ms |
+| throughput | 2.33 req/s | **15.24 req/s** (3,210 requests) | — |
+| HTTP errors / journey errors | 0% / 0% | 0% / 0% | <1% / <5% |
+
+**อ่านผลอย่างไร:** ไม่มี request ล้มเลย แต่เวลาฝั่ง server เองพุ่งจากหลักสิบ ms เป็นหลายวินาที
+(`my_evaluations` ฝั่ง server min 7.5ms, median 5.90s) และ throughput ตันที่ราว 15 req/s
+→ request **รอคิวอยู่ใน app** (Server-Timing วัดตั้งแต่เข้า middleware จึงนับเวลารอด้วย) ไม่ใช่ network และไม่ใช่ query ตัวไหนช้าเป็นพิเศษ
+เพราะทุก endpoint ช้าพร้อมกันในระดับเดียวกัน (scores median 3.11s, autosave median 6.26s).
+
+**สาเหตุที่เป็นไปได้ เรียงตามหลักฐาน (ยังไม่พิสูจน์):**
+
+| สมมติฐาน | หลักฐานที่มี | วัดอะไรเพื่อยืนยัน/ตัดทิ้ง |
+|---|---|---|
+| 1. CPU ของ Render **free plan** (แบ่งใช้ CPU) อิ่มตัว — uvicorn รัน process เดียว | ทุก endpoint ช้าเท่า ๆ กัน, throughput ตันแบนที่ ~15 req/s, รอบ 10 VUs ปกติ | CPU metrics ของ service ช่วง 00:14–00:20Z (Render → Metrics) · รันซ้ำบน plan ที่ CPU สูงกว่าด้วย dataset/profile เดิม |
+| 2. รอ connection จาก pool (`backend/app/db.py` max_size=10) | 200 VUs แย่ง 10 connection; endpoint sync ของ FastAPI รันใน threadpool | log `pool.get_stats()` (`requests_wait_ms`, `requests_queued`) ระหว่าง load |
+| 3. Postgres free plan | publish (เขียน 10,000 แถว) 15.90s เทียบเครื่อง dev 3.08s | `pg_stat_statements`/เวลา query แยกจากเวลารอ |
+
+**ไม่ได้แก้ในรอบนี้:** ทั้งสามข้อเป็นเรื่อง capacity/ค่าใช้จ่ายของ infra (เปลี่ยน plan, เพิ่ม worker ซึ่งต้องดู RAM 512MB ของ free plan)
+ไม่ใช่ bug ของ code — ต้องให้ทีมตัดสินและวัดยืนยันก่อน. ข้อสรุปตอนนี้: **staging บน free plan ไม่ผ่าน NFR-PERF-01..04 ที่ 200 users**
+แต่ผ่านทุกเกณฑ์ที่ profile ของ lab (10 VUs) 3 รอบติดกัน และ recompute ผ่าน NFR-PERF-05.
