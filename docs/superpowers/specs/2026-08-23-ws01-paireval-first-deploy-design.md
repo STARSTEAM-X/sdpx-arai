@@ -20,7 +20,7 @@ Domain ที่เลือกคือ **PairEval** ตาม `Sources/SDPX-AI
 | # | Decision | เหตุผล | ทางเลือกที่ไม่เลือก |
 |---|---|---|---|
 | D1 | **FastAPI + Vite React + Tailwind + PostgreSQL** | PRD ต้องการ REST JSON API + PostgreSQL · หัวใจของระบบคือ Pairing/Scoring Engine ที่ต้องมี property-based test (NFR-MAINT-02) ซึ่ง Python + Hypothesis ทำได้ดีที่สุด · แยก FE/BE ชัดตาม convention ของวิชา | Next.js fullstack (deploy ง่ายกว่า แต่เส้นแบ่ง FE/BE จาง) |
-| D2 | **โครงสร้าง `frontend/` + `backend/` ที่ระดับบนของ repo** | ตรงกับ convention ที่บันทึกไว้ใน `summary.md` · อ่านง่ายที่สุดสำหรับกลุ่มที่เพิ่งเริ่ม | monorepo `apps/web` + `apps/api` |
+| D2 | **โครงสร้าง `frontend/` + `backend/` ที่ระดับบนของ repo** | ตรงกับ convention ของ workshop · อ่านง่ายที่สุดสำหรับกลุ่มที่เพิ่งเริ่ม | monorepo `apps/web` + `apps/api` |
 | D3 | **Render ทั้งหมด ผ่าน `render.yaml` (Blueprint)** | สมัครที่เดียว · config เป็น Infrastructure as Code อยู่ใน git ตรวจ review ได้ | Vercel + Render + Neon (3 บัญชี) |
 | D4 | **ยังไม่สร้าง PostgreSQL ใน WS-01 — เลื่อนไป WS-03** | Render free Postgres หมดอายุใน 30 วัน · WS-01 และ WS-02 ไม่ใช้ DB เลย (WS-02 เป็นเอกสารล้วน) · สร้างวันนี้จะหมดอายุกลางคอร์ส | สร้างพร้อมกันทั้งหมดตั้งแต่แรก |
 | D5 | **Landing page เรียก `GET /api/health` แล้วแสดงผล** | ทำให้เห็นด้วยตาว่า **ทั้งสอง service** deploy ขึ้นจริงและคุยกันได้ ไม่ใช่แค่หน้า static ที่ไม่พิสูจน์อะไรฝั่ง backend | landing page static ล้วนตามตัวอย่างใน lab |

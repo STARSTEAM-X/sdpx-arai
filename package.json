@@ -1,5 +1,5 @@
 {
-  "name": "sdpx-arai2",
+  "name": "paireval",
   "private": true,
   "version": "0.1.0",
   "description": "PairEval — workspace ระดับ root สำหรับ E2E ที่ครอบทั้ง frontend และ backend",

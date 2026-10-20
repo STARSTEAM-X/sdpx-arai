@@ -8,7 +8,7 @@
 [![CI](https://github.com/STARSTEAM-X/sdpx-arai/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/STARSTEAM-X/sdpx-arai/actions/workflows/ci.yml)
 
 > Project ของวิชา **SDPX-AI** — Software Development Process in Practice (AI-Assisted)
-> สรุปงานทั้ง 8 workshop อยู่ที่ [`summary.md`](summary.md)
+> เอกสารทั้งหมดอยู่ใน [`docs/`](docs/) — ข้อกำหนดของแต่ละ workshop อยู่ใน [`Sources/`](Sources/)
 
 ## Live
 
