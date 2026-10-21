@@ -309,3 +309,36 @@ test.describe('US-09 ส่งคำตอบทั้งชุด', () => {
     })
   })
 })
+
+test.describe('FR-EVAL-06 re-submit ได้ไม่จำกัดครั้งก่อน deadline', () => {
+  // AC: submit 3 ครั้ง → คะแนนใช้ครั้งที่ 3 · ทุกเวอร์ชันเก็บใน comparison_revision (PRD §11.1)
+  // ข้อมูลที่เข้าการคำนวณคือ comparison ที่ SUBMITTED — ดูผ่าน raw export ซึ่งอ่านชุดเดียวกับ scoring engine
+  test('submit 3 ครั้งด้วยคำตอบต่างกัน ระบบใช้คำตอบล่าสุดและไม่มีแถวซ้ำ', async ({
+    api,
+    instructorToken,
+    classroomId,
+  }) => {
+    await seedRoster(api, instructorToken, classroomId)
+    const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+    const studentToken = await issueToken(api, 'stu1@kmitl.ac.th')
+    const pairs = await myPairs(api, studentToken, assignmentId)
+
+    for (const [round, choice] of [1, 3, 6].entries()) {
+      for (const p of pairs) {
+        await api.put(`/api/comparisons/${p.pairAssignmentId}`, { ...auth(studentToken), data: { choice } })
+      }
+      const res = await api.post(`/api/assignments/${assignmentId}/submissions`, {
+        ...auth(studentToken),
+        headers: { ...auth(studentToken).headers, 'Idempotency-Key': `resubmit-${round}` },
+        data: { side: 'GROUP' },
+      })
+      expect(res.status(), `submit รอบที่ ${round + 1}`).toBe(200)
+    }
+
+    const exported = await api.get(`/api/assignments/${assignmentId}/comparisons:export`, auth(instructorToken))
+    expect(exported.status()).toBe(200)
+    const rows = (await exported.text()).replace(/^﻿/, '').trim().split(/\r?\n/).slice(1)
+    expect(rows).toHaveLength(pairs.length)
+    expect(rows.map((row) => row.split(',')[5])).toEqual(pairs.map(() => '6'))
+  })
+})
