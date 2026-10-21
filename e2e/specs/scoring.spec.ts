@@ -478,6 +478,28 @@ test.describe('US-13/US-15/US-10 คำนวณ ประกาศ และด
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('รายงานคะแนนกลุ่ม')
       await expect(page.getByTestId('scores-final-flag')).toHaveText('ชั่วคราว — อาจเปลี่ยนแปลงได้')
     })
+
+    // FR-SCORE-07 — "ทุกที่ที่ปรากฏ" รวมหน้าคะแนนของนักศึกษา ไม่ใช่เฉพาะรายงานของอาจารย์
+    test('FR-SCORE-07: นักศึกษาเห็นคะแนนก่อน finalize พร้อม label "ชั่วคราว — อาจเปลี่ยนแปลงได้"', async ({
+      page,
+      api,
+      instructorToken,
+      classroomId,
+    }) => {
+      await seedRoster(api, instructorToken, classroomId)
+      const assignmentId = await createAndPublish(api, instructorToken, classroomId, FUTURE_DEADLINE)
+      await answerAndSubmitAll(api, assignmentId)
+      await api.post(`/api/assignments/${assignmentId}:recompute`, auth(instructorToken))
+      const studentToken = await issueToken(api, 'stu1@kmitl.ac.th')
+
+      await page.addInitScript(
+        ([key, token]) => window.localStorage.setItem(key, token),
+        ['paireval.session', studentToken] as const,
+      )
+      await page.goto(`/classrooms/${classroomId}/assignments/${assignmentId}/score`)
+
+      await expect(page.getByTestId('score-provisional-flag')).toHaveText('ชั่วคราว — อาจเปลี่ยนแปลงได้')
+    })
   })
 })
 

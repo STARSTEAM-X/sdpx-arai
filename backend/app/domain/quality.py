@@ -73,7 +73,7 @@ AGREEMENT_MIN_RATER_PAIRS = 10
 # PRD §10 ให้ "Kendall's W < 0.2" เป็นเกณฑ์ default แต่ u ไม่ใช่สเกลเดียวกับ W:
 # u = 2p − 1 เมื่อ p คือสัดส่วนคู่ผู้ประเมินที่เลือกฝั่งเดียวกัน → u = 0 คือเห็นตรงกัน 50% เท่าการเดาสุ่ม
 # u < 0.2 จึงแปลว่าเห็นตรงกันไม่ถึง 60% ของคู่ผู้ประเมิน (ดีกว่าสุ่มไม่ถึง 10 จุด) — คงเลข 0.2 ของ PRD ไว้
-# ด้วยความหมายนี้ ยังไม่ได้ทำให้ตั้งค่าต่องานได้ (บันทึกใน docs/figma-recheck-remaining.md)
+# ด้วยความหมายนี้ ยังไม่ได้ทำให้ตั้งค่าต่องานได้
 AGREEMENT_THRESHOLD = 0.2
 
 
@@ -110,6 +110,23 @@ def criterion_agreement(rows: list[dict]) -> dict:
         'agreement': coefficient,
         'flags': ['QS-07'] if coefficient is not None and coefficient < AGREEMENT_THRESHOLD else [],
     }
+
+
+# FR-QS-03 — ต่ำติดกันกี่งานจึงรายงานว่าเกณฑ์อาจเขียนไม่ชัด · "หลาย assignment" = งานนี้ + อย่างน้อยอีกหนึ่งงาน
+REPEATED_LOW_AGREEMENT_MIN = 2
+
+
+def low_agreement_streak(coefficients: list[float | None]) -> int:
+    """นับว่า QS-07 ต่ำติดต่อกันกี่งาน เริ่มจากงานปัจจุบัน (ตัวแรก) ย้อนไปงานก่อนหน้า
+
+    งานที่ยังตรวจไม่ได้ (None) ตัดลำดับ ไม่นับข้าม — ไม่มีข้อมูลไม่ได้แปลว่าเห็นแตกกัน
+    """
+    streak = 0
+    for coefficient in coefficients:
+        if coefficient is None or coefficient >= AGREEMENT_THRESHOLD:
+            break
+        streak += 1
+    return streak
 
 
 FAVORITISM_Z = 2.0

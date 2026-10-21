@@ -233,6 +233,7 @@ paths:
     "post":
       "tags": ["assignments"]
       "summary": "Extend Deadline"
+      "description": "เปลี่ยนกำหนดส่งของงานที่เผยแพร่แล้ว (FR-ASSIGN-04) — ขยายได้ทุกเมื่อ · ร่นเข้าได้เฉพาะก่อนถึงกำหนดเดิม · กำหนดใหม่ต้องอยู่ในอนาคต ไม่งั้นตอบ 422 · audit เป็น DEADLINE_EXTENDED หรือ DEADLINE_SHORTENED"
       "operationId": "extend_deadline_api_assignments__assignment_id__extend_deadline_post"
       "parameters": [{"name":"assignment_id","in":"path","required":true,"schema":{"type":"string","title":"Assignment Id"}}]
       "requestBody":

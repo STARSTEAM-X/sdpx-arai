@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 
-import { IconAlert, IconCheck, IconCheckCircle, IconClock, IconInfo } from './icons'
+import { IconAlert, IconCheckCircle, IconInfo } from './icons'
 import type { RosterEntry } from '../lib/api'
 
 /** ชิ้นส่วนหน้าตาที่ใช้ร่วมกันทั้งหน้าจัดการห้องเรียน
@@ -71,41 +71,6 @@ export function Card({ className = '', children, radius = 'lg', shadow = true, s
   )
 }
 
-export function CardHead({
-  icon,
-  title,
-  hint,
-  id,
-  badge,
-}: {
-  icon: ReactNode
-  title: string
-  hint: ReactNode
-  id: string
-  badge?: ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-3 border-b border-edge px-6 py-5 max-sm:px-4">
-      <span
-        aria-hidden="true"
-        className="grid size-10 shrink-0 place-items-center rounded-xl border border-edge bg-sand text-ink-2"
-      >
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <h2
-          id={id}
-          className="flex flex-wrap items-center gap-2 font-display text-[17px] font-semibold"
-        >
-          {title}
-          {badge}
-        </h2>
-        <p className="mt-0.5 text-[13.5px] text-muted">{hint}</p>
-      </div>
-    </div>
-  )
-}
-
 type Tone = 'neutral' | 'ok' | 'warn' | 'err' | 'brand'
 
 const PILL_TONE: Record<Tone, string> = {
@@ -150,33 +115,6 @@ export const STATUS_LABEL: Record<RosterEntry['status'], string> = {
   DISABLED: 'ถูกระงับ',
 }
 
-export function RolePill({ role }: { role: RosterEntry['role'] }) {
-  return <Pill tone={role === 'OWNER' ? 'brand' : 'neutral'}>{ROLE_LABEL[role]}</Pill>
-}
-
-/** สถานะสมาชิก — มีไอคอนกำกับเสมอ เพราะสีอย่างเดียวสื่อไม่ได้กับคนตาบอดสี (WCAG 1.4.1) */
-export function StatusPill({ status }: { status: RosterEntry['status'] }) {
-  if (status === 'ACTIVE') {
-    return (
-      <Pill tone="ok" icon={<IconCheck className="size-3" />}>
-        {STATUS_LABEL.ACTIVE}
-      </Pill>
-    )
-  }
-  if (status === 'DISABLED') {
-    return (
-      <Pill tone="err" icon={<IconAlert className="size-3" />}>
-        {STATUS_LABEL.DISABLED}
-      </Pill>
-    )
-  }
-  return (
-    <Pill tone="warn" icon={<IconClock className="size-3" />}>
-      {STATUS_LABEL.PENDING}
-    </Pill>
-  )
-}
-
 const BANNER_TONE = {
   info: { box: 'border-info-soft bg-info-soft text-info-ink', Icon: IconInfo },
   ok: { box: 'border-ok-line bg-ok-50 text-ok-700', Icon: IconCheckCircle },
@@ -200,16 +138,6 @@ export function Banner({
       <Icon className={`${align === 'start' ? 'mt-0.5' : ''} size-[18px] shrink-0`} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
-  )
-}
-
-/** ข้อความผิดพลาดใต้ช่องกรอก — มีไอคอนเพราะสีแดงอย่างเดียวไม่พอ */
-export function FieldError({ id, children }: { id: string; children: ReactNode }) {
-  return (
-    <p id={id} className="flex items-start gap-1.5 text-[12.5px] font-semibold text-err">
-      <IconAlert className="mt-0.5 size-3.5 shrink-0" />
-      <span>{children}</span>
-    </p>
   )
 }
 

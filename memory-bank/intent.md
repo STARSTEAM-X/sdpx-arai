@@ -24,7 +24,7 @@
 | อาจารย์ปิดวงจร `สร้างห้องเรียน → import รายชื่อ → สร้างงาน → publish → เห็นคะแนน` ได้ครบโดยไม่ต้องมีคนช่วย | ⚠️ | flow ครบและมี E2E ครอบ (`e2e/specs`) · ยังไม่มีหลักฐานว่าคนนอกทีมใช้จนจบเอง (DoD ของ M1 ใน PRD §19) |
 | นักศึกษาประเมินครบทุกคู่จากมือถือ โดยไม่เสียคำตอบแม้เน็ตหลุด | ✅ | autosave + queue ฝั่ง client `frontend/src/lib/useComparisonQueue.ts` (FR-EVAL-04/13) พร้อม unit test |
 | คำนวณคะแนนซ้ำด้วยข้อมูลชุดเดิมแล้วได้ผลเหมือนเดิมทุกครั้ง | ✅ | pure scoring engine ([ADR-001](../docs/adr/ADR-001-pure-scoring-engine.md)) · golden test §9.5 ใน `backend/tests/unit/test_scoring_service.py` |
-| หน้าประเมิน p95 ≤ 2.0 วินาที ที่ 200 concurrent users (NFR-PERF-01) | ⚠️ | round-trip p95 ผ่านเกณฑ์ แต่ load test สูงสุด 10 student VUs — ยังไม่ได้วัดที่ 200 users ([performance-report.md](../docs/performance-report.md)) |
+| หน้าประเมิน p95 ≤ 2.0 วินาที ที่ 200 concurrent users (NFR-PERF-01) | ❌ | วัดแล้วที่ 200 VUs (run 39346616515): p95 9.17s ไม่ผ่าน · ผ่านที่ 10 VUs (288ms) · สมมติฐานคือ capacity ของ Render free plan ยังไม่พิสูจน์ ([performance-report.md](../docs/performance-report.md)) |
 
 ## Decisions Already Made
 
@@ -57,7 +57,7 @@ override, appeals, notifications (ในเว็บ + อีเมล), XLSX ex
 | M1 Walking Skeleton | ✅ | หลักฐานคนนอกทีมใช้จบ flow เอง |
 | M2 Core Complete | ✅ | ยังไม่ได้ทดลองกับห้องเรียนจริง ≤ 30 คน |
 | M3 Trustworthy | ✅ (feature) | security review ผ่านตาม WS-08 · privacy review ยังไม่มีผู้ตรวจตาม PRD |
-| M4 Production Ready | ⚠️ | load test ที่ 200 users · screen reader test (FR-A11Y-07) · FR-AUTH-02 |
+| M4 Production Ready | ❌ | NFR-PERF-01..04 ไม่ผ่านที่ 200 users บน staging · screen reader test (FR-A11Y-07) ยังไม่ได้ทำ · FR-AUTH-02 |
 
 **นอก scope ของ v1.0 ตาม PRD §1.3 / §2.2**
 
@@ -86,8 +86,12 @@ override, appeals, notifications (ในเว็บ + อีเมล), XLSX ex
 
 ## ข้อที่ยังไม่ตรง PRD
 
+รายการเต็มทุก requirement อยู่ที่ [prd-compliance.md](../docs/prd-compliance.md) — ด้านล่างคือข้อหลัก
+
 1. **FR-AUTH-02 (MUST)** ไม่ผ่านตามตัวอักษร — ดู ADR-007 · ห้ามใช้ deployment นี้กับข้อมูลนักศึกษาจริงที่ไม่ได้ยินยอม
-2. **NFR-PERF-01 / NFR-SCALE-01/02** ยังไม่ได้วัดที่ 200 concurrent users
+   · **FR-SEC-01 (MUST)** session อยู่ใน `localStorage` ไม่ใช่ httpOnly cookie — ADR-003 ยังเป็น Proposed
+2. **NFR-PERF-01..04** ไม่ผ่านที่ 200 VUs บน staging (หน้าประเมิน p95 9.17s, autosave 9.29s, submit 10.10s, publish 15.90s)
+   — recompute (NFR-PERF-05) ผ่าน 2.98s · ทีมยังไม่ได้ตัดสินเรื่อง plan/worker ของ infra
 3. **QS-07** ใช้ Kendall's u แทน Kendall's W (เหตุผลอยู่ใน `backend/app/domain/quality.py`)
 4. **FR-PRIV-03** ทำเป็นดาวน์โหลดสำเนาเองทันที (`GET /api/me/data-copy`) แทนคำขอที่ตอบภายใน 30 วัน
 5. **API path** บางตัวต่างจาก PRD §12 (เช่น `/scores` แทน `/reports/*`, `additional-evaluations` แทน `pairs:add-evaluators`,

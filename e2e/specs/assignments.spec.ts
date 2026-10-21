@@ -593,3 +593,50 @@ test.describe('เส้นทางที่อาจารย์กดเอ�
     await expect(page.getByRole('heading', { name: /สมาชิกในห้องเรียน/ })).toBeVisible()
   })
 })
+
+test.describe('FR-ASSIGN-04 ขยายได้ทุกเมื่อ · ร่นเข้าได้เฉพาะก่อนถึงกำหนดเดิม', () => {
+  async function publishedAssignment(api: import('@playwright/test').APIRequestContext, token: string, classroomId: string) {
+    await seedRoster(api, token, classroomId)
+    const created = await api.post('/api/assignments', {
+      headers: { authorization: `Bearer ${token}` },
+      data: assignmentBody(classroomId),
+    })
+    const id = (await created.json()).id as string
+    const published = await api.post(`/api/assignments/${id}:publish`, { headers: { authorization: `Bearer ${token}` } })
+    expect(published.status(), 'publish ไม่สำเร็จ').toBe(200)
+    return id
+  }
+
+  test('ร่นกำหนดส่งให้เร็วขึ้นได้เมื่อยังไม่ถึงกำหนดเดิม และบันทึก audit เป็นการร่น', async ({
+    api, instructorToken, classroomId,
+  }) => {
+    const id = await publishedAssignment(api, instructorToken, classroomId)
+    const earlier = '2026-12-15T16:59:00Z' // เร็วกว่า DEADLINE (2027-01-31) แต่ยังอยู่ในอนาคต
+
+    const res = await api.post(`/api/assignments/${id}:extend-deadline`, {
+      headers: { authorization: `Bearer ${instructorToken}` },
+      data: { groupDeadlineUtc: earlier, individualDeadlineUtc: earlier, reason: 'ย้ายวันนำเสนอให้เร็วขึ้น' },
+    })
+
+    expect(res.status()).toBe(200)
+    expect(new Date((await res.json()).groupDeadlineUtc).getTime()).toBe(new Date(earlier).getTime())
+    const { items } = await (await api.get(`/api/classrooms/${classroomId}/audit`, {
+      headers: { authorization: `Bearer ${instructorToken}` },
+    })).json()
+    const entry = items.find((e: { action: string; resourceId: string }) => e.action === 'DEADLINE_SHORTENED' && e.resourceId === id)
+    expect(entry, 'ต้องมี audit ของการร่นกำหนดส่ง').toBeTruthy()
+    expect(entry.reason).toBe('ย้ายวันนำเสนอให้เร็วขึ้น')
+  })
+
+  test('edge case: ตั้งกำหนดส่งใหม่เป็นเวลาที่ผ่านไปแล้วได้ 422', async ({ api, instructorToken, classroomId }) => {
+    const id = await publishedAssignment(api, instructorToken, classroomId)
+
+    const res = await api.post(`/api/assignments/${id}:extend-deadline`, {
+      headers: { authorization: `Bearer ${instructorToken}` },
+      data: { groupDeadlineUtc: '2020-01-01T00:00:00Z', reason: 'ปิดรับย้อนหลัง' },
+    })
+
+    expect(res.status()).toBe(422)
+    expect((await res.json()).error.field).toBe('groupDeadlineUtc')
+  })
+})

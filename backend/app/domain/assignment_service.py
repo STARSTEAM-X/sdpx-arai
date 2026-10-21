@@ -146,6 +146,21 @@ def assert_editable(assignment: Assignment) -> None:
         )
 
 
+def assert_deadline_change(*, current: datetime, new: datetime, now: datetime, field: str) -> None:
+    """FR-ASSIGN-04 — ขยาย deadline ได้ทุกเมื่อ · ร่นเข้าได้เฉพาะเมื่อยังไม่ถึง deadline เดิม
+
+    กฎสองข้อของ PRD ยุบเหลือข้อเดียวคือ "กำหนดใหม่ต้องอยู่ในอนาคต":
+    ถ้ากำหนดเดิมผ่านไปแล้ว ค่าใดที่อยู่ในอนาคตย่อมช้ากว่ากำหนดเดิมเสมอ (= ขยาย)
+    ส่วนการร่นจะทำได้ก็ต่อเมื่อกำหนดเดิมยังอยู่ข้างหน้า ซึ่งเป็นเงื่อนไขที่ PRD ต้องการพอดี
+    ไม่ยอมให้ตั้งค่าในอดีต เพราะเท่ากับปิดรับย้อนหลังโดยที่นักศึกษาไม่มีโอกาสรู้ก่อน
+    """
+    if new <= now:
+        direction = "ร่น" if new < current else "เปลี่ยน"
+        raise ValidationError(
+            f"{direction}กำหนดส่งได้เฉพาะเป็นเวลาในอนาคต — ค่าที่ส่งมาผ่านไปแล้ว", field=field
+        )
+
+
 def assert_publishable(assignment: Assignment) -> None:
     """ตรวจก่อน publish — น้ำหนักของแต่ละฝั่งต้องรวมได้ 100% พอดี
 

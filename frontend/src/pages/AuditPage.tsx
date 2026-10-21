@@ -11,6 +11,7 @@ const actions: Record<string, string> = {
   CLASSROOM_DELETED: 'ลบห้องเรียนว่าง',
   CLASSROOM_UPDATED: 'แก้ไขข้อมูลห้อง',
   DEADLINE_EXTENDED: 'ขยายกำหนดส่ง',
+  DEADLINE_SHORTENED: 'ร่นกำหนดส่ง',
   ASSIGNMENT_COPIED: 'คัดลอกงานเป็นฉบับร่าง',
   MEMBER_ENROLLMENT_CHANGED: 'เปลี่ยนสถานะการเรียน',
   COMPARISONS_EXCLUDED: 'ตัดคำตอบจากการคำนวณ',

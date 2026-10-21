@@ -52,7 +52,6 @@ Alert ที่เปิดอยู่ 3 ข้อ (severity warning ทั้�
 |---|---|---|
 | `py/overly-large-range` | `backend/app/domain/xlsx.py:13` | regex กรองอักขระควบคุมที่ XML 1.0 ไม่อนุญาต (`\x00-\x08`, `\x0b`, `\x0c`, `\x0e-\x1f`) ช่วงกว้างตามตั้งใจ ไม่ได้ใช้ตรวจสิทธิ์ |
 | `py/incomplete-url-substring-sanitization` | `backend/tests/unit/test_member_service.py:52` | test ตรวจว่าข้อความ error มีชื่อ domain ไม่ใช่การตัดสินความปลอดภัยของ URL |
-| `js/incomplete-url-substring-sanitization` | `audit-reports/scripts/runtime.spec.ts:86` | สคริปต์ audit แยกประเภท response ของฟอนต์เพื่อทำรายงาน ไม่ได้ขึ้น production |
 
 ## Alerts / findings ที่พบ
 

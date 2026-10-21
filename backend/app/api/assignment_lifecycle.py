@@ -9,7 +9,7 @@ from pydantic import AwareDatetime, BaseModel, Field
 from app.api.assignments import AssignmentOut, _load_for_instructor
 from app.auth import CurrentUser
 from app.db import transaction
-from app.domain.assignment_service import AssignmentStatus
+from app.domain.assignment_service import AssignmentStatus, assert_deadline_change
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import ConflictError, ValidationError
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
@@ -91,16 +91,26 @@ def extend_deadline(assignment_id: str, body: ExtendIn, user_email: CurrentUser,
         if assignment.status not in {AssignmentStatus.PUBLISHED, AssignmentStatus.OPEN, AssignmentStatus.CLOSED}:
             raise ConflictError('ขยายกำหนดส่งได้เฉพาะงานที่เปิดประเมินหรือปิดรับแล้ว')
         individual_deadline = body.individualDeadlineUtc or assignment.individual_deadline_utc
-        if body.groupDeadlineUtc < assignment.group_deadline_utc or body.groupDeadlineUtc <= datetime.now(UTC):
-            raise ValidationError('กำหนดส่งใหม่ต้องอยู่ในอนาคตและไม่เร็วกว่ากำหนดเดิม', field='groupDeadlineUtc')
-        if individual_deadline and assignment.individual_deadline_utc and individual_deadline < assignment.individual_deadline_utc:
-            raise ValidationError('กำหนดส่งรายบุคคลใหม่ต้องไม่เร็วกว่ากำหนดเดิม', field='individualDeadlineUtc')
+        now = datetime.now(UTC)
+        # FR-ASSIGN-04 — ขยายได้ทุกเมื่อ · ร่นเข้าได้เฉพาะก่อนถึงกำหนดเดิม (กฎอยู่ใน assert_deadline_change)
+        assert_deadline_change(current=assignment.group_deadline_utc, new=body.groupDeadlineUtc, now=now, field='groupDeadlineUtc')
+        if body.individualDeadlineUtc:
+            assert_deadline_change(
+                current=assignment.individual_deadline_utc or assignment.group_deadline_utc,
+                new=body.individualDeadlineUtc, now=now, field='individualDeadlineUtc',
+            )
         if not body.reason.strip():
             raise ValidationError('กรุณาระบุเหตุผล', field='reason')
+        shortened = body.groupDeadlineUtc < assignment.group_deadline_utc or bool(
+            body.individualDeadlineUtc and assignment.individual_deadline_utc
+            and body.individualDeadlineUtc < assignment.individual_deadline_utc
+        )
         before = {'groupDeadlineUtc': assignment.group_deadline_utc.isoformat(), 'individualDeadlineUtc': assignment.individual_deadline_utc.isoformat() if assignment.individual_deadline_utc else None}
         cur.execute("UPDATE assignment SET group_deadline_utc = %s, individual_deadline_utc = %s, status = 'PUBLISHED' WHERE id = %s", (body.groupDeadlineUtc, individual_deadline, assignment_id))
         PgAuditRepository(conn).record(AuditEvent(
-            actor_email=user_email, action=AuditAction.DEADLINE_EXTENDED, resource_type='assignment',
+            actor_email=user_email,
+            action=AuditAction.DEADLINE_SHORTENED if shortened else AuditAction.DEADLINE_EXTENDED,
+            resource_type='assignment',
             resource_id=assignment_id, classroom_id=assignment.classroom_id, before_state=before,
             after_state={'groupDeadlineUtc': body.groupDeadlineUtc.isoformat(), 'individualDeadlineUtc': individual_deadline.isoformat() if individual_deadline else None},
             reason=body.reason.strip(), ip=request.client.host if request.client else None,

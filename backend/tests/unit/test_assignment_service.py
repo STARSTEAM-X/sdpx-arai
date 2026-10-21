@@ -13,6 +13,7 @@ from app.domain.assignment_service import (
     Assignment,
     AssignmentStatus,
     Criterion,
+    assert_deadline_change,
     assert_editable,
     assert_publishable,
     validate_new_assignment,
@@ -248,3 +249,50 @@ class TestGAP11DisableGroupSide:
 
         with pytest.raises(ValidationError):
             list(generate_assignment_pairs(make_assignment(), groups, seed=1))
+
+
+class TestDeadlineChange:
+    """FR-ASSIGN-04 — ขยายได้ทุกเมื่อ · ร่นเข้าได้เฉพาะเมื่อยังไม่ถึง deadline เดิม"""
+
+    NOW = datetime(2026, 11, 20, 12, 0, tzinfo=UTC)
+
+    def test_ขยายกำหนดส่งออกไปได้(self):
+        assert_deadline_change(
+            current=datetime(2026, 12, 1, tzinfo=UTC), new=datetime(2026, 12, 8, tzinfo=UTC),
+            now=self.NOW, field="groupDeadlineUtc",
+        )
+
+    def test_FR_ASSIGN_04_ร่นเข้าได้เมื่อยังไม่ถึงกำหนดเดิม(self):
+        assert_deadline_change(
+            current=datetime(2026, 12, 1, tzinfo=UTC), new=datetime(2026, 11, 25, tzinfo=UTC),
+            now=self.NOW, field="groupDeadlineUtc",
+        )
+
+    def test_ขยายงานที่เลยกำหนดเดิมไปแล้วได้(self):
+        assert_deadline_change(
+            current=datetime(2026, 11, 10, tzinfo=UTC), new=datetime(2026, 11, 27, tzinfo=UTC),
+            now=self.NOW, field="groupDeadlineUtc",
+        )
+
+    def test_เลยกำหนดเดิมแล้วร่นให้เร็วกว่าเดิมไม่ได้(self):
+        with pytest.raises(ValidationError) as exc:
+            assert_deadline_change(
+                current=datetime(2026, 11, 10, tzinfo=UTC), new=datetime(2026, 11, 5, tzinfo=UTC),
+                now=self.NOW, field="groupDeadlineUtc",
+            )
+        assert exc.value.field == "groupDeadlineUtc"
+
+    def test_กำหนดส่งใหม่ที่ผ่านไปแล้วถูกปฏิเสธ(self):
+        with pytest.raises(ValidationError) as exc:
+            assert_deadline_change(
+                current=datetime(2026, 12, 1, tzinfo=UTC), new=datetime(2026, 11, 19, tzinfo=UTC),
+                now=self.NOW, field="individualDeadlineUtc",
+            )
+        assert exc.value.field == "individualDeadlineUtc"
+
+    def test_กำหนดส่งใหม่เท่ากับเวลาปัจจุบันถูกปฏิเสธ(self):
+        with pytest.raises(ValidationError):
+            assert_deadline_change(
+                current=datetime(2026, 12, 1, tzinfo=UTC), new=self.NOW,
+                now=self.NOW, field="groupDeadlineUtc",
+            )

@@ -26,6 +26,26 @@ class PgQualityRepository:
                 ''', (assignment_id,))
             return list(cur.fetchall())
 
+    def earlier_criteria(self, assignment_id: str, side, name: str, *, limit: int = 5) -> list[tuple[str, str]]:
+        """FR-QS-03 — (assignment_id, criterion_id) ของเกณฑ์เดียวกันในงานที่เผยแพร่ก่อนงานนี้ ใหม่ → เก่า
+
+        "เกณฑ์เดียวกัน" = ฝั่งเดียวกันและชื่อเดียวกันโดยไม่สนตัวพิมพ์/ช่องว่างหัวท้าย เพราะผู้สอนมักคัดลอกงาน
+        แล้วใช้ชื่อเกณฑ์เดิม · จำกัดในห้องเรียนเดียวกัน ไม่ข้ามไปห้องของคนอื่น
+        """
+        with self._conn.cursor() as cur:
+            cur.execute('''
+                SELECT a.id AS assignment_id, c.id AS criterion_id
+                FROM assignment cur
+                JOIN assignment a ON a.classroom_id = cur.classroom_id AND a.id <> cur.id
+                JOIN criterion c ON c.assignment_id = a.id AND c.retired_at IS NULL
+                  AND c.side = %s AND lower(btrim(c.name)) = lower(btrim(%s))
+                WHERE cur.id = %s AND a.published_at IS NOT NULL AND a.status NOT IN ('DRAFT', 'ARCHIVED')
+                  AND (cur.published_at IS NULL OR a.published_at < cur.published_at)
+                ORDER BY a.published_at DESC
+                LIMIT %s
+                ''', (str(side), name, assignment_id, limit))
+            return [(str(row['assignment_id']), str(row['criterion_id'])) for row in cur.fetchall()]
+
     def mark_reviewed(self, assignment_id: str, evaluator_user_id: str, reviewer_email: str):
         """บันทึกว่าผู้สอนเปิดดูคำตอบแล้ว — ครั้งแรกเท่านั้นที่นับ เพื่อให้เวลาที่แสดงคือตอนตรวจจริง"""
         with self._conn.cursor() as cur:
