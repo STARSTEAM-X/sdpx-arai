@@ -45,21 +45,21 @@ export function AssignmentActions({ item, classroomId, timezone, onChanged, inli
   return <div className={inline ? 'contents' : 'w-full'}>
     <div className={inline ? 'contents' : 'flex flex-wrap gap-2'}>
       {item.status === 'DRAFT' && <Link to={`/classrooms/${classroomId}?draft=${item.id}#assignments`} className={btn('ghost', size, inline ? 'px-6' : '')}>แก้ไขร่าง</Link>}
-      {['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <button type="button" onClick={(event) => open('extend', event.currentTarget)} className={btn('ghost', size, inline ? 'px-6' : '')}>ขยายกำหนดส่ง</button>}
+      {['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <button type="button" onClick={(event) => open('extend', event.currentTarget)} className={btn('ghost', size, inline ? 'px-6' : '')}>เปลี่ยนกำหนดส่ง</button>}
       {showCopy && <button type="button" onClick={(event) => open('copy', event.currentTarget)} className={btn('ghost', size, inline ? 'px-6' : '')}>คัดลอกงาน</button>}
       {showUnpublish && ['PUBLISHED', 'OPEN', 'CLOSED'].includes(item.status) && <UnpublishButton id={item.id} name={item.name} onChanged={onChanged} size={size} />}
     </div>
     {success && <p role="status" className="mt-3 text-sm text-ok-700">{success}</p>}
-    <dialog ref={dialog} aria-label={mode === "copy" ? "คัดลอกจากงานเดิม" : "ขยายกำหนดส่ง"} onCancel={(event) => { if (busy) event.preventDefault(); else { event.preventDefault(); close() } }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-3xl border border-edge bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40">
+    <dialog ref={dialog} aria-label={mode === "copy" ? "คัดลอกจากงานเดิม" : "เปลี่ยนกำหนดส่ง"} onCancel={(event) => { if (busy) event.preventDefault(); else { event.preventDefault(); close() } }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-3xl border border-edge bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40">
       <form onSubmit={(event) => { event.preventDefault(); void submit() }}>
-        <h2 className="font-display text-xl font-bold">{mode === 'copy' ? 'คัดลอกจากงานเดิม' : 'ขยายกำหนดส่ง'}</h2><p className="mt-2 text-sm text-muted">{item.name} · เขตเวลา {timezone}</p>
+        <h2 className="font-display text-xl font-bold">{mode === 'copy' ? 'คัดลอกจากงานเดิม' : 'เปลี่ยนกำหนดส่ง'}</h2><p className="mt-2 text-sm text-muted">{item.name} · เขตเวลา {timezone}</p>
         {error && <Banner tone="err" role="alert" className="mt-4">{error}</Banner>}
         {mode === 'copy' ? <label className="mt-5 block text-sm font-semibold">ชื่องานสำเนา<input value={name} onChange={(event) => setName(event.target.value)} required maxLength={200} disabled={busy} className={`${CTRL} mt-2`} /></label> : <p className="mt-5 rounded-xl bg-sand p-3 text-sm">กำหนดส่งเดิม {formatDeadline(item.groupDeadlineUtc, timezone)}</p>}
         <label className="mt-4 flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={same} disabled={busy} onChange={(event) => setSame(event.target.checked)} />ใช้กำหนดส่งเดียวกันทั้งกลุ่มและรายบุคคล</label>
         <label htmlFor={`new-deadline-${item.id}`} className="mt-4 block text-sm font-semibold">กำหนดส่งใหม่</label><DeadlinePicker id={`new-deadline-${item.id}`} value={group} timezone={timezone} onChange={setGroup} />
         {!same && <><label htmlFor={`new-individual-${item.id}`} className="mt-4 block text-sm font-semibold">กำหนดส่งรายบุคคลใหม่</label><DeadlinePicker id={`new-individual-${item.id}`} value={individual} timezone={timezone} onChange={setIndividual} /></>}
-        {mode === 'extend' && <label className="mt-4 block text-sm font-semibold">เหตุผลที่ขยายกำหนดส่ง<textarea value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={2000} disabled={busy} className={`${CTRL} mt-2`} /></label>}
-        <Banner tone="info" className="mt-4">{mode === 'copy' ? 'คัดลอกเกณฑ์และการตั้งค่าเป็นฉบับร่าง โดยไม่คัดลอกคู่ คำตอบ หรือคะแนน' : 'คำตอบเดิมยังคงอยู่ นักศึกษาประเมินต่อได้จนถึงกำหนดใหม่'}</Banner>
+        {mode === 'extend' && <label className="mt-4 block text-sm font-semibold">เหตุผลที่เปลี่ยนกำหนดส่ง<textarea value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={2000} disabled={busy} className={`${CTRL} mt-2`} /></label>}
+        <Banner tone="info" className="mt-4">{mode === 'copy' ? 'คัดลอกเกณฑ์และการตั้งค่าเป็นฉบับร่าง โดยไม่คัดลอกคู่ คำตอบ หรือคะแนน' : 'คำตอบเดิมยังคงอยู่ นักศึกษาประเมินต่อได้จนถึงกำหนดใหม่ · ร่นให้เร็วขึ้นได้เฉพาะก่อนถึงกำหนดเดิม'}</Banner>
         <div className="mt-6 flex justify-end gap-3"><button type="button" disabled={busy} onClick={close} className={btn('ghost')}>ยกเลิก</button><button type="submit" disabled={busy || !group || (mode === 'extend' && !reason.trim())} className={btn('primary')}>{busy ? 'กำลังบันทึก…' : mode === 'copy' ? 'สร้างฉบับร่างสำเนา' : 'บันทึกกำหนดส่งใหม่'}</button></div>
       </form>
     </dialog>
