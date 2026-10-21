@@ -136,12 +136,12 @@ export function ScoreBreakdown({
           )}
         </div>
         <p className="mt-5 text-[19px] leading-[30px] text-ink max-sm:mt-3 max-sm:text-[14px] max-sm:leading-[18px]">
-          {score.finalScore === null
-            ? 'จะแสดงเมื่อองค์ประกอบคะแนนครบเกณฑ์ความเป็นส่วนตัว'
-            : score.provisional
-              ? 'คะแนนชั่วคราว อาจจะมีการเปลี่ยนแปลง'
-              : 'คะแนนสุดท้าย ประกาศผลแล้ว'}
+          {/* FR-SCORE-07 — คะแนนที่ยังไม่ finalize ต้องมี label นี้ทุกที่ แม้คะแนนรวมยังถูกซ่อนอยู่ */}
+          {score.provisional
+            ? <span data-testid="score-provisional-flag">ชั่วคราว — อาจเปลี่ยนแปลงได้</span>
+            : 'คะแนนสุดท้าย ประกาศผลแล้ว'}
           {score.finalizedAt && ` ${thaiDate(score.finalizedAt)}`}
+          {score.finalScore === null && ' · คะแนนรวมจะแสดงเมื่อองค์ประกอบคะแนนครบเกณฑ์ความเป็นส่วนตัว'}
         </p>
       </Card>
 
