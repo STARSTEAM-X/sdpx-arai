@@ -5,7 +5,7 @@
 # push main: deploy-production ผ่าน environment ที่ต้องมีคน approve
 # Render Auto Deploy และ Blueprint Auto Sync ต้องปิด เพื่อให้ CI เป็นผู้สั่ง deploy
 #
-# job แยกฝั่งรันขนานกัน (summary.md · WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
+# job แยกฝั่งรันขนานกัน (WS-06) ให้รู้ผลเร็วและรู้ทันทีว่าพังฝั่งไหน
 # แล้วค่อยรวมที่ e2e ซึ่งแพงที่สุด — ไม่เสียเวลายก browser ถ้า lint/unit แดงตั้งแต่แรก
 #
 # reproduce บนเครื่องด้วยคำสั่งชุดเดียวกัน (ดู AGENTS.md):
