@@ -4,12 +4,12 @@
 
 **วิธีตรวจ:** อ่านโค้ด, migrations, workflow และเอกสารใน `docs/` ทีละข้อ แล้วรัน test จริงใน Docker (`compose.test.yaml`)
 
-| ชุด test | ผล |
-|---|---|
-| backend unit + api | **727 passed** (6.01s) |
-| frontend unit | **52 passed** (6 files) |
-| backend integration (Postgres) | **57 passed** (4.21s) |
-| E2E (Playwright) | ไม่ได้รันรอบนี้ — CI ของ PR #42 ผ่าน |
+| ชุด test | รอบตรวจ | หลังแก้ 2026-10-20 |
+|---|---|---|
+| backend unit + api | 727 passed | **738 passed** |
+| backend integration (Postgres) | 57 passed | **61 passed** |
+| frontend unit | 52 passed | **52 passed** |
+| E2E (Playwright, Docker) | CI ของ PR #42 | **153 passed** (2.3m) |
 
 สัญลักษณ์: ✅ ตรง PRD · ⚠️ ทำแล้วแต่ไม่ครบหรือเบี่ยงจากตัวอักษร (มีเหตุผลบันทึกไว้) · ❌ ไม่ตรง PRD
 
@@ -19,11 +19,13 @@
 
 | | แถว |
 |---|---:|
-| ✅ ตรง | 121 |
-| ⚠️ เบี่ยง / ไม่ครบ | 13 |
-| ❌ ไม่ตรง | 6 |
+| ✅ ตรง | 125 |
+| ⚠️ เบี่ยง / ไม่ครบ | 10 |
+| ❌ ไม่ตรง | 5 |
 
-**❌ ทั้ง 6 แถว**
+รอบแก้ 2026-10-20 ปิดได้ 4 ข้อ: FR-ASSIGN-04, FR-EVAL-06, FR-SCORE-07, FR-QS-03 (เดิม 121 / 13 / 6)
+
+**❌ ทั้ง 5 แถว** — ทุกข้อต้องให้ทีมหรืออาจารย์ตัดสิน หรือใช้ infra ที่มีค่าใช้จ่าย จึงไม่ได้แก้ในรอบนี้
 
 | ID | Pri | ปัญหา | สถานะการตัดสินใจ |
 |---|:---:|---|---|
@@ -31,7 +33,6 @@
 | FR-SEC-01 | M | session JWT เก็บใน `localStorage` ไม่ใช่ httpOnly + SameSite cookie (HSTS มีแล้ว) | [ADR-003](adr/ADR-003-session-token-storage.md) สถานะ **Proposed** |
 | NFR-PERF-01..04 | — | ที่ 200 VUs: หน้าประเมิน p95 **9.17s** (≤2.0s) · autosave **9.29s** (≤300ms) · submit **10.10s** (≤800ms) · publish **15.90s** (≤10s) | สมมติฐาน: CPU ของ Render free plan · ยังไม่พิสูจน์ · ทีมยังไม่ตัดสินเรื่อง plan |
 | NFR-AVAIL-02 | — | RPO 24 ชม. (backup วันละครั้ง) เกณฑ์ ≤15 นาที | ต้องใช้ Postgres แบบเสียเงินที่มี PITR ([backup-restore.md](backup-restore.md)) |
-| FR-QS-03 | M | ยังไม่รวม QS-07 ข้าม assignment เพื่อรายงานว่า criterion เขียนไม่ชัด | ยังไม่มีงานที่รับไว้ |
 | FR-A11Y-07 | S | ยังไม่ได้ทดสอบด้วย NVDA/VoiceOver | บันทึกไว้ใน [a11y-report.md](a11y-report.md) |
 
 ผล performance ทั้งหมดมาจาก [run 39346616515](https://github.com/STARSTEAM-X/sdpx-arai/actions/runs/39346616515) ใน [performance-report.md](performance-report.md) — ที่ 10 VUs ผ่านทุกเกณฑ์
@@ -87,7 +88,7 @@
 | FR-ASSIGN-01 | M | ✅ | field ครบ + artifact link ต่อกลุ่ม |
 | FR-ASSIGN-02 | M | ✅ | `WEIGHT_TOLERANCE = 0.01` ตรวจตอน publish |
 | FR-ASSIGN-03 | M | ✅ | แก้ได้เฉพาะ DRAFT · unpublish ต้องยืนยัน invalidate + เหตุผล |
-| FR-ASSIGN-04 | M | ⚠️ | ขยายได้ แต่ **ร่นเข้าไม่ได้เลย** — PRD อนุญาตให้ร่นได้ถ้ายังไม่ถึง deadline เดิม (`extend-deadline` ปฏิเสธค่าที่เร็วกว่าเดิมเสมอ) |
+| FR-ASSIGN-04 | M | ✅ | ขยายได้ทุกเมื่อ · ร่นได้ก่อนถึงกำหนดเดิม · กำหนดใหม่ต้องอยู่ในอนาคต (`assert_deadline_change`) · audit `DEADLINE_SHORTENED` · แก้ 2026-10-20 |
 | FR-ASSIGN-05 | M | ✅ | `timestamptz` ทุกคอลัมน์ · แสดงตาม timezone ของห้อง |
 | FR-ASSIGN-06 | S | ✅ | `:copy` |
 | FR-ASSIGN-07 | M | ✅ | `individual_max_score = 0` ไม่สร้างคู่ (3 tests) |
@@ -124,7 +125,7 @@
 | FR-EVAL-03 | M | ✅ | label ข้อความทุกปุ่ม |
 | FR-EVAL-04 | M | ✅ | autosave + สถานะ "บันทึกแล้ว" |
 | FR-EVAL-05 | M | ✅ | submit ได้ตลอด แสดงจำนวนที่เหลือ (`SubmitDialogs.tsx`) |
-| FR-EVAL-06 | M | ⚠️ | re-submit ไม่จำกัด + เก็บทุกเวอร์ชันใน `comparison_revision` · แต่ AC ระบุ "audit log มี 3 records" — submission **ไม่ได้เขียน audit_log** |
+| FR-EVAL-06 | M | ✅ | re-submit ไม่จำกัด · ใช้คำตอบล่าสุด · ทุกเวอร์ชันอยู่ใน `comparison_revision` ตาม data model §11.1 (e2e `FR-EVAL-06`) · AC เขียนว่า "audit log มี 3 records" แต่ FR-AUDIT-01 ไม่ได้นับ submission เป็น audit event — ไม่เขียนลง `audit_log` เพื่อไม่ให้ submission หลายร้อยครั้งบังเหตุการณ์ของผู้สอน (รายการ audit แสดง 100 ล่าสุด) |
 | FR-EVAL-07 | M | ✅ | progress X / Y |
 | FR-EVAL-08 | M | ✅ | หลัง deadline 409 `DEADLINE_PASSED` + read-only |
 | FR-EVAL-09 | M | ✅ | นับเฉพาะ `SUBMITTED` (DR-01) |
@@ -143,7 +144,7 @@
 | FR-SCORE-04 | M | ✅ | multiplier แยก |
 | FR-SCORE-05 | M | ✅ | `LOW_CONFIDENCE` ไม่ finalize อัตโนมัติ (`test_finalize_service.py`) |
 | FR-SCORE-06 | M | ✅ | `daily_scoring.py` 02:00 ตาม timezone ห้อง + `:recompute` |
-| FR-SCORE-07 | M | ⚠️ | ฝั่งอาจารย์ใช้ข้อความตรง PRD · ฝั่งนักศึกษาเขียน "คะแนนชั่วคราว อาจจะมีการเปลี่ยนแปลง" — ความหมายเดียวกัน ข้อความไม่ตรงตัวอักษร |
+| FR-SCORE-07 | M | ✅ | "ชั่วคราว — อาจเปลี่ยนแปลงได้" ทั้งรายงานอาจารย์และหน้าคะแนนนักศึกษา (แสดงแม้คะแนนรวมยังถูกซ่อน) · e2e ทั้งสองฝั่ง · แก้ 2026-10-20 |
 | FR-SCORE-08 | M | ✅ | override บังคับเหตุผล + audit |
 | FR-SCORE-09 | M | ✅ | snapshot input/output (migration 008, 010) |
 | FR-SCORE-10 | M | ✅ | `numeric` + pure function |
@@ -185,7 +186,7 @@
 | QS-07 | ⚠️ | ใช้ **Kendall's u** แทน Kendall's W เพราะผู้ประเมินแต่ละคนไม่ได้จัดอันดับครบชุด (เหตุผลใน `quality.py`) |
 | FR-QS-01 | ✅ | สัญญาณไม่ลด/ลบคำตอบเอง |
 | FR-QS-02 | ✅ | `:exclusion` พร้อมเหตุผล + recompute |
-| FR-QS-03 | ❌ | ยังไม่มีการรวม QS-07 ข้ามหลาย assignment เพื่อรายงานว่า criterion เขียนไม่ชัด |
+| FR-QS-03 | ✅ | เกณฑ์ชื่อเดียวกันในห้องเดียวกันที่ QS-07 ต่ำติดกัน ≥ 2 งาน → ธง `QS-07-REPEATED` + ข้อความในหน้า Quality (`low_agreement_streak`, `earlier_criteria`, `test_quality_history.py`) · แก้ 2026-10-20 |
 
 ## §11 Data rules
 
