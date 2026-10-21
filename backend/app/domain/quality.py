@@ -112,6 +112,23 @@ def criterion_agreement(rows: list[dict]) -> dict:
     }
 
 
+# FR-QS-03 — ต่ำติดกันกี่งานจึงรายงานว่าเกณฑ์อาจเขียนไม่ชัด · "หลาย assignment" = งานนี้ + อย่างน้อยอีกหนึ่งงาน
+REPEATED_LOW_AGREEMENT_MIN = 2
+
+
+def low_agreement_streak(coefficients: list[float | None]) -> int:
+    """นับว่า QS-07 ต่ำติดต่อกันกี่งาน เริ่มจากงานปัจจุบัน (ตัวแรก) ย้อนไปงานก่อนหน้า
+
+    งานที่ยังตรวจไม่ได้ (None) ตัดลำดับ ไม่นับข้าม — ไม่มีข้อมูลไม่ได้แปลว่าเห็นแตกกัน
+    """
+    streak = 0
+    for coefficient in coefficients:
+        if coefficient is None or coefficient >= AGREEMENT_THRESHOLD:
+            break
+        streak += 1
+    return streak
+
+
 FAVORITISM_Z = 2.0
 # z คิดด้วย population SD จึงมีเพดาน max z = √(N−1): N=5 ได้สูงสุด 2.0 พอดี ติดธง z > 2 ไม่ได้เลย
 # ขั้นต่ำทางคณิตศาสตร์คือ 6 แต่ z-test บน 6 จุดยังอ่อนเกินไป จึงใช้ 10 (เพดาน z = 3)

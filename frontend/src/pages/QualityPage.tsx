@@ -407,6 +407,12 @@ export default function QualityPage() {
                               </th>
                               <td className="px-5 py-4">
                                 {signalLabels['QS-07']} · QS-07
+                                {/* FR-QS-03 — ต่ำต่อเนื่องหลายงาน แปลว่าปัญหาอยู่ที่ตัวเกณฑ์ ไม่ใช่ผู้ประเมินรอบนี้ */}
+                                {row.criterion.flags.includes('QS-07-REPEATED') && (
+                                  <p data-testid="criterion-repeated-low-agreement" className="mt-1 text-[13px] text-warn">
+                                    ต่ำติดต่อกัน {row.criterion.lowAgreementStreak} งาน — เกณฑ์นี้อาจเขียนไม่ชัด ควรแก้คำอธิบาย
+                                  </p>
+                                )}
                               </td>
                               <td className="px-5 py-4" title="Kendall's u — ค่าความสอดคล้องสำหรับข้อมูลเปรียบเทียบเป็นคู่">
                                 u = {row.criterion.agreement?.toFixed(2)}

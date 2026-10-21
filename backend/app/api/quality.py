@@ -14,7 +14,15 @@ from app.db import transaction
 from app.domain.access import Capability, ClassroomAccess
 from app.domain.audit import AuditAction, AuditEvent
 from app.domain.errors import ConflictError, NotFoundError, ValidationError
-from app.domain.quality import criterion_agreement, evaluator_key, favoritism, signals
+from app.domain.quality import (
+    AGREEMENT_MIN_RATER_PAIRS,
+    REPEATED_LOW_AGREEMENT_MIN,
+    criterion_agreement,
+    evaluator_key,
+    favoritism,
+    low_agreement_streak,
+    signals,
+)
 from app.repositories.pg_assignment_repo import PgAssignmentRepository
 from app.repositories.pg_audit_repo import PgAuditRepository
 from app.repositories.pg_classroom_repo import (
@@ -127,13 +135,30 @@ def quality_report(assignment_id: str, user_email: CurrentUser) -> QualityOut:
             'instructorAnswers': sum(row['by_instructor'] for row in counted if str(row['criterion_id']) == criterion.id),
             **criterion_agreement([row for row in counted if str(row['criterion_id']) == criterion.id]),
         } for criterion in assignment.criteria]
+        # FR-QS-03 — QS-07 ต่ำติดต่อกันหลายงาน = เกณฑ์อาจเขียนไม่ชัด ไม่ใช่ผู้ประเมินกลุ่มนี้ประเมินมั่ว
+        earlier_rows: dict[str, list[dict]] = {}
+        for criterion, result in zip(assignment.criteria, criteria, strict=True):
+            history = [result['agreement']]
+            for earlier_id, earlier_criterion_id in repo.earlier_criteria(assignment_id, criterion.side, criterion.name):
+                if earlier_id not in earlier_rows:
+                    earlier_rows[earlier_id] = repo.rows(earlier_id)
+                history.append(criterion_agreement([
+                    row for row in earlier_rows[earlier_id]
+                    if str(row['criterion_id']) == earlier_criterion_id and not row['excluded']
+                ])['agreement'])
+            result['lowAgreementStreak'] = low_agreement_streak(history)
+            if result['lowAgreementStreak'] >= REPEATED_LOW_AGREEMENT_MIN:
+                result['flags'] = [*result['flags'], 'QS-07-REPEATED']
     return QualityOut(evaluators=evaluators, coverage=coverage, pairCoverage=pair_coverage, criteria=criteria,
                       favoritismAssessed=bias['assessed'], limitations=[
         'สัญญาณเป็นข้อมูลให้ผู้สอนทบทวน ไม่ตัดคำตอบหรือลดคะแนนอัตโนมัติ',
         'เวลาเฉลี่ยใช้เฉพาะคำตอบที่มีข้อมูลเวลาขณะเปิดหน้าประเมิน ไม่รวมการอ่านผลงานในแท็บอื่น',
         'QS-06 เทียบอัตราที่ผู้ประเมินให้เพื่อนแต่ละคนชนะกับที่คนอื่นให้ (z > 2) · ต้องมีคำตอบรายบุคคลพอเทียบ',
         "QS-07 ใช้ Kendall's u (ค่าความสอดคล้องสำหรับข้อมูลเปรียบเทียบเป็นคู่) แทน Kendall's W "
-        'เพราะแต่ละคนได้คู่ไม่ครบชุด · ต้องเทียบคำตอบของผู้ประเมินในคู่เดียวกันได้อย่างน้อย 3 ครั้ง',
+        'เพราะแต่ละคนได้คู่ไม่ครบชุด · ต้องเทียบคำตอบของผู้ประเมินในคู่เดียวกันได้อย่างน้อย '
+        f'{AGREEMENT_MIN_RATER_PAIRS} ครั้ง',
+        f'QS-07 ต่ำติดต่อกัน {REPEATED_LOW_AGREEMENT_MIN} งานขึ้นไปในเกณฑ์ชื่อเดียวกันของห้องนี้ '
+        '= เกณฑ์อาจเขียนไม่ชัด ควรแก้คำอธิบายเกณฑ์ (FR-QS-03)',
     ])
 
 

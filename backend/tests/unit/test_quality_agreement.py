@@ -1,5 +1,5 @@
 """QS-06 ลำเอียงให้เพื่อนร่วมกลุ่ม และ QS-07 ผู้ประเมินเห็นไม่ตรงกัน (Figma J28 / J28c)"""
-from app.domain.quality import criterion_agreement, favoritism
+from app.domain.quality import criterion_agreement, favoritism, low_agreement_streak
 
 
 def _row(a, b, choice, evaluator='e1', side='GROUP', left=None, status='SUBMITTED'):
@@ -102,3 +102,28 @@ def test_qs07_ten_rater_pairs_can_flag():
     rows = [_row('A', 'B', choice, f'e{k}') for k, choice in enumerate((2, 2, 2, 5, 5))]
     result = criterion_agreement(rows)
     assert result['agreement'] == -0.2 and result['flags'] == ['QS-07']
+
+
+# FR-QS-03 — QS-07 ที่ต่ำติดต่อกันหลาย assignment ต้องรายงานว่าเกณฑ์อาจเขียนไม่ชัด
+# รับค่า agreement เรียงจากงานปัจจุบันย้อนไปงานก่อนหน้า (ใหม่ → เก่า)
+
+def test_qs03_streak_counts_consecutive_low_agreement_from_current():
+    assert low_agreement_streak([0.1, -0.05, 0.6, 0.0]) == 2
+
+
+def test_qs03_current_assignment_fine_means_no_streak():
+    assert low_agreement_streak([0.5, 0.1, 0.1]) == 0
+
+
+def test_qs03_unassessed_assignment_breaks_streak():
+    # ตรวจไม่ได้ ≠ เห็นแตกกัน — นับต่อข้ามไปจะเตือนผู้สอนจากหลักฐานที่ไม่มีอยู่จริง
+    assert low_agreement_streak([0.1, None, 0.1]) == 1
+
+
+def test_qs03_threshold_itself_is_not_low():
+    # เกณฑ์ PRD คือ "< 0.2" — ค่า 0.2 พอดีไม่ติดธง เหมือน criterion_agreement
+    assert low_agreement_streak([0.2, 0.1]) == 0
+
+
+def test_qs03_no_history_is_zero():
+    assert low_agreement_streak([]) == 0
